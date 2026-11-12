@@ -1,5 +1,6 @@
+import { useSessionTargetParams } from "@/session/target"
 import { createEffect, createSignal, on, onCleanup, type Accessor } from "solid-js"
-import { useNavigate, useParams } from "@solidjs/router"
+import { useNavigate } from "@solidjs/router"
 import { base64Encode } from "@opencode/util/encode"
 import { useComposerState } from "@/composer/persistence"
 import { extractPromptContext, extractPromptFromMessage } from "@/composer/prompt"
@@ -27,7 +28,7 @@ export type SessionForkControllerOptions =
  */
 export function createSessionForkController(options: SessionForkControllerOptions) {
   const navigate = useNavigate()
-  const params = useParams()
+  const params = useSessionTargetParams()
   const data = useData()
   const serverSDK = useServerSDK()
   const location = useWorkspaceLocation()

@@ -208,6 +208,7 @@ it.effect("lists voice models with availability and default without resolving cr
         { model: "gpt-realtime-2.1", provider: "openai", transports: ["webrtc", "websocket"], available: false },
         { model: "grok-voice-3.0", provider: "xai", transports: ["websocket"], available: true },
         { model: "gemini-3.8-live", provider: "google", transports: ["websocket"], available: true },
+        { model: "gpt-live-transcribe", provider: "openai", transports: ["websocket"], available: false },
       ],
       default: "grok-voice-3.0",
     })
@@ -220,6 +221,7 @@ it.effect("lists voice models with availability and default without resolving cr
         { model: "gpt-realtime-2.1", provider: "openai", transports: ["webrtc", "websocket"], available: false },
         { model: "grok-voice-3.0", provider: "xai", transports: ["websocket"], available: false },
         { model: "gemini-3.8-live", provider: "google", transports: ["websocket"], available: false },
+        { model: "gpt-live-transcribe", provider: "openai", transports: ["websocket"], available: false },
       ],
       default: "gpt-live-1",
     })
@@ -231,8 +233,18 @@ it.effect("lists voice models with availability and default without resolving cr
         { model: "gpt-realtime-2.1", provider: "openai", transports: ["webrtc", "websocket"], available: false },
         { model: "grok-voice-3.0", provider: "xai", transports: ["websocket"], available: false },
         { model: "gemini-3.8-live", provider: "google", transports: ["websocket"], available: false },
+        { model: "gpt-live-transcribe", provider: "openai", transports: ["websocket"], available: false },
       ],
     })
     expect("default" in none).toBe(false)
+
+    const openai = yield* list({ openai: [credential("active", "key")] })
+    expect(openai.models.find((item) => item.model === "gpt-live-transcribe")).toEqual({
+      model: "gpt-live-transcribe",
+      provider: "openai",
+      transports: ["websocket"],
+      available: true,
+    })
+    expect(openai.default).toBe("gpt-live-1")
   }),
 )

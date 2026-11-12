@@ -1,7 +1,6 @@
 "use client";
 
-import { SearchIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { Search } from "lucide-react";
 
 import { Kbd } from "@/components/ui/kbd";
 
@@ -32,7 +31,7 @@ export function SidebarSearch({
           onClick={onClick}
           tooltip={label}
         >
-          <HugeiconsIcon icon={SearchIcon} />
+          <Search size={18} strokeWidth={1.8} />
           <SidebarLabel>{`${label}…`}</SidebarLabel>
           {shortcut ? (
             <Kbd className="border-sidebar-border ml-auto rounded-[5px] border bg-transparent px-1.5">

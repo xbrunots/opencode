@@ -16,6 +16,7 @@ import { useSettings } from "@/settings/model"
 import { WindowsAppMenu } from "./windows-menu"
 import { createTitlebarHistory } from "./history"
 import { TitlebarTabStrip } from "@/shell/titlebar/tab-strip"
+import { WorkspaceViewControls } from "./workspace-view-controls"
 import { macVerticalTrafficLights, SidebarToggle } from "@/shell/sidebar-toggle"
 import { SidebarInbox } from "@/shell/titlebar/inbox"
 import { SidebarCustomized, type SidebarStripGrouping } from "@/shell/titlebar/sidebar-customized"
@@ -208,7 +209,8 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
             createEffect(() => {
               if (
                 settings.appearance.tabLayout() === "vertical" &&
-                (settings.general.sidebarOrganize() === "projects" || settings.general.sidebarOrganize() === "customize") &&
+                (settings.general.sidebarOrganize() === "projects" ||
+                  settings.general.sidebarOrganize() === "customize") &&
                 !mobile()
               )
                 return
@@ -354,7 +356,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                       variant="ghost-muted"
                       size="large"
                       class="!w-9 shrink-0"
-                      icon={<Icon name="grid-plus" />}
+                      icon={<Icon name="console" />}
                       state={layout.route().type === "home" ? "pressed" : undefined}
                       onClick={toggleHome}
                       aria-label={language.t("home.title")}
@@ -373,8 +375,8 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                   aria-label={language.t("home.title")}
                   aria-pressed={layout.route().type === "home"}
                 >
-                  <Icon name="grid-plus" class="shrink-0" />
-                  <span class="min-w-0 truncate">{language.t("home.title")}</span>
+                  <Icon name="console" class="shrink-0" />
+                  <span class="min-w-0 truncate font-semibold">OpenCodex</span>
                   <div class="ms-auto hidden shrink-0 group-hover:block group-focus-visible:block" aria-hidden="true">
                     <Keybind keys={command.keybindParts("home.toggle")} variant="neutral" dir="ltr" />
                   </div>
@@ -825,6 +827,14 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                                 </Match>
                               </Switch>
                             </div>
+                            <Show when={!windows()}>
+                              <div
+                                data-slot="sidebar-layout-controls"
+                                class="mt-3 flex w-full shrink-0 items-center justify-end border-t border-v2-border-border-muted pt-3"
+                              >
+                                <WorkspaceViewControls />
+                              </div>
+                            </Show>
                             <Show when={titlebarItems.ids().length > 0}>
                               <div data-slot="vertical-tabs-footer" class="mt-2 flex w-full shrink-0 flex-col">
                                 <TitlebarItems items={titlebarItems} vertical />
@@ -838,6 +848,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                 </Show>
                 <Show when={!mobile()}>
                   <div class="flex-1" />
+                  <WorkspaceViewControls />
                 </Show>
                 <Show when={!props.verticalTabs}>
                   <div class="relative z-20 flex shrink-0 items-center justify-end gap-0 overflow-visible">

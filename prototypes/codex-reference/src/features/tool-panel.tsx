@@ -23,7 +23,6 @@ import {
   Link2,
   LoaderCircle,
   MoreHorizontal,
-  PanelRightClose,
   Plug,
   Plus,
   RefreshCw,
@@ -195,16 +194,27 @@ function ToolAction({
   children,
   onClick,
   disabled = false,
+  className,
 }: {
   label: string
   children: ReactNode
   onClick: () => void
   disabled?: boolean
+  className?: string
 }) {
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<Button variant="ghost" size="icon-xs" aria-label={label} onClick={onClick} disabled={disabled} />}
+        render={
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className={className}
+            aria-label={label}
+            onClick={onClick}
+            disabled={disabled}
+          />
+        }
       >
         {children}
       </TooltipTrigger>
@@ -225,7 +235,6 @@ function EmptyTool({ icon, title, children }: { icon: ReactNode; title: string; 
 
 export function ToolPanel({
   sessionId,
-  sessionTitle,
   project,
   branch,
   hasChanges,
@@ -246,7 +255,6 @@ export function ToolPanel({
   const resources = getConversationResources(sessionId, busy)
   const available = tools.filter((tool) => !enabledTools || enabledTools.includes(tool.kind))
   const definition = tools.find((tool) => tool.kind === tab.kind)
-  const ActiveIcon = definition?.icon || LayoutDashboard
 
   function update(patch: Partial<ToolState> | ((previous: ToolState) => ToolState)) {
     setSessions((previous) => {
@@ -644,24 +652,6 @@ export function ToolPanel({
             </ToolAction>
           )}
         </div>
-        <div className="tool-browser-bookmarks">
-          <Button variant="ghost" size="sm" onClick={() => navigate("https://ui.usenotra.com/")}>
-            <Globe2 size={13} />
-            Notra UI
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("https://ui.usenotra.com/components/chatgpt/thread")}
-          >
-            <BookOpen size={13} />
-            Thread
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => navigate("app://preview")}>
-            <LayoutDashboard size={13} />
-            Prévia local
-          </Button>
-        </div>
         {local ? (
           <div className="tool-local-preview">
             <div className="tool-local-preview-title">
@@ -1026,11 +1016,20 @@ export function ToolPanel({
             )
           })}
         </div>
-        <ToolAction label="Nova guia de ferramenta" onClick={() => openTool("home", true)}>
+        <ToolAction className="tool-new-tab" label="Nova guia de ferramenta" onClick={() => openTool("home", true)}>
           <Plus />
         </ToolAction>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label="Menu das ferramentas" />}>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                className="tool-panel-menu-trigger"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Menu das ferramentas"
+              />
+            }
+          >
             <MoreHorizontal size={16} />
           </DropdownMenuTrigger>
           <DropdownMenuContent className="tool-panel-menu" align="end">
@@ -1048,25 +1047,8 @@ export function ToolPanel({
               <X size={15} />
               Fechar outras guias
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onClose}>
-              <PanelRightClose size={15} />
-              Fechar painel
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <ToolAction label="Fechar painel de ferramentas" onClick={onClose}>
-          <PanelRightClose />
-        </ToolAction>
-      </div>
-      <div className="tool-panel-context">
-        <span>
-          <ActiveIcon size={13} />
-        </span>
-        <strong>{definition?.title || "Nova guia"}</strong>
-        <span className="tool-panel-context-separator">/</span>
-        <span className="tool-panel-session-title" title={sessionTitle}>
-          {sessionTitle}
-        </span>
       </div>
       <div className="tool-panel-body" role="tabpanel" aria-label={definition?.title || "Nova guia"}>
         {tab.kind === "home"

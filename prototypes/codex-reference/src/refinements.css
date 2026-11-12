@@ -90,3 +90,14 @@
     display: none;
   }
 }
+
+.workspace-toolbar button { border:0 !important; box-shadow:none !important; background-image:none !important; }
+.sidebar-session-state:not(.is-running) { display:none; }
+.workspace-chat .workspace-composer-action { border:0 !important; outline-offset:3px; width:36px; height:36px; min-width:36px; padding:0; display:grid; place-items:center; flex:none; margin:0 !important; }
+.workspace-chat [data-slot="chatgpt-composer"][data-expanded="false"] [data-slot="input-group"] { padding:8px; min-height:52px; gap:8px; }
+.workspace-chat [data-slot="chatgpt-composer"][data-expanded="false"] [data-align="block-end"] { margin:0; padding:0; align-self:center; height:36px; display:flex; align-items:center; }
+.workspace-toolbar svg,.tool-panel svg { shape-rendering:geometricPrecision; stroke-linecap:round; stroke-linejoin:round; }
+.panel-resizer { width:8px; margin-right:-8px; }
+.panel-resizer::after { left:1px; }
+.tool-panel-tabs .tool-new-tab { width:32px !important; height:32px !important; min-width:32px !important; }
+.tool-panel-tabs .tool-new-tab svg { width:20px !important; height:20px !important; }

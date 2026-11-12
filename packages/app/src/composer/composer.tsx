@@ -8,6 +8,8 @@ import { Keybind } from "@opencode/ui/keybind"
 import { Slash } from "@opencode/ui/slash"
 import { Tooltip } from "@opencode/ui/tooltip"
 import { ComposerEditor } from "./editor/editor"
+import { ProviderModelIcon } from "@/providers/models/provider-group"
+import { ComposerDictation } from "@/voice/composer-action"
 import { DialogSelectModel, ModelSelectorDrawer } from "@/providers/models/select-dialog"
 import { DialogSelectModelUnpaid } from "@/providers/models/unpaid"
 import { formatKeybind, useCommand } from "@/shell/commands/command"
@@ -20,6 +22,7 @@ import {
   transitionModelChip,
   type ModelChipEvent,
 } from "./model-chip-machine"
+import "./notra-composer.css"
 
 export function Composer(props: {
   class?: string
@@ -71,6 +74,16 @@ export function Composer(props: {
         queueFirstLabel={language.t("session.queue.first")}
         exitShellKeybind={[formatKeybind("esc", language.t)]}
         suggestionBoundary={props.suggestionBoundary}
+        compactLogo={
+          <span title={modelName()} aria-label={modelName()}>
+            <Show when={props.model.model.selection.current()?.provider}>
+              {(provider) => <ProviderModelIcon provider={provider()} />}
+            </Show>
+          </span>
+        }
+        emptyAction={
+          <ComposerDictation controller={props.model} backend={props.model.dictation} disabled={props.readOnly} />
+        }
         modelControl={
           <ComposerModelControl
             loading={props.model.model.loading}
@@ -159,6 +172,9 @@ function ComposerModelControl(props: {
 
   const content = () => (
     <>
+      <Show when={props.model.current()?.provider}>
+        {(provider) => <ProviderModelIcon provider={provider()} class="shrink-0" />}
+      </Show>
       <span class="flex min-w-0 whitespace-nowrap leading-4">
         <Show when={props.label.provider}>
           {(name) => (

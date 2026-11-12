@@ -1,0 +1,119 @@
+[data-component="composer"] {
+  border: 1px solid var(--v2-border-border-muted);
+  border-radius: 18px;
+  background-color: var(--v2-background-bg-base);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 4%);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+[data-component="composer"]:focus-within {
+  border-color: var(--v2-border-border-strong);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
+}
+
+[data-slot="composer-compact-logo"] {
+  display: none;
+  position: absolute;
+  inset-inline-start: 17px;
+  inset-block-start: 18px;
+  z-index: 20;
+  width: 18px;
+  height: 18px;
+  color: var(--v2-icon-icon-base);
+  pointer-events: none;
+}
+
+[data-component="composer-editor"] {
+  min-height: 54px;
+  font-family: var(--font-family-sans);
+  font-size: 13px;
+  line-height: var(--line-height-base);
+}
+
+[data-slot="composer-toolbar"] {
+  gap: 4px;
+  padding-inline: 9px;
+  padding-block-end: 5px;
+  height: 45px;
+}
+
+[data-slot="composer-controls"] [data-component="button-v2"] {
+  border-radius: 8px;
+  gap: 7px;
+}
+
+[data-component="composer"] :is([data-action="composer-submit"], [data-action="composer-voice"]) {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border: 1px solid rgb(0 0 0 / 8%);
+  border-radius: 50%;
+  color: #161616;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+}
+
+[data-component="composer"] :is([data-action="composer-submit"], [data-action="composer-voice"]):disabled {
+  opacity: 0.45;
+}
+
+[data-component="composer"] :is([data-action="composer-submit"], [data-action="composer-voice"]):not(:disabled):hover {
+  background: #eeeeef;
+}
+
+[data-component="composer"] :is([data-action="composer-submit"], [data-action="composer-voice"]):focus-visible {
+  outline: 2px solid var(--v2-border-border-strong);
+  outline-offset: 3px;
+}
+
+[data-component="composer"][data-compact="true"]:not(:focus-within):not(:has([data-expanded])):not(
+    :has([data-action="composer-voice"][aria-pressed="true"])
+  ) {
+  min-height: 54px;
+
+  [data-slot="composer-compact-logo"] {
+    display: flex;
+    align-items: center;
+  }
+  [data-component="composer-editor"] {
+    padding-block: 16px;
+    padding-inline: 46px 56px;
+  }
+  [data-component="composer-scroll"] > .pointer-events-none {
+    padding-block-start: 16px;
+    padding-inline: 46px 56px;
+  }
+  [data-slot="composer-toolbar"] {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-end: 0;
+    height: 54px;
+    padding: 0 10px;
+  }
+  [data-slot="composer-toolbar"] > :not([data-slot="composer-actions"]) {
+    display: none;
+  }
+  [data-slot="composer-actions"] {
+    height: 54px;
+  }
+}
+
+[data-slot="composer-touch-bar"] [data-action="composer-voice"] {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: #161616;
+  background: #fff;
+}
+
+[data-slot="composer-touch-bar"] [data-slot="composer-dictation"] output {
+  max-width: max(24px, calc(100vw - 320px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-component="composer"] {
+    transition: none;
+  }
+}

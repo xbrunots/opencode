@@ -1,3 +1,4 @@
+import { useSessionTargetFocused } from "@/session/target"
 import {
   createComputed,
   createContext,
@@ -56,6 +57,7 @@ export function isTitlebarTabLink(element: Element) {
 }
 
 function createComposerFocus() {
+  const focused = useSessionTargetFocused()
   const dialog = useDialog()
   const [state, setState] = createSignal(createComposerFocusState())
   let frame: number | undefined
@@ -109,6 +111,7 @@ function createComposerFocus() {
   ): "focused" | "claimed" | "blocked" => {
     const element = surface?.target() === effect.target ? surface.element() : undefined
 
+    if (!focused()) return "blocked"
     if (!element?.isConnected || surface?.editable?.() === false || dialog.active) return "blocked"
     const active = document.activeElement
 

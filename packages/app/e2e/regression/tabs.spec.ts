@@ -2530,3 +2530,68 @@ async function mockGaveUpPermission(page: Page, tabLayout: "horizontal" | "inbox
     attempts: () => attempts.count,
   }
 }
+
+test("parallel conversations keep prompts and drafts scoped and islands fill a closed pane", async ({ page }) => {
+  const prompts: { sessionID: string; text: unknown }[] = []
+  await openSession(page, {
+    name: "ParallelWorkspace",
+    seed: {
+      theme: { id: "oc-2", scheme: "dark" },
+      settings: { appearance: { tabLayout: "vertical" }, general: { sidebarOrganize: "projects" } },
+    },
+    sessions: [a, b],
+    onPrompt: ({ sessionID, body }) => {
+      prompts.push({ sessionID, text: body.text })
+    },
+  })
+  await page.getByRole("button", { name: "Grid", exact: true }).click()
+  const first = page.getByRole("region", { name: a.title, exact: true })
+  const second = page.getByRole("region", { name: b.title, exact: true })
+  const firstEditor = first.locator('[data-component="composer-editor"]')
+  const secondEditor = second.locator('[data-component="composer-editor"]')
+  await expect(firstEditor).toBeEditable()
+  await expect(secondEditor).toBeEditable()
+  await firstEditor.fill("Only session A")
+  await secondEditor.fill("Only session B")
+  await expect(firstEditor).toHaveText("Only session A")
+  await page.screenshot({ path: "../../.impeccable/review/production-grid.png" })
+  await secondEditor.press("Enter")
+  await expect.poll(() => prompts).toEqual([{ sessionID: b.id, text: "Only session B" }])
+  await expect(firstEditor).toHaveText("Only session A")
+  await firstEditor.press("Enter")
+  await expect
+    .poll(() => prompts)
+    .toEqual([
+      { sessionID: b.id, text: "Only session B" },
+      { sessionID: a.id, text: "Only session A" },
+    ])
+  await page.getByRole("button", { name: "Floating conversations", exact: true }).click()
+  await page.screenshot({ path: "../../.impeccable/review/production-islands.png" })
+  const before = await first.boundingBox()
+  await second.getByRole("button", { name: "Close conversation pane", exact: true }).click()
+  await expect(second).toHaveCount(0)
+  await expect.poll(async () => (await first.boundingBox())?.width ?? 0).toBeGreaterThan(before!.width)
+  await expect(firstEditor).toBeEditable()
+  await page.setViewportSize({ width: 390, height: 900 })
+  await expect(firstEditor).toBeEditable()
+  await page.screenshot({ path: "../../.impeccable/review/production-mobile.png" })
+})
+
+test("parallel conversations interrupt only the chosen session", async ({ page }) => {
+  const stopped: string[] = []
+  page.on("request", (request) => {
+    const match = new URL(request.url()).pathname.match(/^\/api\/session\/([^/]+)\/interrupt$/)
+    if (request.method() === "POST" && match) stopped.push(match[1]!)
+  })
+  await openSession(page, {
+    name: "ParallelInterrupt",
+    seed: { settings: { appearance: { tabLayout: "horizontal" } } },
+    sessions: [a, b],
+    sessionStatus: { [a.id]: { type: "running" }, [b.id]: { type: "running" } },
+  })
+  await page.getByRole("button", { name: "Grid", exact: true }).click()
+  const second = page.getByRole("region", { name: b.title, exact: true })
+  await expect(second.locator('[data-component="composer-editor"]')).toBeEditable()
+  await second.getByRole("button", { name: "Stop", exact: true }).click()
+  await expect.poll(() => stopped).toEqual([b.id])
+})

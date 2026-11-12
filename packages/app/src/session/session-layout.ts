@@ -1,4 +1,4 @@
-import { useParams } from "@solidjs/router"
+import { useSessionTargetParams } from "@/session/target"
 import { createMemo } from "solid-js"
 import { useLayout } from "@/shell/state/layout"
 import { SessionRouteKey, SessionStateKey } from "@/runtime/server/scope"
@@ -9,7 +9,7 @@ import { ServerConnection } from "@/runtime/server/registry"
 import { tabKey, useTabs } from "@/shell/tabs/tabs"
 
 const useSessionKey = () => {
-  const params = useParams()
+  const params = useSessionTargetParams()
   const sdk = useWorkspaceLocation()
   const serverSDK = useServerSDK()
   const scope = createMemo(() => serverSDK.scope)

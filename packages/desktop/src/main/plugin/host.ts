@@ -47,6 +47,7 @@ import {
 } from "../../shared/ipc-rpc/events"
 import { CHANNEL, VERSION } from "../constants"
 import { emitIpcEvent } from "../ipc-events"
+import { portableRoot } from "../lifecycle/configure"
 import { isQuitting, type Handoff, type State } from "../lifecycle/machine"
 import { refreshMenu, setMenubarProvider } from "../native/menu"
 import {
@@ -204,7 +205,10 @@ export function createHost(input: {
   ) => void
 }) {
   const definitions: readonly Entry[] = builtins
-  const local = definitions.filter((definition) => runsOn(definition, os))
+  // An installer update would target the installed application, not this independent portable directory.
+  const local = definitions.filter(
+    (definition) => runsOn(definition, os) && !(portableRoot && definition.id === "updater"),
+  )
 
   const manager = createManager(
     input.db,

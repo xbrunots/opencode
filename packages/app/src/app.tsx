@@ -1,3 +1,4 @@
+import { WorkspaceViewsProvider } from "@/shell/workspace-views"
 import "@/index.css"
 import { VoiceProvider } from "@/voice/context"
 import { VoiceOverlay } from "@/voice/composer"
@@ -96,6 +97,7 @@ export function AppInterface(props: {
   const Root = (rootProps: ParentProps) => (
     <TabsProvider>
       <GlobalProvider>
+        <WorkspaceViewsProvider>
         <ProjectIconsProvider>
           <BodyTypography />
           <CommandProvider>
@@ -107,6 +109,7 @@ export function AppInterface(props: {
             </VoiceProvider>
           </CommandProvider>
         </ProjectIconsProvider>
+      </WorkspaceViewsProvider>
       </GlobalProvider>
     </TabsProvider>
   )

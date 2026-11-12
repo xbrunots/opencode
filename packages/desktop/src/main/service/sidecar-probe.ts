@@ -3,6 +3,7 @@ import path from "node:path"
 import { app } from "electron"
 import type { Endpoint } from "@opencode/client/service"
 import { CHANNEL } from "../constants"
+import { portableRoot } from "../lifecycle/configure"
 
 // The main thread idles between showing the first window and evaluating the main bundle, waiting
 // for the renderer's asset requests. That slot is long enough to find out whether a compatible
@@ -12,7 +13,7 @@ import { CHANNEL } from "../constants"
 let probe: Promise<Endpoint | undefined> | undefined
 
 export function startSidecarProbe() {
-  if (!app.isPackaged) return
+  if (!app.isPackaged || portableRoot) return
   const version = CHANNEL === "beta" ? undefined : bundledVersion()
 
   if (version === "") return

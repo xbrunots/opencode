@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight, X, Terminal, Folder, GitBranch, LayoutGrid, Layers, Link, MessageCircle, Moon, Plus, Settings, Search, PanelRight, SlidersHorizontal, Circle } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { ComponentProps, CSSProperties, ReactNode } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -77,7 +78,9 @@ type Layout = "focus" | "grid" | "islands"
 type Panel = "search" | "tools" | "project" | "worktree" | null
 
 function Icon({ icon, ...props }: ComponentProps<typeof HugeiconsIcon>) {
-  return <HugeiconsIcon icon={icon} size={18} strokeWidth={1.6} {...props} />
+  const glyphs = new Map<ComponentProps<typeof HugeiconsIcon>["icon"], typeof Circle>([[ArrowDown01Icon,ChevronDown],[ArrowRight01Icon,ChevronRight],[Cancel01Icon,X],[CommandLineIcon,Terminal],[Folder01Icon,Folder],[GitBranchIcon,GitBranch],[GridViewIcon,LayoutGrid],[Layers01Icon,Layers],[Link01Icon,Link],[Message01Icon,MessageCircle],[Moon02Icon,Moon],[PlusSignIcon,Plus],[Settings01Icon,Settings],[SearchIcon,Search],[SidebarRight01Icon,PanelRight],[SlidersHorizontalIcon,SlidersHorizontal]])
+  const Glyph = glyphs.get(icon) || Circle
+  return <Glyph width={props.size || 18} height={props.size || 18} className={props.className} strokeWidth={1.8} />
 }
 
 function IconAction({

@@ -1,6 +1,6 @@
+import { useSessionTargetParams } from "@/session/target"
 import { createSimpleContext } from "@opencode/ui/context"
 import { base64Encode } from "@opencode/util/encode"
-import { useParams } from "@solidjs/router"
 import { batch, createEffect, createMemo, createRoot, createSignal, onCleanup, untrack } from "solid-js"
 import { Predicate, Schema, SchemaGetter } from "effect"
 import { useModels } from "@/providers/models/models"
@@ -308,7 +308,7 @@ function copyChoice(choice: ModelChoice): ModelChoice {
 export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
   name: "Local",
   init: () => {
-    const params = useParams()
+    const params = useSessionTargetParams()
     const sdk = useWorkspaceLocation()
     const data = useData()
     const serverSDK = useServerSDK()

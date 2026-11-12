@@ -3,6 +3,8 @@ import type { Endpoint } from "@opencode/client/service"
 import { Context, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
 import { SidecarChanged } from "../../shared/ipc-rpc/events"
 import { CHANNEL } from "../constants"
+import { portableRoot } from "../lifecycle/configure"
+import { portablePort } from "../lifecycle/portable"
 import { emitIpcEvent } from "../ipc-events"
 import { getMainWindows } from "../windows"
 import { BackgroundServiceMachine } from "./background-service-machine"
@@ -68,7 +70,11 @@ const ensure = Effect.fn("BackgroundService.ensure")(function* (mode: Background
         ...setup.cli.command,
         "serve",
         "--service",
-        ...(setup.isolated ? ["--hostname", "0.0.0.0", "--port", String(0x0c0c)] : []),
+        ...(portableRoot
+          ? ["--hostname", "127.0.0.1", "--port", String(portablePort(portableRoot))]
+          : setup.isolated
+            ? ["--hostname", "0.0.0.0", "--port", String(0x0c0c)]
+            : []),
       ],
       onStart: (reason, previousVersion) =>
         runFork(Effect.logInfo("v2 CLI background service starting", { reason, previousVersion })),
@@ -101,11 +107,11 @@ const prepare = Effect.fn("BackgroundService.prepare")(function* (mode: Backgrou
   yield* Effect.logInfo("starting v2 background service")
   const path = yield* Path.Path
   const desktopCli = yield* DesktopCli.Service
-  const isolated = !app.isPackaged && process.env.OPENCODE_DESKTOP_ISOLATED_SERVER === "1"
+  const isolated = !!portableRoot || (!app.isPackaged && process.env.OPENCODE_DESKTOP_ISOLATED_SERVER === "1")
   const cli = yield* desktopCli.resolve
   const version = serviceVersion({ channel: CHANNEL, isolated, mode, version: cli.version })
 
-  if (isolated) process.env.XDG_STATE_HOME = app.getPath("userData")
+  if (isolated && !portableRoot) process.env.XDG_STATE_HOME = app.getPath("userData")
   const client = yield* Effect.promise(() => import("@opencode/client/service"))
 
   const file =

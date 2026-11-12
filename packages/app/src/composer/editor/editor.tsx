@@ -21,6 +21,7 @@ import { Icon } from "@opencode/ui/icon"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Loader } from "@opencode/ui/loader"
 import { ProviderModelIcon } from "@/providers/models/provider-group"
+import { useSessionTargetQuery } from "@/session/target"
 import { useI18n } from "@opencode/ui/context/i18n"
 import { Button } from "@opencode/ui/button"
 import { Keybind } from "@opencode/ui/keybind"
@@ -89,6 +90,8 @@ export type ComposerEditorProps = {
   borderUnderlay?: boolean
   class?: string
   modelControl?: JSX.Element
+  compactLogo?: JSX.Element
+  emptyAction?: JSX.Element
   modelControlsVisible?: boolean
   attachKeybind?: string[]
   attachShortcut?: string
@@ -102,6 +105,7 @@ export type ComposerEditorProps = {
 export function ComposerEditor(props: ComposerEditorProps) {
   const i18n = useI18n()
   const markdown = useMarkdown()
+  const targetQuery = useSessionTargetQuery()
   const state = props.controller.state
   const view = props.controller.view
   const suggestionsID = createUniqueId()
@@ -116,10 +120,17 @@ export function ComposerEditor(props: ComposerEditorProps) {
   const historyHeight = createMemo(() => composerHistoryPreviewHeight(state))
   // Phones and tablets, whatever their width: a narrow desktop window keeps the desktop composer.
   const touch = createMediaQuery("(hover: none) and (pointer: coarse)")
+  const empty = () =>
+    mode() === "normal" &&
+    props.controller.value().length === 0 &&
+    props.controller.attachments().length === 0 &&
+    props.controller.comments().length === 0 &&
+    props.controller.files().length === 0 &&
+    props.controller.uploads().length === 0
   // The shell's slot at the bottom of the screen; without one (a story), the touch bar stays under the composer.
   const [dock, setDock] = createSignal<HTMLElement>()
 
-  onMount(() => setDock(document.querySelector<HTMLElement>('[data-slot="composer-touch-bar-mount"]') ?? undefined))
+  onMount(() => setDock(targetQuery<HTMLElement>('[data-slot="composer-touch-bar-mount"]') ?? undefined))
 
   createEffect(() => {
     const preview = historyHeight() !== undefined
@@ -248,6 +259,9 @@ export function ComposerEditor(props: ComposerEditorProps) {
       <form
         ref={composer}
         data-component="composer"
+        data-compact={
+          empty() && !touch() && !view.submit.stopping() && historyHeight() === undefined ? "true" : undefined
+        }
         data-dock-border-underlay={props.borderUnderlay ? "true" : undefined}
         class="group/composer relative w-full overflow-clip rounded-xl bg-v2-background-bg-base"
         style={{ height: historyHeight() === undefined ? undefined : `${historyHeight()}px` }}
@@ -264,6 +278,13 @@ export function ComposerEditor(props: ComposerEditorProps) {
         onDragOver={props.controller.onDragOver}
         onDrop={props.controller.onDrop}
       >
+        <Show when={props.compactLogo}>
+          {(logo) => (
+            <span data-slot="composer-compact-logo" aria-hidden="true">
+              {logo()}
+            </span>
+          )}
+        </Show>
         <div
           ref={content}
           data-slot="composer-content"
@@ -441,7 +462,11 @@ export function ComposerEditor(props: ComposerEditorProps) {
           </div>
         </div>
 
-        <div class="flex h-11 shrink-0 items-center px-2" classList={{ hidden: touch() && mode() === "shell" }}>
+        <div
+          data-slot="composer-toolbar"
+          class="flex h-11 shrink-0 items-center px-2"
+          classList={{ hidden: touch() && mode() === "shell" }}
+        >
           <Show when={!touch()}>
             <div
               class="flex shrink-0 items-center"
@@ -536,25 +561,44 @@ export function ComposerEditor(props: ComposerEditorProps) {
                   </span>
                 </Button>
               </Show>
-              <ComposerEditorSubmitButton
-                mode={mode()}
-                stopping={view.submit.stopping()}
-                busy={view.submit.busy?.() ?? false}
-                disabled={!props.controller.canSubmit()}
-                sendLabel={i18n.t("ui.promptInput.send")}
-                stopLabel={i18n.t("ui.promptInput.stop")}
-                onSubmit={() => props.controller.submit()}
-                onStop={props.controller.stop}
-              />
+              <Show
+                when={empty() && !view.submit.stopping() && props.emptyAction}
+                fallback={
+                  <ComposerEditorSubmitButton
+                    mode={mode()}
+                    stopping={view.submit.stopping()}
+                    busy={view.submit.busy?.() ?? false}
+                    disabled={!props.controller.canSubmit()}
+                    sendLabel={i18n.t("ui.promptInput.send")}
+                    stopLabel={i18n.t("ui.promptInput.stop")}
+                    onSubmit={() => props.controller.submit()}
+                    onStop={props.controller.stop}
+                  />
+                }
+              >
+                {(action) => action()}
+              </Show>
             </div>
           </Show>
         </div>
       </form>
       <Show when={touch()}>
-        <Show when={dock()} fallback={<ComposerEditorTouchBar controller={props.controller} />}>
+        <Show
+          when={dock()}
+          fallback={
+            <ComposerEditorTouchBar
+              controller={props.controller}
+              emptyAction={empty() ? props.emptyAction : undefined}
+            />
+          }
+        >
           {(mount) => (
             <Portal mount={mount()}>
-              <ComposerEditorTouchBar controller={props.controller} docked />
+              <ComposerEditorTouchBar
+                controller={props.controller}
+                emptyAction={empty() ? props.emptyAction : undefined}
+                docked
+              />
             </Portal>
           )}
         </Show>
@@ -924,11 +968,11 @@ function ComposerAttachments(props: {
         </div>
         <div
           data-slot="composer-attachments-fade-left"
-          class="pointer-events-none absolute inset-y-0 start-0 z-10 w-6 bg-[linear-gradient(to_right,var(--v2-background-bg-base),transparent)] rtl:bg-[linear-gradient(to_left,var(--v2-background-bg-base),transparent)]"
+          class="pointer-events-none absolute inset-y-0 start-0 z-10 w-px bg-v2-border-border-muted"
         />
         <div
           data-slot="composer-attachments-fade-right"
-          class="pointer-events-none absolute inset-y-0 end-0 z-10 w-6 bg-[linear-gradient(to_left,var(--v2-background-bg-base),transparent)] rtl:bg-[linear-gradient(to_right,var(--v2-background-bg-base),transparent)]"
+          class="pointer-events-none absolute inset-y-0 end-0 z-10 w-px bg-v2-border-border-muted"
         />
         <Show when={editing()} keyed>
           {(current) => (
@@ -1563,7 +1607,11 @@ function ComposerEditorSubmitButton(props: {
 // The composer's actions on a touch device, where Return only adds a line: this bar is the one way to send, steer,
 // queue or stop, and every target is at least 44px. Docked, it spans the bottom of the shell, which is the top of the
 // keyboard while one is open. Buttons keep the editor focused so the keyboard stays open.
-function ComposerEditorTouchBar(props: { controller: ComposerEditorModel; docked?: boolean }) {
+function ComposerEditorTouchBar(props: {
+  controller: ComposerEditorModel
+  docked?: boolean
+  emptyAction?: JSX.Element
+}) {
   const i18n = useI18n()
   const view = props.controller.view
   const keep = (event: MouseEvent) => event.preventDefault()
@@ -1693,23 +1741,30 @@ function ComposerEditorTouchBar(props: { controller: ComposerEditorModel; docked
             </Button>
           )}
         </Show>
-        <Button
-          data-action="composer-submit"
-          variant="submit"
-          class="h-11 gap-1.5 rounded-xl px-4 text-[15px] leading-5"
-          disabled={!props.controller.canSubmit()}
-          aria-busy={busy()}
-          onMouseDown={keep}
-          onClick={() => props.controller.submit()}
+        <Show
+          when={props.emptyAction}
+          fallback={
+            <Button
+              data-action="composer-submit"
+              variant="submit"
+              class="h-11 gap-1.5 rounded-xl px-4 text-[15px] leading-5"
+              disabled={!props.controller.canSubmit()}
+              aria-busy={busy()}
+              onMouseDown={keep}
+              onClick={() => props.controller.submit()}
+            >
+              {label()}
+              <Show
+                when={busy()}
+                fallback={<Icon name={props.controller.mode() === "shell" ? "arrow-undo-down" : "arrow-up"} />}
+              >
+                <Loader class="size-4" />
+              </Show>
+            </Button>
+          }
         >
-          {label()}
-          <Show
-            when={busy()}
-            fallback={<Icon name={props.controller.mode() === "shell" ? "arrow-undo-down" : "arrow-up"} />}
-          >
-            <Loader class="size-4" />
-          </Show>
-        </Button>
+          {(action) => action()}
+        </Show>
       </Show>
     </div>
   )

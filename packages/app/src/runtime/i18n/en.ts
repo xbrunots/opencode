@@ -1,6 +1,23 @@
 import { DESKTOP_NATIVE_ENGLISH } from "./desktop-native"
 
 export const dict = {
+  "workspace.pane.focus": "Focus conversation",
+  "workspace.pane.close": "Close conversation pane",
+  "workspace.pane.resize": "Resize conversation columns",
+  "workspace.view.label": "Conversation layout",
+  "workspace.view.focus": "Focus",
+  "workspace.view.grid": "Grid",
+  "workspace.view.islands": "Floating conversations",
+  "prompt.dictation.title": "Voice dictation",
+  "prompt.dictation.start": "Dictate a message",
+  "prompt.dictation.stop": "Finish and send",
+  "prompt.dictation.listening": "Listening…",
+  "prompt.dictation.starting": "Waiting for microphone…",
+  "prompt.dictation.unavailable": "Connect an OpenAI API key on this server to use desktop voice dictation.",
+  "prompt.dictation.unsupported": "Speech recognition is unavailable in this browser. Type your message to continue.",
+  "prompt.dictation.microphone": "Allow microphone access to dictate a message.",
+  "prompt.dictation.failed": "Speech recognition failed. Your draft has been preserved.",
+  "prompt.dictation.empty": "No speech was recognized. Try again.",
   "experiment.voiceCalls": "Voice calls",
   "voice.call": "Call",
   "voice.mute": "Mute",

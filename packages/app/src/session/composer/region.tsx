@@ -1,3 +1,4 @@
+import { useSessionTargetFocused } from "@/session/target"
 import type { SessionUserActions } from "@opencode/session-ui/message"
 import type { ShellOutputInput } from "@opencode/client/promise"
 import { getFilename, sameDirectory } from "@opencode/util/path"
@@ -168,7 +169,7 @@ export function createActiveSessionRegion(input: {
   }
 
   const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.defaultPrevented) return
+    if (!targetFocused() || event.defaultPrevented) return
     const path = event.composedPath()
     const target = path.find((item): item is HTMLElement => item instanceof HTMLElement)
     const active = activeElement()
@@ -325,14 +326,18 @@ export function createActiveSessionRegion(input: {
       return model ? { id: model.id, providerID: model.provider.id, variant: selection.variant.current() } : undefined
     },
   })
-  command.register("palette", () => [
-    {
-      id: "command.palette",
-      title: language.t("command.palette"),
-      hidden: true,
-      onSelect: () => command.trigger("file.open", "palette"),
-    },
-  ])
+  const targetFocused = useSessionTargetFocused()
+  createEffect(() => {
+    if (!targetFocused()) return
+    command.register("palette", () => [
+      {
+        id: "command.palette",
+        title: language.t("command.palette"),
+        hidden: true,
+        onSelect: () => command.trigger("file.open", "palette"),
+      },
+    ])
+  })
 
   const dock = {
     state,

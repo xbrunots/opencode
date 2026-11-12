@@ -7,6 +7,85 @@ import { it } from "./lib/effect.js"
 import { dynamicResponse } from "./lib/http.js"
 
 describe("experimental Realtime", () => {
+  it.effect("brokers transcription-only sessions without a conversation model", () =>
+    Effect.gen(function* () {
+      const session = {
+        type: "transcription",
+        audio: {
+          input: {
+            format: { type: "audio/pcm", rate: 24000 },
+            transcription: { model: "gpt-live-transcribe", language: "pt" },
+            turn_detection: null,
+          },
+        },
+      }
+      expect(
+        yield* Realtime.connect({
+          model: "gpt-live-transcribe",
+          apiKey: Redacted.make("sk-openai"),
+          session,
+          transport: { type: "websocket" },
+        }),
+      ).toEqual({
+        type: "websocket",
+        url: "wss://api.openai.com/v1/realtime?intent=transcription",
+        token: "ek_transcription",
+        expiresAt: 1760000060,
+      })
+    }).pipe(
+      Effect.provide(
+        dynamicResponse((input) =>
+          Effect.gen(function* () {
+            const req = yield* HttpClientRequest.toWeb(input.request).pipe(Effect.orDie)
+            expect(req.url).toBe("https://api.openai.com/v1/realtime/client_secrets")
+            expect(req.headers.get("authorization")).toBe("Bearer sk-openai")
+            expect(JSON.parse(input.text)).toEqual({
+              expires_after: { anchor: "created_at", seconds: 60 },
+              session: {
+                type: "transcription",
+                audio: {
+                  input: {
+                    format: { type: "audio/pcm", rate: 24000 },
+                    transcription: { model: "gpt-live-transcribe", language: "pt" },
+                    turn_detection: null,
+                  },
+                },
+              },
+            })
+            return input.respond(JSON.stringify({ value: "ek_transcription", expires_at: 1760000060 }))
+          }),
+        ),
+      ),
+    ),
+  )
+
+  it.effect("defaults transcription audio to PCM24k with application-controlled commits", () =>
+    Realtime.connect({
+      model: "gpt-live-transcribe",
+      apiKey: Redacted.make("sk-openai"),
+      transport: { type: "websocket" },
+    }).pipe(
+      Effect.provide(
+        dynamicResponse((input) => {
+          expect(JSON.parse(input.text)).toEqual({
+            expires_after: { anchor: "created_at", seconds: 60 },
+            session: {
+              type: "transcription",
+              audio: {
+                input: {
+                  format: { type: "audio/pcm", rate: 24000 },
+                  transcription: { model: "gpt-live-transcribe" },
+                  turn_detection: null,
+                },
+              },
+            },
+          })
+          return Effect.succeed(input.respond(JSON.stringify({ value: "ek_default", expires_at: 1760000060 })))
+        }),
+      ),
+    ),
+  )
+
   it.effect("connects OpenAI GPT-Live, OpenAI Realtime, xAI Grok Voice, and Google Gemini Live", () =>
     Effect.gen(function* () {
       yield* TestClock.setTime(1760000000_000)
@@ -146,11 +225,23 @@ describe("experimental Realtime", () => {
         "gpt-realtime",
         "gpt-realtime-2.1",
         "gpt-live",
+        "gpt-live-transcribe",
+        "gpt-live-transcribe-2026-11-12",
         "grok-voice-latest",
         "gemini-3.8-live",
         "gemini-3.8-live-extended-thinking",
       ].map((model) => Realtime.engine(model)?.id),
-    ).toEqual(["openai-realtime", "openai-realtime", "openai-live", "xai-realtime", "gemini-live", "gemini-live"])
+    ).toEqual([
+      "openai-realtime",
+      "openai-realtime",
+      "openai-live",
+      "openai-transcription",
+      "openai-transcription",
+      "xai-realtime",
+      "gemini-live",
+      "gemini-live",
+    ])
+    expect(Realtime.engines[0].model).toBe("gpt-live-1")
     expect(Realtime.engine("gpt-realtimex")).toBeUndefined()
     expect(Realtime.engine("gemini-3.8-flash")).toBeUndefined()
     expect(Realtime.engine("gemini-3.5-live")).toBeUndefined()
@@ -173,7 +264,13 @@ describe("experimental Realtime", () => {
         apiKey: Redacted.make("k"),
         transport: { type: "webrtc", sdp: "v=0" },
       }).pipe(Effect.flip)
-      expect([liveWs.reason._tag, grokRtc.reason._tag, geminiRtc.reason._tag]).toEqual([
+      const transcriptionRtc = yield* Realtime.connect({
+        model: "gpt-live-transcribe",
+        apiKey: Redacted.make("k"),
+        transport: { type: "webrtc", sdp: "v=0" },
+      }).pipe(Effect.flip)
+      expect([liveWs.reason._tag, grokRtc.reason._tag, geminiRtc.reason._tag, transcriptionRtc.reason._tag]).toEqual([
+        "InvalidRequest",
         "InvalidRequest",
         "InvalidRequest",
         "InvalidRequest",

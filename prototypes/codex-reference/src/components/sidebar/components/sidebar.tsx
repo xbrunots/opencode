@@ -3,11 +3,7 @@
 import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
-import {
-  SidebarLeft01Icon,
-  SidebarRight01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 import * as React from "react";
@@ -386,10 +382,7 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      <HugeiconsIcon
-        icon={isOpen ? SidebarLeft01Icon : SidebarRight01Icon}
-        strokeWidth={1.8}
-      />
+      {isOpen ? <PanelLeftClose size={18} strokeWidth={1.8} /> : <PanelLeftOpen size={18} strokeWidth={1.8} />}
     </Button>
   );
 }

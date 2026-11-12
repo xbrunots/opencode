@@ -1,3 +1,4 @@
+import { useSessionTargetFocused } from "@/session/target"
 import {
   batch,
   ErrorBoundary,
@@ -102,7 +103,10 @@ function SessionScreenContent(props: {
     settled: (run) => sideMotion.whenSettled(run),
   })
 
-  onCleanup(attachment.region(region))
+  const targetFocused = useSessionTargetFocused()
+  createEffect(() => {
+    if (targetFocused()) onCleanup(attachment.region(region))
+  })
   const mobile = createMobileViews()
 
   const bottomTabs = createMemo(() => region.pane("bottom").keys().length > 0)
@@ -450,7 +454,10 @@ function SessionScreenContent(props: {
 
   return (
     <>
-      <div class="flex-1 min-h-0 flex flex-col gap-2 px-[var(--shell-inline-inset,8px)] pb-[var(--shell-bottom-inset,8px)] pt-[var(--shell-top-inset,8px)]">
+      <div
+        data-slot="session-screen"
+        class="flex-1 min-h-0 flex flex-col gap-2 px-[var(--shell-inline-inset,8px)] pb-[var(--shell-bottom-inset,8px)] pt-[var(--shell-top-inset,8px)]"
+      >
         <div ref={screen.panel.ref} data-pane-row class="relative flex-1 min-h-0 flex flex-col md:flex-row gap-2">
           {/* Keep the control outside panel animations. */}
           <Show when={isDesktop() && messagesReady() && session.identity.params.id}>

@@ -1,3 +1,4 @@
+import { useSessionTargetFocused, useSessionTargetQuery } from "@/session/target"
 import {
   batch,
   createEffect,
@@ -103,7 +104,11 @@ export function createPanelSidebar(): PanelSidebar {
     toggle: () => setStore("sidebarOpened", (opened) => !opened),
   }
 
-  onCleanup(usePluginAttachment().sidebar(sidebar))
+  const attachment = usePluginAttachment()
+  const targetFocused = useSessionTargetFocused()
+  createEffect(() => {
+    if (targetFocused()) onCleanup(attachment.sidebar(sidebar))
+  })
 
   return sidebar
 }
@@ -127,6 +132,7 @@ export function createRegion(input: {
   /** Runs work that forces a layout, like moving focus, once the region's open motion lands. */
   settled?: (run: () => void) => void
 }) {
+  const targetQuery = useSessionTargetQuery()
   const settled = input.settled ?? ((run: () => void) => run())
   // The text field focus left when the user opened the side region, which a close from inside it returns to.
   let returnFocus: HTMLElement | undefined
@@ -334,7 +340,7 @@ export function createRegion(input: {
 
   // Focus leaves before the close starts, back to where it was; otherwise the panel hands it to its toggle.
   const giveBackFocus = () => {
-    const inside = !!document.getElementById("review-panel")?.contains(document.activeElement)
+    const inside = !!targetQuery("#review-panel")?.contains(document.activeElement)
     const back = returnFocus
     returnFocus = undefined
 
@@ -459,7 +465,7 @@ export function createRegion(input: {
 
       if (entry) entry.provider.enter?.(panelInput(input.view, input.screen, { tab: entry.tab }))
       settled(() => {
-        const root = document.getElementById("review-panel")
+        const root = targetQuery("#review-panel")
         const current = document.activeElement
 
         // Focus the reader moved during the motion, such as into a menu they opened, stays where they put it.

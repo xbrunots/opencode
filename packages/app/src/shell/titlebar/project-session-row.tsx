@@ -29,6 +29,7 @@ import {
 } from "./session-rename-dialog-machine"
 import type { Project } from "@/runtime/server/types"
 import { ProjectIcon } from "@/shell/layout/project-icon"
+import { ProviderModelIcon } from "@/providers/models/provider-group"
 import "./tab-nav.css"
 
 export function ProjectSessionRow(props: {
@@ -136,14 +137,33 @@ export function ProjectSessionRow(props: {
         style={props.depth ? { "padding-inline-start": `calc(2rem + ${props.depth * 14}px)` } : undefined}
         onClick={props.onOpen}
       >
-        <Show when={props.project && !props.openTab ? props.project : undefined}>
+        <Show when={props.session.model}>
+          {(model) => (
+            <span
+              class="absolute start-2 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center"
+              aria-hidden="true"
+            >
+              <ProviderModelIcon
+                provider={
+                  ctx()
+                    ?.data.location.provider.list(props.session.location)
+                    ?.find((provider) => provider.id === model().providerID) ?? {
+                    id: model().providerID,
+                    name: model().providerID,
+                  }
+                }
+              />
+            </span>
+          )}
+        </Show>
+        <Show when={props.project && !props.openTab && !props.session.model ? props.project : undefined}>
           {(project) => (
             <span class="absolute start-2 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center">
               <ProjectIcon project={project()} />
             </span>
           )}
         </Show>
-        <Show when={props.openTab}>
+        <Show when={props.openTab && !props.session.model}>
           <span
             role="img"
             aria-label={language.t("sidebar.organize.openTab")}

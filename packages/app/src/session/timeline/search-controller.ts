@@ -1,3 +1,4 @@
+import { useSessionTargetFocused } from "@/session/target"
 import { useCommand } from "@/shell/commands/command"
 import { useLanguage } from "@/runtime/i18n/language"
 import { useData } from "@/runtime/server/current"
@@ -33,7 +34,11 @@ function supportsHighlights() {
   return !!globalThis.CSS?.highlights
 }
 
-function clearHighlights() {
+let highlightOwner: HTMLElement | undefined
+
+function clearHighlights(root: HTMLElement | undefined) {
+  if (highlightOwner !== root) return
+  highlightOwner = undefined
   if (!supportsHighlights()) return
   CSS.highlights.delete(HIGHLIGHT_HIT)
   CSS.highlights.delete(HIGHLIGHT_ACTIVE)
@@ -98,6 +103,7 @@ function applyHighlights(
   activeOccurrence: number | undefined,
 ) {
   if (!supportsHighlights()) return
+  highlightOwner = root
   const { hits, active } = collectRanges(root, query, activePartID, activeOccurrence)
   CSS.highlights.set(HIGHLIGHT_HIT, new Highlight(...hits))
   CSS.highlights.set(HIGHLIGHT_ACTIVE, new Highlight(...active))
@@ -109,6 +115,7 @@ export function createTimelineSearchController(input: {
   revealMessage: (id: string, partID?: string) => void
   pauseAutoScroll: () => void
 }) {
+  const targetFocused = useSessionTargetFocused()
   const command = useCommand()
   const language = useLanguage()
   const data = useData()
@@ -154,11 +161,12 @@ export function createTimelineSearchController(input: {
   )
 
   createEffect(() => {
+    if (!targetFocused()) return
     const root = input.scrollRef()
     const q = query()
 
     if (!root || !q) {
-      clearHighlights()
+      clearHighlights(root)
 
       return
     }
@@ -180,21 +188,24 @@ export function createTimelineSearchController(input: {
       observer.disconnect()
 
       if (frame !== undefined) cancelAnimationFrame(frame)
-      clearHighlights()
+      clearHighlights(root)
     })
   })
 
   onCleanup(() => dispatch({ type: "disposed" }))
 
-  command.register("session.search", () => [
-    {
-      id: "session.search",
-      title: language.t("session.search.placeholder"),
-      keybind: "mod+f",
-      hidden: true,
-      onSelect: open,
-    },
-  ])
+  createEffect(() => {
+    if (!targetFocused()) return
+    command.register("session.search", () => [
+      {
+        id: "session.search",
+        title: language.t("session.search.placeholder"),
+        keybind: "mod+f",
+        hidden: true,
+        onSelect: open,
+      },
+    ])
+  })
 
   function open() {
     dispatch({ type: "open", sessionID: untrack(input.sessionID) })

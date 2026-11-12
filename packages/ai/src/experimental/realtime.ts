@@ -48,11 +48,19 @@ export const engines = [
     provider: "google",
     transports: ["websocket"],
   },
+  {
+    family: "gpt-live-transcribe",
+    model: "gpt-live-transcribe",
+    id: "openai-transcription",
+    provider: "openai",
+    transports: ["websocket"],
+  },
 ] as const
 
-// Matches the bare family name (`gpt-realtime`) and its versions (`gpt-realtime-2.1`, `gpt-realtime-mini`).
+// Exact names and later, specialized families take precedence over broad prefixes such as `gpt-live`.
 export const engine = (model: string) =>
-  engines.find((item) => model === item.family || model.startsWith(`${item.family}-`))
+  engines.find((item) => model === item.family || model === item.model) ??
+  engines.findLast((item) => model.startsWith(`${item.family}-`))
 
 export const connect = Effect.fn("Realtime.connect")(function* (input: RealtimeConnectInput) {
   const resolved = engine(input.model)
@@ -62,6 +70,27 @@ export const connect = Effect.fn("Realtime.connect")(function* (input: RealtimeC
   const session = { ...input.session, model: input.model }
 
   switch (resolved.id) {
+    case "openai-transcription":
+      return yield* clientSecret(
+        resolved.id,
+        OPENAI_BASE_URL,
+        input.model,
+        input.apiKey,
+        {
+          expires_after: { anchor: "created_at", seconds: 60 },
+          session: input.session ?? {
+            type: "transcription",
+            audio: {
+              input: {
+                format: { type: "audio/pcm", rate: 24000 },
+                transcription: { model: input.model },
+                turn_detection: null,
+              },
+            },
+          },
+        },
+        "transcription",
+      )
     case "openai-live": {
       const data = yield* post(
         resolved.id,
@@ -188,12 +217,13 @@ const clientSecret = (
   model: string,
   apiKey: Redacted.Redacted,
   body: Record<string, unknown>,
+  intent?: "transcription",
 ) =>
   post(route, `${baseURL}/realtime/client_secrets`, apiKey, body, ClientSecretResponse).pipe(
     Effect.map(
       (data): RealtimeTransport => ({
         type: "websocket",
-        url: `${baseURL.replace(/^http/, "ws")}/realtime?model=${encodeURIComponent(model)}`,
+        url: `${baseURL.replace(/^http/, "ws")}/realtime?${intent ? `intent=${intent}` : `model=${encodeURIComponent(model)}`}`,
         token: data.value,
         expiresAt: data.expires_at,
       }),

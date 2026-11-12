@@ -1,6 +1,7 @@
+import { useSessionTargetFocused } from "@/session/target"
+import { useRoutedSessionTargetParams } from "@/session/target"
 import { ErrorBoundary, createEffect, createMemo, Match, on, Show, Switch, type ParentProps } from "solid-js"
 import { Title } from "@solidjs/meta"
-import { useParams } from "@solidjs/router"
 import { createStore } from "solid-js/store"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { DataProvider } from "@opencode/session-ui/context"
@@ -36,7 +37,8 @@ import { ComposerFocusProvider } from "./composer/focus"
 import { INITIAL_SESSION_VIEWED_STATE, transitionSessionViewed, type SessionViewedState } from "./viewed-machine"
 
 export function TargetSessionRouteContent() {
-  const params = useParams<{ serverKey: string; id: string }>()
+  const params = useRoutedSessionTargetParams()
+  const targetFocused = useSessionTargetFocused()
   const data = useData()
   const server = useServer()
   const tabs = useTabs()
@@ -88,7 +90,9 @@ export function TargetSessionRouteContent() {
       <MarkSessionViewed sessionID={viewed} />
       <SessionDocumentTitle title={title} />
       <ModelsProvider directory={modelDirectory()}>
-        <TargetSessionSettingsCommand />
+        <Show when={targetFocused()}>
+          <TargetSessionSettingsCommand />
+        </Show>
         <SessionRouteErrorBoundary sessionID={params.id} serverKey={requireServerKey(params.serverKey)}>
           <ComposerFocusProvider sessionID={params.id}>
             <Switch>
@@ -250,6 +254,7 @@ function SessionPage() {
 
 function MarkSessionViewed(props: { sessionID: () => string | undefined }) {
   const notification = useNotification()
+  const targetFocused = useSessionTargetFocused()
   const [focus, setFocus] = createStore({ window: document.hasFocus() })
   const update = () => setFocus("window", document.hasFocus())
   makeEventListener(window, "focus", update)
@@ -261,7 +266,7 @@ function MarkSessionViewed(props: { sessionID: () => string | undefined }) {
       transitionSessionViewed(previous, {
         type: "changed",
         sessionID: props.sessionID(),
-        focused: focus.window,
+        focused: focus.window && targetFocused(),
         ready: notification.session.ready(),
       }),
     INITIAL_SESSION_VIEWED_STATE,
@@ -278,7 +283,7 @@ function MarkSessionViewed(props: { sessionID: () => string | undefined }) {
   createEffect(() => {
     const sessionID = props.sessionID()
 
-    if (!sessionID || !focus.window) return
+    if (!sessionID || !focus.window || !targetFocused()) return
     notification.session.markViewed(sessionID)
   })
 
@@ -287,9 +292,10 @@ function MarkSessionViewed(props: { sessionID: () => string | undefined }) {
 
 // Browser tabs and desktop windows are otherwise indistinguishable, so name them after the open session.
 function SessionDocumentTitle(props: { title: () => string | undefined }) {
+  const focused = useSessionTargetFocused()
   // Keyed: <Title> reads its text inside a meta effect, which would hit a stale Show accessor once the session is deleted.
   return (
-    <Show when={props.title()} keyed>
+    <Show when={focused() && props.title()} keyed>
       {(value) => <Title>{`${value} · OpenCode`}</Title>}
     </Show>
   )

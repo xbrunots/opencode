@@ -35,9 +35,11 @@ import { createComposerSubmit } from "./submit"
 import { composerSubmitView } from "./machine"
 import { useAttachmentDestination } from "./attachments/destination"
 import { parseClientSlashCommand } from "./client-slash-command"
+import type { DictationBackend } from "@/voice/dictation-transport"
 
 export type ComposerModel = ComposerEditorModel & {
   readonly model: ComposerControls["model"]
+  readonly dictation?: DictationBackend
 }
 
 const sendFailedTitle = {
@@ -574,6 +576,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
   })
 
   Object.defineProperty(controller, "model", { get: () => adapter.controls().model })
+  Object.defineProperty(controller, "dictation", { value: { voice: () => serverSDK.api.experimental.voice, platform } })
 
   command.register("composer-editor", () => [
     {

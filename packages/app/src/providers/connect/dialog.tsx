@@ -1,3 +1,4 @@
+import { useSessionTargetParams } from "@/session/target"
 import { Button } from "@opencode/ui/button"
 import { Badge } from "@opencode/ui/badge"
 import { useDialog } from "@opencode/ui/context/dialog"
@@ -11,7 +12,6 @@ import { RedirectPasteForm } from "@opencode/ui/redirect-paste"
 import { TextInput } from "@opencode/ui/text-input"
 import { type Component, createMemo, createUniqueId, For, type JSX, Match, onMount, Show, Switch } from "solid-js"
 import { createStore } from "solid-js/store"
-import { useParams } from "@solidjs/router"
 import { useLanguage } from "@/runtime/i18n/language"
 import { usePlatform } from "@/runtime/platform/platform"
 import { useServerSDK } from "@/runtime/server/client"
@@ -78,7 +78,7 @@ export const DialogConnectProvider: Component<{
   const external = props.controller ?? fallback
   const language = useLanguage()
   const dialog = useDialog()
-  const params = useParams()
+  const params = useSessionTargetParams()
 
   const [welcome, setWelcome, , welcomeReady] = persisted(
     Persist.global("chatgpt-plan-welcome.v1"),

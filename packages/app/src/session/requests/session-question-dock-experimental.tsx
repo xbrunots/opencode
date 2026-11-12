@@ -371,7 +371,7 @@ export const SessionQuestionDockExperimental: Component<{ request: FormInfo; onS
   const measure = () => {
     if (!root) return
 
-    const scroller = document.querySelector('[data-slot="session-timeline-scroll"] > .scroll-view__viewport')
+    const scroller = root?.closest('[data-slot="session-chat-panel"]')?.querySelector('[data-slot="session-timeline-scroll"] > .scroll-view__viewport')
     const head = scroller instanceof HTMLElement ? scroller.firstElementChild : undefined
 
     // The timeline starts under its sticky header, or at its own top when it has none.
@@ -505,7 +505,7 @@ export const SessionQuestionDockExperimental: Component<{ request: FormInfo; onS
     }
 
     const dock = root?.closest('[data-component="session-composer-dock"]')
-    const scroller = document.querySelector('[data-slot="session-timeline-scroll"] > .scroll-view__viewport')
+    const scroller = root?.closest('[data-slot="session-chat-panel"]')?.querySelector('[data-slot="session-timeline-scroll"] > .scroll-view__viewport')
     createResizeObserver([dock, scroller], requestMeasure)
 
     focus(pickFocus())

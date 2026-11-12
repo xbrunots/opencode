@@ -1,3 +1,4 @@
+import { useSessionTargetFocused } from "@/session/target"
 import {
   batch,
   createMemo,
@@ -59,6 +60,7 @@ export function createMountedSession(session: SessionModel) {
   const servers = useServers()
   const location = useWorkspaceLocation()
   const attachment = usePluginAttachment()
+  const targetFocused = useSessionTargetFocused()
   // The composer region owns background tasks and is created after the view.
   const [background, setBackground] = createSignal<Accessor<readonly BackgroundTask[]>>()
   // The screen's composer view, created after this object, says whether it takes quotes and focuses its prompt.
@@ -381,12 +383,13 @@ export function createMountedSession(session: SessionModel) {
   createRenderEffect(on(mounted, (view) => attachment.preload(view)))
   // Publish both after render, with the original session-mount timing. Renders receive their own screen directly;
   // only global observers need this attachment. One batch prevents exposing a view on another screen.
-  createEffect(() =>
+  createEffect(() => {
+    if (!targetFocused()) return
     batch(() => {
       onCleanup(attachment.screen(screen))
       onCleanup(attachment.mount(mounted))
-    }),
-  )
+    })
+  })
 
   return {
     screen,

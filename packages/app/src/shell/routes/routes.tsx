@@ -1,5 +1,17 @@
+import { useLanguage } from "@/runtime/i18n/language"
+import {
+  transitionWorkspaceResize,
+  type WorkspaceResizeState,
+  type WorkspaceResizeEvent,
+} from "@/shell/workspace-resize-machine"
+import { SessionTargetProvider } from "@/session/target"
+import { useWorkspaceViews } from "@/shell/workspace-views"
+import { tabKey, useTabs } from "@/shell/tabs/tabs"
+import { IconButton } from "@opencode/ui/icon-button"
+import { Icon } from "@opencode/ui/icon"
+import "@/shell/workspace-views.css"
 import { Route, useParams } from "@solidjs/router"
-import { createMemo, lazy, Show, Suspense, type ParentProps } from "solid-js"
+import { createMemo, createSignal, For, lazy, onCleanup, Show, Suspense, type ParentProps } from "solid-js"
 import { Home } from "@/home/route"
 import { ServerProvider } from "@/runtime/server/current"
 import { useGlobal } from "@/runtime/server/runtime"
@@ -54,36 +66,145 @@ export function AppRoutes() {
     <Route component={AppLayout}>
       <Route path="/" component={Home} />
       <Route path="/settings" component={SettingsScreen} />
-      <Route
-        path="/server/:serverKey/session/:id"
-        component={() => (
-          <SessionRouteFrame>
-            <Suspense
-              fallback={
-                <div class="flex min-h-0 flex-1 px-[var(--shell-inline-inset,8px)] pb-[var(--shell-bottom-inset,8px)] pt-[var(--shell-top-inset,8px)]">
-                  <SessionPanelFrame raised />
-                </div>
-              }
-            >
-              <TargetServerRoute>
-                <TargetSessionRouteContent />
-              </TargetServerRoute>
-            </Suspense>
-          </SessionRouteFrame>
-        )}
-      />
+      <Route path="/server/:serverKey/session/:id" component={WorkspaceSessions} />
       <Route path="/new-session" component={DraftRoute} />
       {ComponentsLab && <Route path="/components" component={ComponentsLab} />}
     </Route>
   )
 }
 
-function TargetServerRoute(props: ParentProps) {
+function WorkspaceSessions() {
+  const language = useLanguage()
+  const views = useWorkspaceViews()
+  const tabs = useTabs()
+  const single = () => (
+    <SessionRouteFrame>
+      <Suspense fallback={<SessionPanelFrame raised />}>
+        <TargetServerRoute>
+          <TargetSessionRouteContent />
+        </TargetServerRoute>
+      </Suspense>
+    </SessionRouteFrame>
+  )
+  return (
+    <Show when={views.mode() !== "focus" && views.sessions().length > 0} fallback={single()}>
+      <div
+        class="workspace-session-grid"
+        data-mode={views.mode()}
+        style={{ "--workspace-pane-minimum": `${views.minimum()}px` }}
+      >
+        <For each={views.sessions()}>
+          {(tab) => {
+            const [resize, setResize] = createSignal<WorkspaceResizeState>({ type: "idle" })
+            const dispatch = (event: WorkspaceResizeEvent) => {
+              const next = transitionWorkspaceResize(resize(), event)
+              setResize(next.state)
+              if (next.width !== undefined) views.setMinimum(next.width)
+            }
+            onCleanup(() => dispatch({ type: "disposed" }))
+            let element: HTMLElement | undefined
+            const key = tabKey(tab)
+            const focused = () => views.focusedTabKey() === key
+            const target = {
+              get serverKey() {
+                return tab.server
+              },
+              get sessionID() {
+                return tab.routeSessionId ?? tab.sessionId
+              },
+              focused,
+              root: () => element,
+            }
+            return (
+              <section
+                ref={element}
+                class="workspace-session-pane"
+                data-focused={focused() || undefined}
+                aria-label={tabs.info[key]?.title || tab.sessionId}
+                onPointerDown={() => views.focus(key)}
+                onFocusIn={() => views.focus(key)}
+              >
+                <header class="workspace-session-pane-heading">
+                  <span>{tabs.info[key]?.title || tab.sessionId}</span>
+                  <IconButton
+                    aria-label={language.t("workspace.pane.focus")}
+                    icon={<Icon name="arrow-top-right" />}
+                    variant="ghost"
+                    onClick={() => {
+                      views.focus(key)
+                      views.setMode("focus")
+                    }}
+                  />
+                  <IconButton
+                    aria-label={language.t("workspace.pane.close")}
+                    icon={<Icon name="xmark-small" />}
+                    variant="ghost"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      const index = tabs.store.findIndex((item) => tabKey(item) === key)
+                      if (index >= 0) tabs.closeTab(index)
+                    }}
+                  />
+                </header>
+                <div class="workspace-session-pane-content">
+                  <SessionTargetProvider value={target}>
+                    <Suspense fallback={<SessionPanelFrame raised />}>
+                      <TargetServerRoute serverKey={tab.server}>
+                        <TargetSessionRouteContent />
+                      </TargetServerRoute>
+                    </Suspense>
+                  </SessionTargetProvider>
+                </div>
+                <Show when={views.mode() === "islands"}>
+                  <div
+                    class="workspace-session-column-resizer"
+                    role="separator"
+                    aria-label={language.t("workspace.pane.resize")}
+                    aria-orientation="vertical"
+                    tabIndex={0}
+                    onPointerDown={(event) => {
+                      dispatch({
+                        type: "started",
+                        pointerID: event.pointerId,
+                        x: event.clientX,
+                        minimum: views.minimum(),
+                      })
+                      event.currentTarget.setPointerCapture(event.pointerId)
+                    }}
+                    onPointerMove={(event) => {
+                      dispatch({ type: "moved", pointerID: event.pointerId, x: event.clientX })
+                    }}
+                    onPointerUp={(event) => {
+                      dispatch({ type: "finished", pointerID: event.pointerId })
+                      if (event.currentTarget.hasPointerCapture(event.pointerId))
+                        event.currentTarget.releasePointerCapture(event.pointerId)
+                    }}
+                    onPointerCancel={(event) => dispatch({ type: "finished", pointerID: event.pointerId })}
+                    onLostPointerCapture={(event) => dispatch({ type: "finished", pointerID: event.pointerId })}
+                    onKeyDown={(event) => {
+                      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return
+                      event.preventDefault()
+                      views.setMinimum(views.minimum() + (event.key === "ArrowRight" ? 16 : -16))
+                    }}
+                  />
+                </Show>
+              </section>
+            )
+          }}
+        </For>
+      </div>
+    </Show>
+  )
+}
+
+function TargetServerRoute(props: ParentProps<{ serverKey?: ServerConnection.Key }>) {
   const params = useParams<{ serverKey: string }>()
   const global = useGlobal()
 
   const connection = createMemo(() =>
-    global.servers.list().find((item) => ServerConnection.key(item) === requireServerKey(params.serverKey)),
+    global.servers
+      .list()
+      .find((item) => ServerConnection.key(item) === (props.serverKey ?? requireServerKey(params.serverKey))),
   )
 
   return (

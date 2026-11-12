@@ -1,3 +1,4 @@
+import { useSessionTargetFocused } from "@/session/target"
 import type { SessionMessageUser } from "@opencode/client/promise"
 import { useLocation, useNavigate } from "@solidjs/router"
 import { createEffect, createSignal, on, onCleanup, onMount, untrack, type Accessor } from "solid-js"
@@ -37,6 +38,7 @@ export function createTimelineCursor(input: {
   /** The route opens the session on a tool call instead of its end. */
   revealing: () => boolean
 }) {
+  const targetFocused = useSessionTargetFocused()
   const location = useLocation()
   const navigate = useNavigate()
   const [cursorState, setCursorState] = createSignal(createTimelineCursorState())
@@ -60,13 +62,18 @@ export function createTimelineCursor(input: {
 
     if (effect.type === "history.seek") return input.seekHistory()
 
-    if (effect.type === "hash.set")
+    if (effect.type === "hash.set") {
+      if (!targetFocused()) return
       return navigate(location.pathname + location.search + `#${input.anchor(effect.messageID)}`, { replace: true })
+    }
 
-    if (effect.type === "hash.clear") return navigate(location.pathname + location.search, { replace: true })
+    if (effect.type === "hash.clear") {
+      if (!targetFocused()) return
+      return navigate(location.pathname + location.search, { replace: true })
+    }
 
     if (effect.type === "anchor.scroll") {
-      const target = document.getElementById(effect.id)
+      const target = input.scroller()?.querySelector<HTMLElement>(`#${CSS.escape(effect.id)}`)
 
       if (!target) return input.toEnd()
       input.detach()
@@ -111,10 +118,13 @@ export function createTimelineCursor(input: {
     effect: { attempt: number; messageID: string; behavior: ScrollBehavior },
     glide: boolean,
   ): TimelineCursorEvent {
-    const mounted = glide ? document.getElementById(input.anchor(effect.messageID)) : null
+    const mounted = glide
+      ? input.scroller()?.querySelector<HTMLElement>(`#${CSS.escape(input.anchor(effect.messageID))}`)
+      : null
 
     if (!mounted) input.revealMessage(effect.messageID)
-    const element = mounted ?? document.getElementById(input.anchor(effect.messageID))
+    const element =
+      mounted ?? input.scroller()?.querySelector<HTMLElement>(`#${CSS.escape(input.anchor(effect.messageID))}`)
 
     if (!element || !scrollToElement(element, effect.behavior)) return { type: "seek.missing", attempt: effect.attempt }
 
@@ -147,7 +157,7 @@ export function createTimelineCursor(input: {
   })
   createEffect(
     on(
-      () => location.hash,
+      () => (targetFocused() ? location.hash : ""),
       (hash) => dispatch({ type: "hash.changed", hash: hash.slice(1), viewReady: untrack(input.viewReady) }),
       { defer: true },
     ),
@@ -166,7 +176,7 @@ export function createTimelineCursor(input: {
       revertMessageID: input.revertMessageID(),
       oldestMessageID: input.oldestMessageID(),
       history: input.historyStatus(),
-      hash: untrack(() => location.hash.slice(1)),
+      hash: untrack(() => (targetFocused() ? location.hash.slice(1) : "")),
     })
   })
   // Not deferred: a deferred `on` passes no previous input to its first change.

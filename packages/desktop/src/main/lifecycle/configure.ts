@@ -7,10 +7,13 @@ import { app } from "electron"
 import { debugBuild, memoryLogInterval } from "@opencode/gui-plugins/debug/options"
 import { APP_ID, APP_NAME, CHANNEL } from "../constants"
 import { remoteDebuggingPort } from "../diagnostics/options"
+import { portableDirectory, portableEnvironment } from "./portable"
 
 const testOnboarding = process.env.OPENCODE_TEST_ONBOARDING === "1"
 
 const jsCallStackFeature = "DocumentPolicyIncludeJSCallStacksInCrashReports"
+
+export let portableRoot: string | undefined
 
 // Runs synchronously from the entry module, before Chromium is ready: command-line switches only
 // take effect before ready, the single-instance lock is scoped to userData, and the early window
@@ -44,12 +47,22 @@ export function configureApplication() {
     app.commandLine.appendSwitch("enable-precise-memory-info")
 
   const testRoot = createTestRoot()
-  app.setPath("userData", testRoot ? path.join(testRoot, "desktop") : path.join(app.getPath("appData"), APP_ID))
+  portableRoot = !testRoot && app.isPackaged ? portableDirectory(process.execPath) : undefined
+  const root = testRoot ?? (portableRoot ? path.join(portableRoot, "data") : undefined)
+  if (portableRoot && root) {
+    for (const dir of ["data", "config", "cache", "state", "desktop", "session"])
+      mkdirSync(path.join(root, dir), { recursive: true })
+    Object.assign(process.env, portableEnvironment(root))
+    delete process.env.OPENCODE_CONFIG
+    delete process.env.OPENCODE_CONFIG_CONTENT
+    delete process.env.OPENCODE_DESKTOP_SERVER_CHANNEL
+  }
+  app.setPath("userData", root ? path.join(root, "desktop") : path.join(app.getPath("appData"), APP_ID))
 
-  if (testRoot) {
-    app.setPath("sessionData", path.join(testRoot, "session"))
+  if (root) {
+    app.setPath("sessionData", path.join(root, "session"))
 
-    if (testOnboarding) app.setPath("documents", path.join(testRoot, "documents"))
+    if (testOnboarding) app.setPath("documents", path.join(root, "documents"))
   }
 
   // V8 bytecode for the main bundle survives between launches, like the renderer's code cache.

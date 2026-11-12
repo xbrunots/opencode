@@ -77,20 +77,38 @@
 
 @media (hover: hover) {
   [data-titlebar-tab]:not(:where([data-slot="mobile-tabs-drawer"] *)):is(:hover, :has(:focus-visible))
-    [data-slot="tab-close"]:has(> button) [data-slot="tab-status"] {
+    [data-slot="tab-close"]:has(> button)
+    [data-slot="tab-status"] {
     opacity: 0;
   }
 }
 
 [data-titlebar-tab],
 [data-titlebar-tab-action] {
-  --tab-base: var(--v2-background-bg-deep);
-  --tab-overlay: transparent;
-  background: linear-gradient(var(--tab-overlay), var(--tab-overlay)), var(--tab-base);
+  --tab-surface: var(--v2-background-bg-deep);
+  border-radius: 8px;
+  background-color: var(--tab-surface);
+  line-height: var(--line-height-compact);
+}
+
+[data-titlebar-tab][data-orientation="vertical"],
+[data-slot="vertical-tabs-sidebar"] [data-titlebar-tab-action] {
+  min-height: 32px;
+}
+
+[data-titlebar-tab][data-active="true"] {
+  color: var(--v2-text-text-base);
+  box-shadow: inset 0 0 0 1px var(--v2-border-border-muted);
+}
+
+[data-titlebar-tab]:has(> [data-slot="tab-link"]:focus-visible),
+[data-titlebar-tab-action]:focus-visible {
+  outline: 2px solid var(--v2-border-border-strong);
+  outline-offset: -2px;
 }
 
 [data-titlebar-tab][data-orientation="vertical"]:has([data-slot="tab-project"]) {
-  height: 45px;
+  height: 46px;
 }
 
 [data-titlebar-tab][data-orientation="vertical"]:has([data-slot="tab-project"]) [data-slot="tab-link"] {
@@ -135,23 +153,24 @@
     :hover,
     :has(> [data-slot="tab-link"]:focus-visible)
   ):not([data-state="pressed"]):not([data-dragging="true"]):not([data-editing="true"]) {
-  --tab-overlay: var(--v2-overlay-simple-overlay-hover);
+  --tab-surface: var(--v2-background-bg-layer-01);
 }
 
 [data-titlebar-tab]:is([data-state="pressed"], [data-dragging="true"], [data-editing="true"]) {
-  --tab-overlay: var(--v2-overlay-simple-overlay-pressed);
+  --tab-surface: var(--v2-background-bg-layer-02);
 }
 
 [data-titlebar-tab-action]:is(:hover, :focus-visible) {
-  --tab-overlay: var(--v2-overlay-simple-overlay-hover);
+  --tab-surface: var(--v2-background-bg-layer-01);
 }
 
 [data-titlebar-tab-action]:is(:active, [data-state="pressed"]) {
-  --tab-overlay: var(--v2-overlay-simple-overlay-pressed);
+  --tab-surface: var(--v2-background-bg-layer-02);
 }
 
 [data-titlebar-tab]:is(:hover, :has(:focus-visible), [data-state="pressed"], [data-status]) [data-slot="tab-close"] {
-  background: linear-gradient(var(--tab-overlay), var(--tab-overlay)), var(--tab-base);
+  border-radius: 6px;
+  background-color: var(--tab-surface);
 }
 
 [data-titlebar-tab][data-editing="true"] [data-slot="tab-close"] {
@@ -167,7 +186,7 @@
 }
 
 [data-slot="vertical-tabs-sidebar"] [data-titlebar-tab-list][data-orientation="vertical"] {
-  gap: 3px;
+  gap: 4px;
 }
 
 [data-slot="vertical-tabs-sidebar"] [data-component="resize-handle"] {
@@ -176,7 +195,7 @@
   transform: none;
 }
 
-/* Only visible trailing controls need room over the title. */
+/* The full title stays available until its trailing controls are visible. */
 @media (hover: hover) {
   [data-slot="vertical-tabs-sidebar"]
     [data-titlebar-tab][data-title-overflow="true"]:not(
@@ -186,7 +205,7 @@
       [data-status]
     )
     [data-slot="tab-link"] {
-    --tab-title-fade-offset: var(--tab-link-inset);
+    padding-inline-end: var(--tab-link-inset);
   }
 
   [data-slot="vertical-tabs-sidebar"]
@@ -259,47 +278,12 @@
 [data-titlebar-tab][data-title-overflow="true"]:not([data-editing="true"]) [data-slot="tab-link"],
 [data-titlebar-tab]:is(:hover, :has(:focus-visible), [data-active="true"], [data-status]):not([data-editing="true"])
   [data-slot="tab-link"] {
-  --tab-title-fade-offset: calc(4px + var(--tab-link-inset, 0px));
-  -webkit-mask-image: linear-gradient(
-    to right,
-    black 0,
-    black calc(100% - var(--tab-title-fade-offset) - 16px),
-    transparent calc(100% - var(--tab-title-fade-offset)),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to right,
-    black 0,
-    black calc(100% - var(--tab-title-fade-offset) - 16px),
-    transparent calc(100% - var(--tab-title-fade-offset)),
-    transparent 100%
-  );
-}
-
-[data-titlebar-tab][data-title-overflow="true"]:not([data-editing="true"]):dir(rtl) [data-slot="tab-link"],
-[data-titlebar-tab]:is(:hover, :has(:focus-visible), [data-active="true"], [data-status]):not(
-    [data-editing="true"]
-  ):dir(rtl)
-  [data-slot="tab-link"] {
-  -webkit-mask-image: linear-gradient(
-    to left,
-    black 0,
-    black calc(100% - var(--tab-title-fade-offset) - 16px),
-    transparent calc(100% - var(--tab-title-fade-offset)),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to left,
-    black 0,
-    black calc(100% - var(--tab-title-fade-offset) - 16px),
-    transparent calc(100% - var(--tab-title-fade-offset)),
-    transparent 100%
-  );
+  padding-inline-end: calc(4px + var(--tab-link-inset, 0px));
 }
 
 [data-titlebar-tab]:is(:hover, :has(:focus-visible), [data-active="true"], [data-status]):not([data-editing="true"])
   [data-slot="tab-link"] {
-  --tab-title-fade-offset: calc(24px + var(--tab-link-inset, 0px));
+  padding-inline-end: calc(24px + var(--tab-link-inset, 0px));
 }
 
 [data-titlebar-tab][data-title-overflow="true"]:not(:hover):not([data-active="true"]):not([data-editing="true"])
@@ -309,6 +293,7 @@
 
 [data-titlebar-tab] [data-slot="tab-title"] {
   min-width: 0;
+  text-overflow: ellipsis;
 }
 
 [data-titlebar-tab][data-editing="true"] [data-slot="tab-title"] {
@@ -331,35 +316,16 @@
   }
 
   [data-titlebar-tab] [data-slot="tab-close"] {
-    background: linear-gradient(var(--tab-overlay), var(--tab-overlay)), var(--tab-base);
+    background-color: var(--tab-surface);
   }
 
   [data-titlebar-tab]:not([data-editing="true"]) [data-slot="tab-link"],
   [data-titlebar-tab][data-title-overflow="true"]:not([data-editing="true"]) [data-slot="tab-link"] {
-    --tab-title-fade-offset: calc(24px + var(--tab-link-inset, 0px));
-    --tab-title-fade-direction: to right;
-    -webkit-mask-image: linear-gradient(
-      var(--tab-title-fade-direction),
-      black 0,
-      black calc(100% - var(--tab-title-fade-offset) - 16px),
-      transparent calc(100% - var(--tab-title-fade-offset)),
-      transparent 100%
-    );
-    mask-image: linear-gradient(
-      var(--tab-title-fade-direction),
-      black 0,
-      black calc(100% - var(--tab-title-fade-offset) - 16px),
-      transparent calc(100% - var(--tab-title-fade-offset)),
-      transparent 100%
-    );
-  }
-
-  [data-titlebar-tab]:dir(rtl) [data-slot="tab-link"] {
-    --tab-title-fade-direction: to left;
+    padding-inline-end: calc(24px + var(--tab-link-inset, 0px));
   }
 
   [data-titlebar-tab][data-status]:not([data-editing="true"]) [data-slot="tab-link"] {
-    --tab-title-fade-offset: calc(44px + var(--tab-link-inset, 0px));
+    padding-inline-end: calc(44px + var(--tab-link-inset, 0px));
   }
 }
 
@@ -393,20 +359,8 @@
     height: 6px;
   }
 
-  [data-titlebar-tab]:is([data-status="attention"], [data-status="unread"], [data-status="failed"]):not(
-      [data-orientation="vertical"]
-    )
-    [data-slot="project-avatar-surface"] {
-    -webkit-mask-image: radial-gradient(circle 4.5px at 100% 0, transparent 4px, black 5px);
-    mask-image: radial-gradient(circle 4.5px at 100% 0, transparent 4px, black 5px);
-  }
-
-  [data-titlebar-tab]:is([data-status="attention"], [data-status="unread"], [data-status="failed"]):not(
-      [data-orientation="vertical"]
-    ):dir(rtl)
-    [data-slot="project-avatar-surface"] {
-    -webkit-mask-image: radial-gradient(circle 4.5px at 0 0, transparent 4px, black 5px);
-    mask-image: radial-gradient(circle 4.5px at 0 0, transparent 4px, black 5px);
+  [data-titlebar-tab] [data-slot="tab-avatar-unread-dot"] {
+    outline: 2px solid var(--tab-surface);
   }
 
   [data-titlebar-tab]:not([data-orientation="vertical"]) [data-titlebar-tab-link] {
@@ -503,7 +457,9 @@
   filter: none;
 }
 
-[data-shortcut-hints] [data-titlebar-tab] [data-slot="project-avatar-initial"]:has(~ [data-slot="project-avatar-label"]),
+[data-shortcut-hints]
+  [data-titlebar-tab]
+  [data-slot="project-avatar-initial"]:has(~ [data-slot="project-avatar-label"]),
 [data-shortcut-hints] [data-titlebar-tab] [data-slot="tab-icon-face"]:has(~ [data-slot="tab-shortcut-face"]) {
   opacity: 0;
   transform: translateY(-6px);

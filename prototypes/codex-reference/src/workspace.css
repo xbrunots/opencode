@@ -565,7 +565,7 @@ button:disabled {
   min-height: 0;
   flex: none;
   background: var(--chatgpt-bg);
-  margin: 16px;
+  margin: 4px;
   border: 1px solid var(--border);
   border-radius: 16px;
   overflow: hidden;
@@ -759,8 +759,8 @@ button:disabled {
   .workspace-tools-panel {
     position: absolute;
     inset: 0 0 0 auto;
-    width: min(680px, calc(100% - 32px));
-    max-width: calc(100% - 32px);
+    width: min(680px, calc(100% - 8px));
+    max-width: calc(100% - 8px);
     min-width: 0;
   }
 }

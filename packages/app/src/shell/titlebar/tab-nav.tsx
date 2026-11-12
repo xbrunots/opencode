@@ -12,6 +12,7 @@ import { useLanguage } from "@/runtime/i18n/language"
 import { ServerConnection, useServers } from "@/runtime/server/registry"
 import { displayName, ProjectAvatar } from "@opencode/ui/project-avatar"
 import { SessionTabAvatarView } from "@/shell/layout/session-tab-avatar"
+import { ProviderModelIcon } from "@/providers/models/provider-group"
 import type { SessionInfo } from "@opencode/client/promise"
 import { showToast } from "@/shell/notifications/toast"
 import { createSessionExporter } from "@/session/commands/export-session"
@@ -437,7 +438,7 @@ export function TabNavItem(
       data-orientation={props.orientation ?? "horizontal"}
       data-title-overflow={titleOverflowing()}
       data-editing={editing()}
-      data-avatar={props.hideAvatar ? "hidden" : undefined}
+      data-avatar={props.hideAvatar && !props.session?.model ? "hidden" : undefined}
       class="group relative flex h-7 w-full min-w-0 select-none flex-row items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[6px] px-1.5 [container-type:inline-size]"
       classList={{ invisible: props.hidden }}
       data-active={props.active}
@@ -497,17 +498,35 @@ export function TabNavItem(
       >
         <span data-slot="project-avatar-slot" class="flex size-4 shrink-0 items-center justify-center">
           <Show
-            when={props.session?.location.directory ?? props.fallbackDirectory}
+            when={props.session?.model}
             fallback={
-              <span class="block size-4 rounded-[3px] border border-v2-border-border-muted" aria-hidden="true" />
+              <Show
+                when={props.session?.location.directory ?? props.fallbackDirectory}
+                fallback={
+                  <span class="block size-4 rounded-[3px] border border-v2-border-border-muted" aria-hidden="true" />
+                }
+              >
+                {(directory) => (
+                  <SessionTabAvatarView
+                    project={project()}
+                    directory={directory()}
+                    unread={false}
+                    label={props.shortcut?.toString()}
+                  />
+                )}
+              </Show>
             }
           >
-            {(directory) => (
-              <SessionTabAvatarView
-                project={project()}
-                directory={directory()}
-                unread={false}
-                label={props.shortcut?.toString()}
+            {(model) => (
+              <ProviderModelIcon
+                provider={
+                  serverCtx()
+                    ?.data.location.provider.list(props.session?.location)
+                    ?.find((provider) => provider.id === model().providerID) ?? {
+                    id: model().providerID,
+                    name: model().providerID,
+                  }
+                }
               />
             )}
           </Show>

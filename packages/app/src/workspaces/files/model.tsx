@@ -1,3 +1,4 @@
+import { useSessionTargetParams } from "@/session/target"
 import { batch, createComputed, createEffect, createMemo, on, onCleanup, untrack } from "solid-js"
 import { createStore, produce, reconcile, unwrap } from "solid-js/store"
 import type { FileContent } from "@opencode/plugin/gui"
@@ -5,7 +6,6 @@ import { abort } from "@opencode/util/abort"
 import { isFileNotFoundError } from "@opencode/client/promise"
 import { createSimpleContext } from "@opencode/ui/context"
 import { showToast } from "@/shell/notifications/toast"
-import { useParams } from "@solidjs/router"
 import { getDirectory, getFilename } from "@opencode/util/path"
 import { useWorkspaceLocation } from "@/workspaces/location"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -43,7 +43,7 @@ export const { use: useFile, provider: FileProvider } = createSimpleContext({
   gate: false,
   init: () => {
     const sdk = useWorkspaceLocation()
-    const params = useParams()
+    const params = useSessionTargetParams()
     const serverSDK = useServerSDK()
     const data = useData()
     const platform = usePlatform()

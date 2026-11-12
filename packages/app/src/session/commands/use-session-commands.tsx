@@ -1,3 +1,4 @@
+import { useSessionTargetFocused, useSessionTargetQuery } from "@/session/target"
 import { createEffect, createSignal, on, onCleanup, type JSX } from "solid-js"
 import { createEventListener } from "@solid-primitives/event-listener"
 import { useCommand, type CommandOption } from "@/shell/commands/command"
@@ -359,7 +360,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   // With nothing left to close, ⌘W closes the side panel itself, as an editor closes the focused pane before the window.
   const closeTab = () => {
     if (actions.region.closeNewTab(focusedPane())) {
-      const panel = document.getElementById("review-panel")
+      const panel = targetQuery("#review-panel")
 
       // A launcher row that held focus is gone; focus stays in the panel so closing it next returns focus. Closing the
       // strip's last New tab closes the panel too, which already gave focus back.
@@ -386,7 +387,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   const selectSideTab = (key: string) => {
     actions.region.select(key)
 
-    const panel = document.getElementById("review-panel")
+    const panel = targetQuery("#review-panel")
 
     if (!panel) return
 
@@ -705,14 +706,19 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
     }),
   ]
 
-  command.register("session", () => [
-    ...sessionCmds(),
-    ...projectCmds(),
-    ...fileCmds(),
-    ...contextCmds(),
-    ...viewCmds(),
-    ...messageCmds(),
-    ...mcpCmds(),
-    ...permissionsCmds(),
-  ])
+  const targetQuery = useSessionTargetQuery()
+  const targetFocused = useSessionTargetFocused()
+  createEffect(() => {
+    if (!targetFocused()) return
+    command.register("session", () => [
+      ...sessionCmds(),
+      ...projectCmds(),
+      ...fileCmds(),
+      ...contextCmds(),
+      ...viewCmds(),
+      ...messageCmds(),
+      ...mcpCmds(),
+      ...permissionsCmds(),
+    ])
+  })
 }
