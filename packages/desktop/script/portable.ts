@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { createHash, randomUUID } from "node:crypto"
 import { createReadStream } from "node:fs"
-import { cp, mkdir, readdir, stat } from "node:fs/promises"
+import { cp, readdir, stat } from "node:fs/promises"
 import path from "node:path"
 
 // Assemble only an already-built Windows package. Every run gets a fresh destination and never touches user data.
@@ -20,7 +20,6 @@ if (process.env.OPENCODE_VERSION && process.env.OPENCODE_VERSION !== cliVersion)
 const created = new Date().toISOString()
 const identity = `${created.replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}`
 const output = path.join(repository, "dist", `portable-local-${identity}`)
-await mkdir(output)
 await cp(source, output, { recursive: true, force: false, errorOnExist: true })
 await Bun.write(
   path.join(output, "portable.json"),
