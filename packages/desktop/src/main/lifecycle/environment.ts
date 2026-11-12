@@ -8,6 +8,8 @@ import { registerRendererProtocol, setDockIcon, setProtocolReporter } from "../w
 import { scoped } from "../native/logging"
 import { applySpellcheck, spellcheckMenuItems } from "../native/spellcheck"
 import { nativeT } from "../native/translations"
+import { portableRoot } from "./configure"
+import { portableEnvironment } from "./portable"
 
 // electron-context-menu attaches to every existing and future window, so it can load once the first
 // window is up instead of holding up startup with its dependency tree.
@@ -42,12 +44,14 @@ export const prepareApplicationEnvironment = Effect.gen(function* () {
 })
 
 export const preferApplicationEnvironment = Effect.gen(function* () {
+  const path = yield* Path.Path
   const shell = process.platform === "win32" ? null : getUserShell()
   const shellEnv = shell ? yield* loadShellEnv(shell) : null
   yield* Effect.sync(() => {
-    if (!shellEnv?.XDG_STATE_HOME) delete process.env.XDG_STATE_HOME
+    if (!portableRoot && !shellEnv?.XDG_STATE_HOME) delete process.env.XDG_STATE_HOME
     Object.assign(process.env, {
       ...shellEnv,
+      ...(portableRoot ? portableEnvironment(path.join(portableRoot, "data")) : {}),
       OPENCODE_EXPERIMENTAL_ICON_DISCOVERY: "true",
       OPENCODE_EXPERIMENTAL_FILEWATCHER: "true",
       OPENCODE_CLIENT: "desktop",
