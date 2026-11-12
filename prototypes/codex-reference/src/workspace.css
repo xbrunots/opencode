@@ -559,13 +559,16 @@ button:disabled {
 .workspace-tools-panel {
   display: flex;
   flex-direction: column;
-  width: 48%;
-  min-width: 440px;
-  max-width: 740px;
+  width: var(--tools-width, 48%);
+  min-width: 320px;
+  max-width: min(70%, calc(100% - 352px));
   min-height: 0;
   flex: none;
   background: var(--chatgpt-bg);
-  border-left: 1px solid var(--border);
+  margin: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
   z-index: 12;
 }
 .conversation-context {
@@ -756,10 +759,9 @@ button:disabled {
   .workspace-tools-panel {
     position: absolute;
     inset: 0 0 0 auto;
-    width: min(680px, 100%);
-    max-width: 100%;
+    width: min(680px, calc(100% - 32px));
+    max-width: calc(100% - 32px);
     min-width: 0;
-    box-shadow: -14px 0 34px #0002;
   }
 }
 @media (max-width: 780px) {

@@ -42,7 +42,7 @@ python -m http.server 8791 --bind 127.0.0.1 --directory prototypes/codex-referen
 - Árvore projeto → worktree → conversa com guias e expansão independente; rail compacta sem ícones duplicados.
 - Sem gradientes; superfícies do chat sólidas e overlays com glass/blur em ambos os temas.
 - Ferramentas: MCPs, skills, plugins e conexões demonstrativas.
-- Foco, grade e ilhas com arraste e redimensionamento em desktop; tema claro/escuro no menu do workspace.
+- Foco, grade e ilhas alinhadas com redimensionamento e reorganização automática em desktop; tema claro/escuro no menu do workspace.
 
 | Atalho | Ação |
 | --- | --- |
@@ -74,3 +74,8 @@ python -m http.server 8791 --bind 127.0.0.1 --directory prototypes/codex-referen
 Foram instaladas 103 fontes de componentes e primitivas, com o bloco ChatGPT completo e os componentes Notra usados pelo workspace. [THIRD_PARTY.md](./THIRD_PARTY.md) registra a origem e as adaptações; `NOTRA_COMPONENTS.json` lista os itens e hashes recebidos. Componentes adicionais do catálogo permanecem disponíveis no código sem inserir telas sem função no workspace.
 
 ![Workspace Notra](./previews/focus.png)
+
+
+Atualizações de interação: a marca OpenCodex abre o Início sem criar conversas. A árvore exibe o logo do modelo. O painel direito abre como ilha com margem/raio de 16 px e divisor redimensionável por arraste ou teclado. A grade usa apenas divisórias de 1 px; ilhas mantêm espaçamento, ajuste das colunas e preenchimento automático após fechar um painel.
+
+O composer recolhe para uma linha sem texto/foco e expande ao editar. O botão branco usa microfone no vazio e seta com texto. Ditado real via SpeechRecognition em pt-BR requer suporte/permissão do navegador; resultados finais são enviados ao concluir. A captura com hardware não foi validada automaticamente.

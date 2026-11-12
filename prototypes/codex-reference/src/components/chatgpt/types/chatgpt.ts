@@ -126,6 +126,7 @@ export interface ChatgptComposerProps extends Omit<ComponentProps<"form">, "onSu
   onAttach?: () => void
   modelSelector?: ReactNode
   attachments?: ReactNode
+  compactLogo?: ReactNode
 }
 
 export interface ChatgptStorySearch {

@@ -106,6 +106,91 @@
 .workspace-chat-footer {
   padding-top: 0.75rem;
 }
+.workspace-chat [data-slot="chatgpt-composer"] [data-slot="input-group"] {
+  flex-direction: column;
+  align-items: stretch;
+}
+.workspace-chat [data-slot="chatgpt-composer-logo"] {
+  display: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  justify-content: center;
+}
+.workspace-chat [data-slot="chatgpt-composer-logo"] .workspace-model-logo,
+.workspace-chat [data-slot="chatgpt-composer-logo"] .workspace-model-logo > svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.workspace-chat [data-slot="chatgpt-composer"] textarea {
+  width: 100%;
+  transition:
+    min-height 180ms ease-out,
+    padding 180ms ease-out;
+}
+.workspace-chat
+  [data-slot="chatgpt-composer"][data-expanded="false"]:not(:has([aria-expanded="true"]))
+  [data-slot="input-group"] {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.375rem;
+}
+.workspace-chat
+  [data-slot="chatgpt-composer"][data-expanded="false"]:not(:has([aria-expanded="true"]))
+  [data-slot="chatgpt-composer-logo"] {
+  display: flex;
+}
+.workspace-chat [data-slot="chatgpt-composer"][data-expanded="false"]:not(:has([aria-expanded="true"])) textarea {
+  min-height: 2.25rem;
+  max-height: 2.25rem;
+  height: 2.25rem;
+  padding: 0.375rem 0.125rem !important;
+  overflow: hidden;
+  field-sizing: fixed;
+  line-height: 1.5rem;
+  white-space: nowrap;
+}
+.workspace-chat
+  [data-slot="chatgpt-composer"][data-expanded="false"]:not(:has([aria-expanded="true"]))
+  [data-align="block-end"] {
+  width: auto;
+  flex: none;
+}
+.workspace-chat
+  [data-slot="chatgpt-composer"][data-expanded="false"]:not(:has([aria-expanded="true"]))
+  [data-slot="chatgpt-composer-controls"] {
+  display: none;
+}
+.workspace-chat .workspace-composer-action {
+  color: #171717;
+  background-color: #ffffff;
+  border: 1px solid #dedede;
+  box-shadow: none;
+}
+.workspace-chat .workspace-composer-action:hover {
+  color: #171717;
+  background-color: #f0f0f0;
+}
+.dark .workspace-chat .workspace-composer-action {
+  border-color: #ffffff;
+}
+.workspace-chat .workspace-composer-action:disabled {
+  opacity: 0.5;
+}
+.workspace-chat .workspace-composer-listening {
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 15%);
+}
+[data-slot="chatgpt-composer-voice-status"] {
+  padding-inline: 0.75rem;
+  color: var(--chatgpt-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-chat [data-slot="chatgpt-composer"] textarea {
+    transition: none;
+  }
+}
 .workspace-chat-footnote {
   display: flex;
   align-items: center;

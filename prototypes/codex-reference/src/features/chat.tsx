@@ -311,6 +311,7 @@ export function WorkspaceChat({
         onStop={onStop}
         onAttach={() => fileInput.current?.click()}
         modelSelector={<ModelMenu session={session} onModelChange={onModelChange} onEffortChange={onEffortChange} />}
+        compactLogo={<ModelLogo model={session.model} />}
         attachments={attachments}
       />
       <div className="workspace-chat-footnote">

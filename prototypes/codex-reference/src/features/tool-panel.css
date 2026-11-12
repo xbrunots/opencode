@@ -1,6 +1,6 @@
 .tool-panel {
   --tp-bg: var(--chatgpt-bg, var(--background));
-  --tp-chrome: var(--sidebar);
+  --tp-chrome: var(--chatgpt-bg, var(--background));
   --tp-surface: var(--muted);
   --tp-hover: var(--accent);
   --tp-text: var(--foreground);
@@ -84,8 +84,7 @@
 }
 .tool-panel-tab.active {
   color: var(--tp-text);
-  background: var(--tp-bg);
-  box-shadow: 0 1px 3px #0000000a;
+  background: var(--tp-surface);
 }
 .tool-panel-tab:hover:not(.active) {
   background: var(--tp-hover);

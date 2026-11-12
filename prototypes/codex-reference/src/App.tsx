@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import type { ComponentProps, ReactNode } from "react"
+import type { ComponentProps, CSSProperties, ReactNode } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowDown01Icon,
@@ -66,6 +66,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { WorkspaceChat, ModelLogo, WORKSPACE_INITIAL_MESSAGES, WORKSPACE_MODELS } from "@/features/chat"
 import type { ChatSession } from "@/features/chat"
 import { ToolPanel } from "@/features/tool-panel"
+import { PanelResizer } from "@/features/panel-resizer"
+import "./refinements.css"
 import type { ToolKind } from "@/features/tool-panel"
 import { ConversationContext } from "@/features/conversation-context"
 
@@ -233,6 +235,8 @@ export default function App() {
   const [sessions, setSessions] = useState(initialSessions)
   const [projects, setProjects] = useState(starterProjects)
   const [tabs, setTabs] = useState(["workspace", "review"])
+  const [home, setHome] = useState(false)
+  const [toolsWidth, setToolsWidth] = useState(560)
   const [active, setActive] = useState("workspace")
   const [layout, setLayout] = useState<Layout>("focus")
   const [toolPanelOpen, setToolPanelOpen] = useState(false)
@@ -291,6 +295,7 @@ export default function App() {
   }
 
   function open(id: string) {
+    setHome(false)
     setTabs((items) => (items.includes(id) ? items : [...items, id]))
     setActive(id)
   }
@@ -445,6 +450,11 @@ export default function App() {
           sessions={sessions}
           active={active}
           onOpen={open}
+          onHome={() => {
+            setHome(true)
+            setToolPanelOpen(false)
+            setContextOpen(false)
+          }}
           onCreate={create}
           onPanel={newPanel}
           onTools={() => newPanel("tools")}
@@ -540,7 +550,10 @@ export default function App() {
           <div className="workspace-tabs-row">
             <IconTabs
               value={active}
-              onValueChange={(value) => setActive(String(value))}
+              onValueChange={(value) => {
+                setHome(false)
+                setActive(String(value))
+              }}
               className="workspace-session-tabs"
             >
               <IconTabsList key={tabs.join(",")} value={active} aria-label="Conversas abertas">
@@ -565,6 +578,7 @@ export default function App() {
                   >
                     <IconTabsTrigger
                       value={item.id}
+                      onClick={() => setHome(false)}
                       data-session-id={item.id}
                       icon={<ModelLogo model={item.model} />}
                       iconPinned
@@ -614,13 +628,14 @@ export default function App() {
               )}
               aria-label="Área de conversas"
             >
-              {openSessions.length ? (
+              {!home && openSessions.length ? (
                 openSessions.map((item) => (
                   <SessionPane
                     key={item.id}
                     hidden={layout === "focus" && item.id !== active}
                     session={item}
                     layout={layout}
+                    onClose={() => close(item.id)}
                     onFocus={() => {
                       setActive(item.id)
                       setLayout("focus")
@@ -646,7 +661,7 @@ export default function App() {
               ) : (
                 <Empty>
                   <EmptyHeader>
-                    <EmptyTitle>Um espaço para a próxima ideia.</EmptyTitle>
+                    <EmptyTitle>{home ? "Início" : "Um espaço para a próxima ideia."}</EmptyTitle>
                     <EmptyDescription>Abra uma conversa dos seus projetos ou comece algo novo.</EmptyDescription>
                   </EmptyHeader>
                   <Button onClick={() => create()}>
@@ -664,7 +679,13 @@ export default function App() {
                 onClose={() => setContextOpen(false)}
               />
             )}
-            <aside className="workspace-tools-panel" aria-label="Painel de ferramentas" hidden={!toolPanelOpen}>
+            {toolPanelOpen && <PanelResizer width={toolsWidth} onWidthChange={setToolsWidth} />}
+            <aside
+              style={{ "--tools-width": `${toolsWidth}px` } as CSSProperties}
+              className="workspace-tools-panel"
+              aria-label="Painel de ferramentas"
+              hidden={!toolPanelOpen}
+            >
               <ToolPanel
                 sessionId={session?.id || "empty"}
                 sessionTitle={session?.title || "Workspace"}
@@ -860,6 +881,7 @@ function MobileSidebarTrigger() {
 }
 
 function WorkspaceSidebar({
+  onHome,
   projects,
   sessions,
   active,
@@ -869,6 +891,7 @@ function WorkspaceSidebar({
   onTools,
   onTheme,
 }: {
+  onHome: () => void
   projects: Project[]
   sessions: Session[]
   active: string
@@ -901,7 +924,7 @@ function WorkspaceSidebar({
           <div className="brand-row">
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton size="lg" tooltip="OpenCodex" onClick={() => onCreate()}>
+                <SidebarMenuButton size="lg" tooltip="Início" onClick={onHome}>
                   <Icon icon={CommandLineIcon} />
                   <SidebarLabel className="brand-name">OpenCodex</SidebarLabel>
                 </SidebarMenuButton>
@@ -1062,7 +1085,7 @@ function WorkspaceSidebar({
                                                 item.id === active && "is-current",
                                               )}
                                             />
-                                            <Icon icon={Message01Icon} className="tree-conversation-icon" />
+                                            <ModelLogo model={item.model} className="tree-conversation-icon" />
                                             <span className="truncate">{item.title}</span>
                                             <span className="session-age">{item.time}</span>
                                           </SidebarMenuSubButton>
@@ -1118,51 +1141,73 @@ function SessionPane({
   session,
   layout,
   onFocus,
+  onClose,
 }: {
   children: ReactNode
   hidden: boolean
   session: Session
   layout: Layout
   onFocus: () => void
+  onClose: () => void
 }) {
-  const node = useRef<HTMLElement>(null)
-  const origin = useRef({ x: 0, y: 0, startX: 0, startY: 0 })
   return (
     <section
-      ref={node}
       hidden={hidden}
       className={cn("session-pane", layout !== "focus" && "parallel-pane")}
       id={`session-${session.id}`}
       aria-label={session.title}
     >
       {layout !== "focus" && (
-        <header
-          className="pane-header"
-          onPointerDown={(event) => {
-            if (layout !== "islands" || (event.target as HTMLElement).closest("button")) return
-            origin.current = {
-              x: event.clientX,
-              y: event.clientY,
-              startX: Number(node.current?.dataset.x || 0),
-              startY: Number(node.current?.dataset.y || 0),
-            }
-            event.currentTarget.setPointerCapture(event.pointerId)
-          }}
-          onPointerMove={(event) => {
-            if (!event.currentTarget.hasPointerCapture(event.pointerId) || !node.current) return
-            const x = Math.max(-40, Math.min(80, origin.current.startX + event.clientX - origin.current.x))
-            const y = Math.max(0, Math.min(160, origin.current.startY + event.clientY - origin.current.y))
-            node.current.style.transform = `translate(${x}px, ${y}px)`
-            node.current.dataset.x = String(x)
-            node.current.dataset.y = String(y)
-          }}
-        >
+        <header className="pane-header">
           <ModelLogo model={session.model} />
           <span className="truncate">{session.title}</span>
+          <Button size="icon-xs" variant="ghost" aria-label={`Fechar painel ${session.title}`} onClick={onClose}>
+            <Icon icon={Cancel01Icon} />
+          </Button>
           <Button size="icon-xs" variant="ghost" aria-label={`Ampliar ${session.title}`} onClick={onFocus}>
             <Icon icon={ArrowRight01Icon} />
           </Button>
         </header>
+      )}
+      {layout === "islands" && (
+        <div
+          className="island-width-handle"
+          role="separator"
+          aria-label="Redimensionar colunas das ilhas"
+          aria-orientation="vertical"
+          tabIndex={0}
+          onPointerDown={(event) => {
+            event.currentTarget.dataset.startX = String(event.clientX)
+            event.currentTarget.dataset.width = String(
+              event.currentTarget.parentElement?.getBoundingClientRect().width || 360,
+            )
+            event.currentTarget.setPointerCapture(event.pointerId)
+          }}
+          onPointerMove={(event) => {
+            if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+            const grid = event.currentTarget.parentElement?.parentElement
+            if (!grid) return
+            grid.style.setProperty(
+              "--island-min-width",
+              `${Math.max(280, Math.min(grid.clientWidth - 32, Number(event.currentTarget.dataset.width) + event.clientX - Number(event.currentTarget.dataset.startX)))}px`,
+            )
+          }}
+          onPointerUp={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId))
+              event.currentTarget.releasePointerCapture(event.pointerId)
+          }}
+          onKeyDown={(event) => {
+            if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return
+            event.preventDefault()
+            const grid = event.currentTarget.parentElement?.parentElement
+            if (!grid) return
+            const width = Number.parseFloat(grid.style.getPropertyValue("--island-min-width")) || 360
+            grid.style.setProperty(
+              "--island-min-width",
+              `${Math.max(280, Math.min(grid.clientWidth - 32, width + (event.key === "ArrowRight" ? 16 : -16)))}px`,
+            )
+          }}
+        />
       )}
       {children}
     </section>
