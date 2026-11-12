@@ -46,6 +46,19 @@ describe("markdown media previews", () => {
     expect(disposed).toBe(true)
   })
 
+  test("mounts local HTML and published artifacts with a native renderer even without a fallback reader", () => {
+    const root = document.createElement("div")
+    root.innerHTML = "<div><code>effect.html</code><code>/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/</code></div>"
+    const previews = createMarkdownReferencedMedia()
+    const mounted: string[] = []
+    previews.update(root, undefined, true, undefined, "session", "server", (_target, source) => {
+      mounted.push(source)
+      return () => undefined
+    })
+    expect(mounted).toEqual(["effect.html", "/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/"])
+    previews.dispose()
+  })
+
   test("passes inline HTML to the native preview without inventing a file path", () => {
     const root = document.createElement("div")
     root.innerHTML = '<div><pre><code class="language-html">&lt;h1&gt;Example&lt;/h1&gt;</code></pre></div>'

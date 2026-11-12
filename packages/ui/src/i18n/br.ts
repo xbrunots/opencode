@@ -1,4 +1,7 @@
 export const dict = {
+  "ui.imagePreview.markup": "Marcação",
+  "ui.imagePreview.commentTool": "Comentar",
+  "ui.imagePreview.sendMarkup": "Enviar",
   "ui.common.fileCount.one": "{{count}} arquivo",
   "ui.common.fileCount.other": "{{count}} arquivos",
   "ui.common.fileCount.many": "{{count}} arquivos",

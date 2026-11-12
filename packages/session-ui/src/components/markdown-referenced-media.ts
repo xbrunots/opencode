@@ -64,7 +64,8 @@ export function createMarkdownReferencedMedia() {
             node instanceof HTMLAnchorElement ? (node.dataset.localLink ?? node.getAttribute("href")) : node.textContent
           if (!source) return
           const entry = markdownMediaReference(source)
-          if (entry && (!entry.local || read)) entries.set(`${entry.kind}:${entry.source}`, entry)
+          if (entry && (!entry.local || read || (renderPreview && (entry.kind === "html" || entry.kind === "artifact"))))
+            entries.set(`${entry.kind}:${entry.source}`, entry)
         })
       if (enabled)
         root.querySelectorAll<HTMLElement>("pre > code.language-html").forEach((code) => {

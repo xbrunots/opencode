@@ -1,4 +1,7 @@
 export default {
+  "view.annotate.draw": "Marcação",
+  "view.annotate.comment": "Comentar",
+  "view.annotate.send": "Enviar",
   "tree.all": "Todos os arquivos",
   "tab.notFound": "Arquivo não encontrado: {{name}}",
   "mobile.title": "Arquivos",
