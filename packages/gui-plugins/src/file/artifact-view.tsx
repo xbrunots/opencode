@@ -40,6 +40,7 @@ import { FileViewer } from "@opencode/plugin/gui/file"
 import { uuid } from "@opencode/util/uuid"
 import { ArtifactToolbar } from "./artifact-toolbar"
 import { ArtifactAnnotation } from "./artifact-view-annotation"
+import { HtmlPreview } from "./preview-ipc"
 import {
   createArtifactViewerState,
   createVideoOverlayState,
@@ -91,6 +92,7 @@ export default function ArtifactView(props: {
   const locale = ctx.locale
   // The viewer state belongs to one loaded content: a reread file starts from the preview again.
   const [viewerState, setViewerState] = createSignal(createArtifactViewerState(props.content))
+  const [annotating, setAnnotating] = createSignal(false)
 
   const dispatchViewer = (event: ArtifactViewerEvent) => {
     const prev = untrack(viewerState)
@@ -179,7 +181,13 @@ export default function ArtifactView(props: {
         html={kind() === "html"}
       />
       <Show when={selectArtifactShowingPreview(viewerState(), props.path, props.content)} fallback={props.source}>
-        <ArtifactAnnotation sessionID={props.session.id} serverID={props.session.server.id} path={props.path}>
+        <ArtifactAnnotation
+          sessionID={props.session.id}
+          serverID={props.session.server.id}
+          path={props.path}
+          native={kind() === "html" && ctx.app.platform === "desktop"}
+          onActiveChange={setAnnotating}
+        >
         <Switch
           fallback={
             <ArtifactBinary
@@ -199,7 +207,13 @@ export default function ArtifactView(props: {
             <ArtifactAudio path={props.path} content={props.content} {...media} />
           </Match>
           <Match when={kind() === "pdf" || kind() === "html"}>
-            <ArtifactFrame path={props.path} content={props.content} kind={kind() === "pdf" ? "pdf" : "html"} />
+            <ArtifactFrame
+              session={props.session}
+              path={props.path}
+              content={props.content}
+              kind={kind() === "pdf" ? "pdf" : "html"}
+              frozen={annotating}
+            />
           </Match>
           <Match when={kind() === "font"}>
             <ArtifactFont path={props.path} content={props.content} />
@@ -719,21 +733,75 @@ function ArtifactAudio(props: MediaProps) {
   )
 }
 
-function ArtifactFrame(props: { path: string; content: FileContent; kind: "pdf" | "html" }) {
+function ArtifactFrame(props: { session: MountedSession; path: string; content: FileContent; kind: "pdf" | "html"; frozen: () => boolean }) {
+  const ctx = usePlugin()
+  const embeds = ctx.embeds
+  const ipc = ctx.main(HtmlPreview)
   const source = createMediaSource(() => props.content)
+  const [id, setID] = createSignal<string>()
+
+  // Keep one native page for the current file; discard a late open after the file or session changes.
+  createKeyed(
+    () => ({
+      desktop: ctx.app.platform === "desktop" && props.kind === "html",
+      server: props.session.server.id,
+      session: props.session.id,
+      path: props.path,
+      content: props.content,
+    }),
+    (target) => {
+      if (!target.desktop) return
+      let alive = true
+      let opened: string | undefined
+
+      void ipc.open({ server: target.server, session: target.session, path: target.path }).then(
+        (result) => {
+          if (!alive) return void ipc.close({ id: result.id }).catch(() => undefined)
+          opened = result.id
+          setID(result.id)
+        },
+        () => undefined,
+      )
+
+      onCleanup(() => {
+        alive = false
+        setID(undefined)
+
+        if (opened) void ipc.close({ id: opened }).catch(() => undefined)
+      })
+    },
+    { equals: (a, b) => a.desktop === b.desktop && a.server === b.server && a.session === b.session && a.path === b.path && a.content === b.content },
+  )
 
   return (
     <Show
       when={props.kind === "html"}
       fallback={<iframe class="block h-full w-full flex-1 border-0 bg-white" title={getFilename(props.path)} src={`${source().src}#navpanes=0&view=FitH`} referrerPolicy="no-referrer" />}
     >
-      <iframe
-        class="block h-full w-full flex-1 border-0 bg-white"
-        title={getFilename(props.path)}
-        srcdoc={safeHtmlPreview(props.content.content)}
-        sandbox=""
-        referrerPolicy="no-referrer"
-      />
+      <Show
+        when={id()}
+        fallback={
+          <iframe
+            class="block h-full w-full flex-1 border-0 bg-white"
+            title={getFilename(props.path)}
+            srcdoc={safeHtmlPreview(props.content.content)}
+            sandbox=""
+            referrerPolicy="no-referrer"
+          />
+        }
+      >
+        {(embed) => (
+          <div data-slot="artifact-native-preview" role="region" aria-label={getFilename(props.path)} class="relative flex min-h-0 flex-1 flex-col">
+            <embeds.View
+              id={embed()}
+              visible={true}
+              frozen={props.frozen()}
+              page={props.path}
+              class="relative min-h-0 flex-1 bg-white"
+            />
+          </div>
+        )}
+      </Show>
     </Show>
   )
 }

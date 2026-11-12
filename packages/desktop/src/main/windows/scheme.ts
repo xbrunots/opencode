@@ -4,6 +4,8 @@ export const rendererProtocol = "oc"
 
 export const rendererHost = "renderer"
 
+export const previewProtocol = "oc-preview"
+
 export function loadWindow(win: BrowserWindow, html: string) {
   const devUrl = process.env.ELECTRON_RENDERER_URL
 
@@ -34,6 +36,10 @@ export function isRendererUrl(value?: string, html = false) {
 // before it loads anything else.
 export function registerRendererScheme() {
   electron.protocol.registerSchemesAsPrivileged([
+    {
+      scheme: previewProtocol,
+      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+    },
     {
       scheme: rendererProtocol,
       privileges: {

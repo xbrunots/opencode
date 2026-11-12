@@ -21,7 +21,7 @@ export const builtins = compose({
   btw,
   debug: { ...debug, mainEntry: () => import("./debug/main") },
   terminal,
-  file,
+  file: { ...file, mainEntry: () => import("./file/main") },
   review,
   details,
   browser: { ...browser, mainEntry: () => import("./browser/main") },

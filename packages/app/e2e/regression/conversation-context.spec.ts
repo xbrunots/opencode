@@ -3,21 +3,37 @@ import type { SessionMessageInfo } from "@opencode/client/promise"
 import { pageMessagesFrom } from "../utils/app"
 import { openSession } from "../utils/workspace"
 
-test("conversation context sits 16 pixels from the workspace edge", async ({ page }) => {
+test("conversation context leaves 8 pixels beside the timeline scrollbar", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   const id = "ses_context_edge"
   await openSession(page, {
     name: "ContextEdge",
     sessions: [{ id, title: "Context edge" }],
     seed: { tabs: [id] },
+    pageMessages: pageMessagesFrom({
+      [id]: [{ id: "msg_context_edge", type: "user", text: "A long conversation. ".repeat(1200), time: { created: 1 } }],
+    }),
   })
   const card = page.getByRole("region", { name: "Conversation context", exact: true })
+  const scrollbar = page.locator('[data-slot="session-timeline-visible"] .scroll-view__thumb[data-orientation="vertical"]')
   await expect(card).toBeVisible()
-  await expect.poll(async () => {
-    const box = await card.boundingBox()
+  await expect(scrollbar).toHaveCount(1)
 
-    return box ? Math.abs(1440 - box.x - box.width - 16) : Number.POSITIVE_INFINITY
-  }).toBeLessThanOrEqual(1)
+  for (const width of [1440, 1024, 800]) {
+    await page.setViewportSize({ width, height: 900 })
+    await expect.poll(async () => {
+      const cardBox = await card.boundingBox()
+
+      const bar = await scrollbar.evaluate((element) => {
+        const box = element.getBoundingClientRect()
+        const width = parseFloat(getComputedStyle(element, "::after").width)
+
+        return box.left + (box.width - width) / 2
+      })
+
+      return cardBox ? Math.abs(bar - cardBox.x - cardBox.width - 8) : Number.POSITIVE_INFINITY
+    }).toBeLessThanOrEqual(1)
+  }
 })
 
 test("shows the recorded motion evaluator only in conversation context", async ({ page }) => {

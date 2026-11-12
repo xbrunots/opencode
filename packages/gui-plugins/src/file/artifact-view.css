@@ -15,6 +15,29 @@
   overflow: hidden;
 }
 
+[data-slot="artifact-annotation-toolbar"] {
+  display: flex;
+  flex: none;
+  height: 40px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-inline: 12px;
+  background: var(--v2-background-bg-base);
+}
+
+[data-slot="artifact-annotation-native-open"] {
+  border: 1px solid var(--v2-border-border-base);
+  border-radius: 8px;
+  padding: 5px 10px;
+  background: var(--v2-background-bg-layer-02);
+  color: var(--v2-text-text-base);
+  font-size: 12px;
+}
+
+[data-slot="artifact-annotation-stage"][data-native] [data-slot="artifact-annotation-target"] {
+  top: 40px;
+}
+
 [data-slot="artifact-annotation-open"] {
   position: absolute;
   z-index: 5;
@@ -40,6 +63,7 @@
 
 [data-slot="artifact-annotation-target"]:focus-visible,
 [data-slot="artifact-annotation-open"]:focus-visible,
+[data-slot="artifact-annotation-native-open"]:focus-visible,
 [data-slot="artifact-annotation-form"] :focus-visible {
   outline: 2px solid var(--v2-text-text-base);
   outline-offset: -2px;

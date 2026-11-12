@@ -1,8 +1,15 @@
-import { createSignal, Show, type JSX } from "solid-js"
+import { createSignal, onCleanup, Show, type JSX } from "solid-js"
 import { usePlugin } from "@opencode/plugin/gui"
 
 /** Keep the preview interactive until the user explicitly chooses to mark a point. */
-export function ArtifactAnnotation(props: { sessionID: string; serverID: string; path: string; children: JSX.Element }) {
+export function ArtifactAnnotation(props: {
+  sessionID: string
+  serverID: string
+  path: string
+  native?: boolean
+  onActiveChange?: (active: boolean) => void
+  children: JSX.Element
+}) {
   const ctx = usePlugin()
   const [active, setActive] = createSignal(false)
   const [point, setPoint] = createSignal<{ sessionID: string; serverID: string; path: string; x: number; y: number; left: number; top: number; time?: number }>()
@@ -11,8 +18,11 @@ export function ArtifactAnnotation(props: { sessionID: string; serverID: string;
   const [outside, setOutside] = createSignal(false)
   let stage: HTMLDivElement | undefined
 
+  onCleanup(() => props.onActiveChange?.(false))
+
   const cancel = () => {
     setActive(false)
+    props.onActiveChange?.(false)
     setPoint(undefined)
     setComment("")
     setFailed(false)
@@ -22,7 +32,7 @@ export function ArtifactAnnotation(props: { sessionID: string; serverID: string;
   const select = (clientX: number, clientY: number) => {
     if (!stage) return
     const stageRect = stage.getBoundingClientRect()
-    const media = stage.querySelector<HTMLVideoElement | HTMLImageElement | HTMLIFrameElement>("video, img[data-slot='artifact-media'], iframe")
+    const media = stage.querySelector<HTMLVideoElement | HTMLImageElement | HTMLIFrameElement | HTMLDivElement>("video, img[data-slot='artifact-media'], iframe, [data-slot='artifact-native-preview']")
     const rect = media?.getBoundingClientRect() ?? stageRect
 
     if (!rect.width || !rect.height) return
@@ -71,10 +81,25 @@ export function ArtifactAnnotation(props: { sessionID: string; serverID: string;
   }
 
   return (
-    <div ref={stage} data-slot="artifact-annotation-stage">
+    <div ref={stage} data-slot="artifact-annotation-stage" data-native={props.native ? "" : undefined}>
+      <Show when={props.native}>
+        <div data-slot="artifact-annotation-toolbar">
+          <Show when={!active()}>
+            <button type="button" data-slot="artifact-annotation-native-open" onClick={() => {
+              setActive(true)
+              props.onActiveChange?.(true)
+            }}>
+              {ctx.t("view.annotate")}
+            </button>
+          </Show>
+        </div>
+      </Show>
       {props.children}
-      <Show when={!active()}>
-        <button type="button" data-slot="artifact-annotation-open" onClick={() => setActive(true)}>
+      <Show when={!active() && !props.native}>
+        <button type="button" data-slot="artifact-annotation-open" onClick={() => {
+          setActive(true)
+          props.onActiveChange?.(true)
+        }}>
           {ctx.t("view.annotate")}
         </button>
       </Show>
@@ -84,7 +109,7 @@ export function ArtifactAnnotation(props: { sessionID: string; serverID: string;
           data-slot="artifact-annotation-target"
           aria-label={ctx.t("view.annotate.hint")}
           onClick={(event) => {
-            const rect = (stage?.querySelector("video, img[data-slot='artifact-media'], iframe") ?? event.currentTarget).getBoundingClientRect()
+            const rect = (stage?.querySelector("video, img[data-slot='artifact-media'], iframe, [data-slot='artifact-native-preview']") ?? event.currentTarget).getBoundingClientRect()
             select(event.detail === 0 ? rect.left + rect.width / 2 : event.clientX, event.detail === 0 ? rect.top + rect.height / 2 : event.clientY)
           }}
         >
