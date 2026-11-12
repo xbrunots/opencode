@@ -119,6 +119,12 @@ export function TabNavItem(
   const serverCtx = useServerCtx(() => servers.list.find((item) => ServerConnection.key(item) === props.server))
 
   const exporter = createSessionExporter()
+  createEffect(() => {
+    const session = props.session
+    const context = serverCtx()
+    if (!session || !context || context.data.location.vcs.info(session.location)) return
+    void context.data.location.vcs.sync(session.location).catch(() => undefined)
+  })
 
   // Shows the optimistic title, or the one to restore when its save fails.
   const rememberTitle = (sessionID: string, title: string | undefined) => {

@@ -1,4 +1,4 @@
-import { createMemo, For, Show } from "solid-js"
+import { createMemo, For, onMount, Show } from "solid-js"
 import type { SessionInfo } from "@opencode/client/promise"
 import { Icon } from "@opencode/ui/icon"
 import { getFilename } from "@opencode/util/path"
@@ -60,6 +60,11 @@ export function SidebarProjectTree(props: {
                   Number(right.metadata?.opencodexPinned === true) - Number(left.metadata?.opencodexPinned === true),
               ),
           )
+          onMount(() => {
+            const context = global.serverCtx(key())
+            if (context && !context.data.location.vcs.info({ directory }))
+              void context.data.location.vcs.sync({ directory }).catch(() => undefined)
+          })
           const branch = () => global.serverCtx(key())?.data.location.vcs.info({ directory })?.branch.current
           const roots = () =>
             sessions().filter(
