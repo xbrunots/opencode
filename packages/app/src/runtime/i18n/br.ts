@@ -1,4 +1,24 @@
 export const dict = {
+  "context.extensions": "Extensões",
+  "context.availableMcps": "Servidores MCP",
+  "context.availablePlugins": "Plug-ins",
+  "context.availableSkills": "Skills disponíveis",
+  "context.searchSkills": "Buscar skills",
+  "context.noMatches": "Nenhuma skill encontrada",
+  "context.noConfigured": "Nenhum configurado",
+  "context.addMcp": "Adicionar servidor MCP com OpenCodex",
+  "context.addPlugin": "Adicionar plug-in com OpenCodex",
+  "context.addSkill": "Adicionar skill com OpenCodex",
+  "context.configuration": "Arquivo de configuração",
+  "context.copyConfiguration": "Copiar caminho da configuração",
+  "context.configMissing": "Nenhum arquivo de configuração encontrado",
+  "context.loadPluginsFailed": "Não foi possível carregar os plug-ins",
+  "context.setupMcpPrompt":
+    "Ajude-me a adicionar um servidor MCP à configuração global do OpenCode. Pergunte qual serviço quero conectar, configure e verifique a conexão.",
+  "context.setupPluginPrompt":
+    "Ajude-me a adicionar um plug-in à configuração global do OpenCode. Pergunte o que ele deve fazer, sugira um plug-in e adicione-o.",
+  "context.setupSkillPrompt":
+    "Ajude-me a criar uma skill na configuração global do OpenCode. Pergunte o que ela deve ensinar e escreva seu SKILL.md.",
   "context.workspaceDiffError": "Não foi possível carregar todas as alterações.",
   "sidebar.group.create": "Criar grupo",
   "sidebar.group.name": "Nome do grupo",

@@ -1,7 +1,7 @@
 import { createMemo, createSignal, onCleanup, Show, untrack } from "solid-js"
 import { useQueryClient } from "@tanstack/solid-query"
 import type { SessionInfo } from "@opencode/client/promise"
-import { ActivityRing } from "@opencode/ui/activity-ring"
+import { MorphLoader } from "./morph-loader"
 import { Button } from "@opencode/ui/button"
 import { useDialog, useDialogLayer } from "@opencode/ui/context/dialog"
 import { Dialog, DialogBody, DialogFooter, DialogHeader, DialogTitleGroup } from "@opencode/ui/dialog"
@@ -202,7 +202,7 @@ export function ProjectSessionRow(props: {
               </Show>
             }
           >
-            <ActivityRing width={14} height={14} />
+            <MorphLoader />
           </Show>
         </span>
       </Menu.Context.Trigger>

@@ -34,6 +34,8 @@ import { useSessionLayout } from "@/session/session-layout"
 import { showToast } from "@/shell/notifications/toast"
 import { ProviderModelIcon } from "@/providers/models/provider-group"
 import { DialogMcp } from "@/providers/connect/mcp-dialog"
+import { globalConfigDirectory, serviceConfigFile } from "@opencode/gui-plugins/details/config-file"
+import { useTabs } from "@/shell/tabs/tabs"
 import { useRoutedSessionTargetParams, useSessionTargetFocused } from "@/session/target"
 import { useOpenSessionRoute } from "@/session/session-identity-header"
 import "./conversation-context.css"
@@ -145,6 +147,8 @@ export function ConversationContext() {
   const language = useLanguage()
   const platform = usePlatform()
   const command = useCommand()
+  const tabs = useTabs()
+  const [skillQuery, setSkillQuery] = createSignal("")
   const dialog = useDialog()
   const host = usePluginHost()
   const attachment = usePluginAttachment()
@@ -172,6 +176,66 @@ export function ConversationContext() {
   const servers = () => {
     const dir = directory()
     return dir ? data.location.mcp.server.list({ directory: dir }) : undefined
+  }
+  const catalog = () => {
+    const dir = directory()
+    return dir ? data.location.skill.list({ directory: dir }) : undefined
+  }
+  const filteredSkills = createMemo(() => {
+    const query = skillQuery().trim().toLocaleLowerCase()
+    return (catalog() ?? [])
+      .filter((skill) => !query || skill.name.toLocaleLowerCase().includes(query))
+      .toSorted((a, b) => a.name.localeCompare(b.name))
+  })
+  const [plugins, pluginActions] = createResource(
+    () => (opened() && directory() ? directory() : undefined),
+    async (dir) =>
+      (await sdk.api.plugin.list({ location: { directory: dir } })).data.filter(
+        (plugin) => plugin.source.type !== "builtin",
+      ),
+  )
+  createEffect(() => {
+    const dir = directory()
+    if (!opened() || !dir) return
+    const off = sdk.event.on("plugin.updated", (event) => {
+      if (!event.location || event.location.directory === dir) void pluginActions.refetch()
+    })
+    onCleanup(off)
+  })
+  const extensionAction = async (service: "mcp" | "plugins" | "skills", action: "setup" | "config") => {
+    const dir = directory()
+    if (!dir) return
+    try {
+      const entries = await sdk.api.config.get({ location: { directory: dir } })
+      if (action === "setup") {
+        const prompt =
+          service === "mcp"
+            ? language.t("context.setupMcpPrompt")
+            : service === "plugins"
+              ? language.t("context.setupPluginPrompt")
+              : language.t("context.setupSkillPrompt")
+        await tabs.newDraft({ server: server.key, directory: globalConfigDirectory(entries, dir) }, prompt)
+        return
+      }
+      const path = serviceConfigFile(entries, service)
+      if (!path) throw new Error(language.t("context.configMissing"))
+      if (server.isLocal) {
+        if (host.links.open({ href: path, exact: true, session: attachment.current() })) return
+        if (platform.revealPath) {
+          await platform.revealPath(path)
+          return
+        }
+        throw new Error(language.t("context.openFailed"))
+      }
+      if (platform.writeClipboardText) await platform.writeClipboardText(path)
+      else await navigator.clipboard.writeText(path)
+    } catch (error) {
+      showToast({
+        variant: "error",
+        title: language.t("context.openFailed"),
+        description: error instanceof Error ? error.message : undefined,
+      })
+    }
   }
   const facts = createMemo(() =>
     conversationContextFacts(visible() ? messages() : [], visible() ? (servers() ?? []) : []),
@@ -536,6 +600,184 @@ export function ConversationContext() {
                   )}
                 </For>
               </ContextSection>
+              <section class="conversation-context-extensions" aria-label={language.t("context.extensions")}>
+                <h3>{language.t("context.extensions")}</h3>
+                <details class="conversation-context-section">
+                  <summary>
+                    <Icon name="mcp" />
+                    <span>{language.t("context.availableMcps")}</span>
+                    <b>{servers()?.length ?? "-"}</b>
+                    <Icon name="chevron-down" class="conversation-context-chevron" />
+                  </summary>
+                  <Show
+                    when={servers()?.length}
+                    fallback={
+                      <p class="conversation-context-empty">
+                        {servers() ? language.t("context.noConfigured") : language.t("context.catalogUnavailable")}
+                      </p>
+                    }
+                  >
+                    <div class="conversation-context-catalog">
+                      <For each={servers()}>
+                        {(item) => (
+                          <button
+                            type="button"
+                            class="conversation-context-item"
+                            onClick={() => {
+                              const dir = directory()
+                              if (dir) dialog.show(() => <DialogMcp directory={dir} server={item.name} />)
+                            }}
+                          >
+                            <Icon name="mcp" />
+                            <span>{item.name}</span>
+                          </button>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                  <button
+                    type="button"
+                    class="conversation-context-item"
+                    onClick={() => void extensionAction("mcp", "setup")}
+                  >
+                    <Icon name="plus" />
+                    <span>{language.t("context.addMcp")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="conversation-context-item"
+                    onClick={() => void extensionAction("mcp", "config")}
+                  >
+                    <Icon name="settings-gear" />
+                    <span>
+                      {server.isLocal ? language.t("context.configuration") : language.t("context.copyConfiguration")}
+                    </span>
+                  </button>
+                </details>
+                <details class="conversation-context-section">
+                  <summary>
+                    <Icon name="cube" />
+                    <span>{language.t("context.availablePlugins")}</span>
+                    <b>{plugins()?.length ?? "-"}</b>
+                    <Icon name="chevron-down" class="conversation-context-chevron" />
+                  </summary>
+                  <Show
+                    when={!plugins.error}
+                    fallback={
+                      <p class="conversation-context-empty">
+                        {language.t("context.loadPluginsFailed")}{" "}
+                        <button type="button" onClick={() => void pluginActions.refetch()}>
+                          {language.t("common.retry")}
+                        </button>
+                      </p>
+                    }
+                  >
+                    <Show
+                      when={plugins()?.length}
+                      fallback={
+                        <p class="conversation-context-empty">
+                          {plugins.loading ? language.t("context.loading") : language.t("context.noConfigured")}
+                        </p>
+                      }
+                    >
+                      <div class="conversation-context-catalog">
+                        <For each={plugins()}>
+                          {(plugin) => (
+                            <div class="conversation-context-item">
+                              <Icon name="cube" />
+                              <span>
+                                {plugin.id ??
+                                  (plugin.source.type === "package"
+                                    ? plugin.source.target
+                                    : plugin.source.type === "local"
+                                      ? plugin.source.path
+                                      : plugin.source.type)}
+                              </span>
+                              <small>{plugin.state.status}</small>
+                            </div>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
+                  </Show>
+                  <button
+                    type="button"
+                    class="conversation-context-item"
+                    onClick={() => void extensionAction("plugins", "setup")}
+                  >
+                    <Icon name="plus" />
+                    <span>{language.t("context.addPlugin")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="conversation-context-item"
+                    onClick={() => void extensionAction("plugins", "config")}
+                  >
+                    <Icon name="settings-gear" />
+                    <span>
+                      {server.isLocal ? language.t("context.configuration") : language.t("context.copyConfiguration")}
+                    </span>
+                  </button>
+                </details>
+                <details class="conversation-context-section">
+                  <summary>
+                    <Icon name="post-skill" />
+                    <span>{language.t("context.availableSkills")}</span>
+                    <b>{catalog()?.length ?? "-"}</b>
+                    <Icon name="chevron-down" class="conversation-context-chevron" />
+                  </summary>
+                  <label class="conversation-context-search">
+                    <span class="sr-only">{language.t("context.searchSkills")}</span>
+                    <input
+                      value={skillQuery()}
+                      onInput={(event) => setSkillQuery(event.currentTarget.value)}
+                      placeholder={language.t("context.searchSkills")}
+                    />
+                  </label>
+                  <Show
+                    when={filteredSkills().length}
+                    fallback={
+                      <p class="conversation-context-empty">
+                        {catalog() ? language.t("context.noMatches") : language.t("context.loading")}
+                      </p>
+                    }
+                  >
+                    <div class="conversation-context-catalog">
+                      <For each={filteredSkills()}>
+                        {(skill) => (
+                          <button
+                            type="button"
+                            class="conversation-context-item"
+                            title={skill.description ?? skill.name}
+                            onClick={() => openSkill({ id: skill.id, name: skill.name, text: skill.content, count: 1 })}
+                          >
+                            <Icon name="post-skill" />
+                            <span>{skill.name}</span>
+                          </button>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                  <button
+                    type="button"
+                    class="conversation-context-item"
+                    onClick={() => void extensionAction("skills", "setup")}
+                  >
+                    <Icon name="plus" />
+                    <span>{language.t("context.addSkill")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="conversation-context-item"
+                    onClick={() => void extensionAction("skills", "config")}
+                  >
+                    <Icon name="settings-gear" />
+                    <span>
+                      {server.isLocal ? language.t("context.configuration") : language.t("context.copyConfiguration")}
+                    </span>
+                  </button>
+                </details>
+              </section>
               <Show when={data.session.message.more(params.id)}>
                 <p class="conversation-context-notice">
                   {language.t("context.loadedHistory")}

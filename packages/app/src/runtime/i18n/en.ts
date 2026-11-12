@@ -1,6 +1,26 @@
 import { DESKTOP_NATIVE_ENGLISH } from "./desktop-native"
 
 export const dict = {
+  "context.extensions": "Extensions",
+  "context.availableMcps": "MCP servers",
+  "context.availablePlugins": "Plugins",
+  "context.availableSkills": "Available skills",
+  "context.searchSkills": "Search skills",
+  "context.noMatches": "No matching skills",
+  "context.noConfigured": "None configured",
+  "context.addMcp": "Add MCP server with OpenCodex",
+  "context.addPlugin": "Add plugin with OpenCodex",
+  "context.addSkill": "Add skill with OpenCodex",
+  "context.configuration": "Configuration file",
+  "context.copyConfiguration": "Copy configuration path",
+  "context.configMissing": "No configuration file found",
+  "context.loadPluginsFailed": "Could not load plugins",
+  "context.setupMcpPrompt":
+    "Help me add an MCP server to my global OpenCode config. Ask me which service I want to connect, then set it up and check that it connects.",
+  "context.setupPluginPrompt":
+    "Help me add a plugin to my global OpenCode config. Ask me what I want it to do, suggest a plugin, then add it.",
+  "context.setupSkillPrompt":
+    "Help me write a new OpenCode skill in my global config. Ask me what it should teach you, then write its SKILL.md.",
   "context.workspaceDiffError": "Some changes could not be loaded.",
   "sidebar.group.create": "Create group",
   "sidebar.group.name": "Group name",

@@ -189,3 +189,76 @@ test("context refreshes working changes after a filesystem event", async ({ page
   await expect(changes).toContainText("+9")
   await expect(card).toContainText("feature/live")
 })
+test("conversation context contains searchable skills and extension setup actions", async ({ page }) => {
+  await openSession(page, {
+    name: "ContextExtensions",
+    skills: [
+      {
+        id: "skill_one",
+        name: "review-ui",
+        description: "Review UI",
+        path: "C:/OpenCode/skills/review-ui/SKILL.md",
+        content: "Check the UI.",
+      },
+      {
+        id: "skill_two",
+        name: "write-tests",
+        description: "Write tests",
+        path: "C:/OpenCode/skills/write-tests/SKILL.md",
+        content: "Check tests.",
+      },
+    ],
+    mcp: [{ name: "github", title: "GitHub", status: { status: "connected" } }],
+  })
+  const card = page.getByRole("region", { name: "Conversation context", exact: true })
+  await expect(card).toBeVisible()
+  await card.locator("summary").filter({ hasText: "Available skills" }).click()
+  const search = card.getByRole("textbox", { name: "Search skills" })
+  await expect(card.getByRole("button", { name: "review-ui", exact: true })).toBeVisible()
+  await expect(card.getByRole("button", { name: "write-tests", exact: true })).toBeVisible()
+  await search.fill("review")
+  await expect(card.getByRole("button", { name: "review-ui", exact: true })).toBeVisible()
+  await expect(card.getByRole("button", { name: "write-tests", exact: true })).toHaveCount(0)
+  await expect(card.getByRole("button", { name: "Add skill with OpenCodex", exact: true })).toBeVisible()
+  await card.locator("summary").filter({ hasText: "Plugins" }).click()
+  await expect(card.getByRole("button", { name: "Add plugin with OpenCodex", exact: true })).toBeVisible()
+  await card.locator("summary").filter({ hasText: "MCP servers" }).click()
+  await expect(card.getByRole("button", { name: "github", exact: true })).toBeVisible()
+  await card.getByRole("button", { name: "Add MCP server with OpenCodex", exact: true }).click()
+  await expect(page).toHaveURL(/\/new-session\?draftId=/)
+  await expect(page.locator('[data-component="composer-editor"]')).toContainText("Help me add an MCP server")
+})
+test("context opens the configuration file for the selected extension", async ({ page }) => {
+  const config = "C:/OpenCode/ConfigContext/opencode.jsonc"
+  await openSession(page, {
+    name: "ConfigContext",
+    configEntries: [
+      {
+        type: "document",
+        path: config,
+        info: { mcp: { servers: { example: { type: "remote", url: "https://example.com" } } } },
+      },
+    ],
+    fileContent: () => ({ type: "text", content: "{ }" }),
+  })
+  const card = page.getByRole("region", { name: "Conversation context", exact: true })
+  await card.locator("summary").filter({ hasText: "MCP servers" }).click()
+  const read = page.waitForRequest((request) => new URL(request.url()).pathname.endsWith("/api/fs/read/opencode.jsonc"))
+  await card.getByRole("button", { name: "Configuration file", exact: true }).click()
+  expect(new URL((await read).url()).searchParams.get("location[directory]")).toContain("ConfigContext")
+  await expect(page.getByRole("tab", { name: "opencode.jsonc", exact: true })).toBeVisible()
+})
+
+for (const extension of [
+  { section: "Plugins", action: "Add plugin with OpenCodex", prompt: "Help me add a plugin" },
+  { section: "Available skills", action: "Add skill with OpenCodex", prompt: "Help me write a new OpenCode skill" },
+]) {
+  test(`extension setup draft: ${extension.section}`, async ({ page }) => {
+    await openSession(page, { name: `Draft${extension.section.replaceAll(" ", "")}` })
+    const card = page.getByRole("region", { name: "Conversation context", exact: true })
+    await card.locator("summary").filter({ hasText: extension.section }).click()
+    await card.getByRole("button", { name: extension.action, exact: true }).click()
+    await expect(page).toHaveURL(/\/new-session\?draftId=/)
+    await expect(page.locator('[data-component="composer-editor"]')).toContainText(extension.prompt)
+  })
+}

@@ -2827,3 +2827,56 @@ test("renaming a project updates the matching project and sidebar", async ({ pag
   await expect(dialog).toBeHidden()
   await expect(row.getByRole("button", { name: "Renamed project", exact: true })).toBeVisible()
 })
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`project and tab activity and branch badges remain visible in ${scheme} mode`, async ({ page }) => {
+    const running = { id: `ses_morph_${scheme}`, title: "Running branch" }
+    const idle = { id: `ses_idle_${scheme}`, title: "Idle branch" }
+    await mockWorkspace(page, {
+      name: `Morph${scheme}`,
+      sessions: [running, idle],
+      sessionStatus: { [running.id]: { type: "running" } },
+      seed: {
+        tabs: [running.id, idle.id],
+        theme: { id: "oc-2", scheme },
+        settings: { appearance: { tabLayout: "vertical" }, general: { sidebarOrganize: "projects" } },
+      },
+    })
+    await page.goto(sessionHref(running.id))
+    const sidebar = page.locator('[data-slot="sidebar-project-tree"]')
+    const runningRow = sidebar.getByRole("button", { name: /Running branch/ })
+    const idleRow = sidebar.getByRole("button", { name: /Idle branch/ })
+    await expect(runningRow.locator('[data-component="morph-loader"]')).toBeVisible()
+    await expect(idleRow.locator('[data-component="morph-loader"]')).toHaveCount(0)
+    const top = page.locator('[data-slot="workspace-conversation-tabs"]')
+    await expect(top.locator('[data-titlebar-tab][data-status="busy"] [data-component="morph-loader"]')).toBeVisible()
+    for (const badge of [
+      runningRow.locator('[data-slot="session-branch-tag"]'),
+      idleRow.locator('[data-slot="session-branch-tag"]'),
+      top.locator('[data-titlebar-tab][data-active="true"] [data-slot="session-branch-tag"]'),
+      top.locator('[data-titlebar-tab]:not([data-active="true"]) [data-slot="session-branch-tag"]').first(),
+    ]) {
+      await expect(badge).toHaveText("main")
+      const contrast = await badge.evaluate((element) => {
+        const surface = element.closest("[data-titlebar-tab-action], [data-titlebar-tab]")
+        if (!surface) throw new Error("Missing tab surface")
+        const canvas = document.createElement("canvas")
+        canvas.width = 1
+        canvas.height = 1
+        const context = canvas.getContext("2d")!
+        const pixel = (color: string) => {
+          context.clearRect(0, 0, 1, 1)
+          context.fillStyle = color
+          context.fillRect(0, 0, 1, 1)
+          return [...context.getImageData(0, 0, 1, 1).data]
+        }
+        const foreground = pixel(getComputedStyle(element).backgroundColor)
+        const background = pixel(getComputedStyle(surface).backgroundColor)
+        return Math.max(...foreground.slice(0, 3).map((value, i) => Math.abs(value - background[i]!)))
+      })
+      expect(contrast).toBeGreaterThan(20)
+    }
+    await page.emulateMedia({ reducedMotion: "reduce" })
+    await expect(runningRow.locator('[data-component="morph-loader"]')).toHaveCSS("animation-name", "none")
+  })
+}
