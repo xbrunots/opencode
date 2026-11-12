@@ -1,7 +1,27 @@
 import { expect, test } from "@playwright/test"
 import type { SessionMessageInfo } from "@opencode/client/promise"
-import { pageMessagesFrom, SERVER } from "../utils/app"
+import { holdRoute, pageMessagesFrom, SERVER } from "../utils/app"
 import { openSession } from "../utils/workspace"
+
+test("conversation remains interactive while the context catalog loads", async ({ page }) => {
+  await openSession(page, { name: "ContextLoading" })
+  const card = page.getByRole("region", { name: "Conversation context", exact: true })
+  const editor = page.locator('[data-component="composer-editor"]')
+  await expect(card).toBeVisible()
+  await card.getByRole("button", { name: "Close conversation context", exact: true }).click()
+  await expect(card).toBeHidden()
+  const pending = await holdRoute(page, /\/api\/plugin(?:\?|$)/)
+  try {
+    await page.getByRole("button", { name: "Conversation context", exact: true }).click()
+    await pending.arrived
+    await expect(card).toBeVisible()
+    await expect(editor).toBeEditable()
+    await editor.fill("Keep working while the catalog loads")
+    await expect(editor).toContainText("Keep working while the catalog loads")
+  } finally {
+    pending.release()
+  }
+})
 
 test("conversation context leaves 8 pixels beside the timeline scrollbar", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -284,25 +304,18 @@ test("conversation context contains searchable skills and extension setup action
   const floating = page.locator(".workspace-floating-chat")
   await expect(floating.locator('[data-component="composer-editor"]')).toContainText("/opencodex-mcp Help me add an MCP server")
 })
-test("context opens the configuration file for the selected extension", async ({ page }) => {
-  const config = "C:/OpenCode/ConfigContext/opencode.jsonc"
-  await openSession(page, {
-    name: "ConfigContext",
-    configEntries: [
-      {
-        type: "document",
-        path: config,
-        info: { mcp: { servers: { example: { type: "remote", url: "https://example.com" } } } },
-      },
-    ],
-    fileContent: () => ({ type: "text", content: "{ }" }),
-  })
+test("extension sections keep add actions while configuration links are hidden", async ({ page }) => {
+  await openSession(page, { name: "ConfigContext" })
   const card = page.getByRole("region", { name: "Conversation context", exact: true })
-  await card.locator("summary").filter({ hasText: "MCP servers" }).click()
-  const read = page.waitForRequest((request) => new URL(request.url()).pathname.endsWith("/api/fs/read/opencode.jsonc"))
-  await card.getByRole("button", { name: "Configuration file", exact: true }).click()
-  expect(new URL((await read).url()).searchParams.get("location[directory]")).toContain("ConfigContext")
-  await expect(page.getByRole("tab", { name: "opencode.jsonc", exact: true })).toBeVisible()
+  for (const section of [
+    { name: "MCP servers", add: "Add MCP server with OpenCodex" },
+    { name: "Plugins", add: "Add plugin with OpenCodex" },
+    { name: "Available skills", add: "Add skill with OpenCodex" },
+  ]) {
+    await card.locator("summary").filter({ hasText: section.name }).click()
+    await expect(card.getByRole("button", { name: section.add, exact: true })).toBeVisible()
+  }
+  await expect(card.getByRole("button", { name: "Configuration file", exact: true })).toHaveCount(0)
 })
 
 for (const extension of [

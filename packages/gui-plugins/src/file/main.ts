@@ -18,9 +18,9 @@ const scheme = "oc-preview"
 
 const setup: Plugin.MainSetup = (ctx) => {
   const runtime = ManagedRuntime.make(NodeHttpClient.layerNodeHttp)
-  const views = new Map<string, { window: number; close: () => void; view: Electron.WebContentsView; source: (url: URL) => Promise<{ path: string; content: string } | undefined> }>()
+  const views = new Map<string, { window: number; close: () => void; view: Electron.WebContentsView; source: (url: URL) => Promise<{ path: string; content: string } | undefined>; style?: string; styling: Promise<void> }>()
 
-  ctx.provide(HtmlPreview, {
+  const provider = ctx.provide(HtmlPreview, {
     open: async (input, caller) => {
       const server = ctx.serverEndpoints.get(input.server)
       const win = ctx.windows.get(caller.window)
@@ -231,6 +231,7 @@ const setup: Plugin.MainSetup = (ctx) => {
         contents.on("will-frame-navigate", guard)
         contents.on("will-redirect", guard)
         const embed = ctx.embeds.create(view, win)
+        contents.on("context-menu", () => provider.emit("contextMenu", { id: embed.id }, caller.window))
 
         const close = () => {
           if (!views.has(embed.id)) return
@@ -243,7 +244,7 @@ const setup: Plugin.MainSetup = (ctx) => {
           deny.close()
         }
 
-        views.set(embed.id, { window: caller.window, close, view, source })
+        views.set(embed.id, { window: caller.window, close, view, source, styling: Promise.resolve() })
         registered = true
         win.once("closed", close)
         contents.once("destroyed", close)
@@ -280,6 +281,19 @@ const setup: Plugin.MainSetup = (ctx) => {
 
       await debugger_.sendCommand("Page.setWebLifecycleState", { state: "active" })
       await debugger_.sendCommand("Animation.setPlaybackRate", { playbackRate: 1 })
+    },
+    appearance: async (input, caller) => {
+      const entry = views.get(input.id)
+      if (!entry || entry.window !== caller.window) return
+      entry.styling = entry.styling.then(async () => {
+        const contents = entry.view.webContents
+        if (contents.isDestroyed()) return
+        const thumb = input.mode === "dark" ? "rgba(255,255,255,.22)" : "rgba(0,0,0,.22)"
+        const key = await contents.insertCSS(`*::-webkit-scrollbar { width: 6px !important; height: 6px !important; } *::-webkit-scrollbar-track { background: transparent !important; } *::-webkit-scrollbar-thumb { background: ${thumb} !important; border-radius: 6px !important; }`)
+        if (entry.style && !contents.isDestroyed()) await contents.removeInsertedCSS(entry.style)
+        entry.style = key
+      }).catch(() => undefined)
+      await entry.styling
     },
     inspect: async (input, caller) => {
       const entry = views.get(input.id)

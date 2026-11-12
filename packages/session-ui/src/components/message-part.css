@@ -245,6 +245,23 @@
     border: none;
     padding: 8px 12px;
     border-radius: 10px;
+
+    > [data-slot="user-message-attachments"],
+    > [data-slot="user-message-previews"] {
+      max-width: 100%;
+      margin: 0 0 8px;
+    }
+
+    [data-slot="user-message-previews"] {
+      display: grid;
+      gap: 8px;
+      width: min(320px, 100%);
+      white-space: normal;
+    }
+
+    [data-markdown-image-item]:not(:has(img[data-loaded])) {
+      display: none;
+    }
     /* Where two bubbles of a run meet, their trailing corners tighten to 4px. */
     border-start-end-radius: calc(10px - 6px * var(--user-run-top, 0));
     border-end-end-radius: calc(10px - 6px * var(--user-run-bottom, 0));

@@ -94,6 +94,7 @@ export default function ArtifactView(props: {
   const [viewerState, setViewerState] = createSignal(createArtifactViewerState(props.content))
   const [annotating, setAnnotating] = createSignal(false)
   const [previewID, setPreviewID] = createSignal<string>()
+  let root: HTMLDivElement | undefined
 
   const dispatchViewer = (event: ArtifactViewerEvent) => {
     const prev = untrack(viewerState)
@@ -170,7 +171,7 @@ export default function ArtifactView(props: {
   )
 
   return (
-    <div data-slot="artifact-view" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div ref={root} data-slot="artifact-view" class="flex min-h-0 flex-1 flex-col overflow-hidden">
       <ArtifactToolbar
         session={props.session}
         screen={props.screen}
@@ -178,6 +179,7 @@ export default function ArtifactView(props: {
         text={previewable() ? props.content.content : undefined}
         mode={selectArtifactMode(viewerState(), props.content)}
         onModeChange={previewable() ? (mode) => dispatchViewer({ type: "mode.changed", mode }) : undefined}
+        onEdit={selectArtifactShowingPreview(viewerState(), props.path, props.content) && ["image", "svg", "html", "video"].includes(kind()) ? () => root?.querySelector('[data-slot="artifact-annotation-stage"]')?.dispatchEvent(new Event("opencode-preview-edit")) : undefined}
         meta={meta()}
         html={kind() === "html"}
       />
@@ -743,6 +745,10 @@ function ArtifactFrame(props: { session: MountedSession; path: string; content: 
   const ipc = ctx.main(HtmlPreview)
   const source = createMediaSource(() => props.content)
   const [id, setID] = createSignal<string>()
+
+  createKeyed(() => ({ id: id(), mode: ctx.appearance.mode() }), (target) => {
+    if (target.id) void ipc.appearance({ id: target.id, mode: target.mode }).catch(() => undefined)
+  })
 
   // Keep one native page for the current file; discard a late open after the file or session changes.
   createKeyed(

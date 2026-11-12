@@ -94,6 +94,10 @@ type DrawingStroke = DrawingPoint[]
 
 type ImageMarkupDetail = { serverID?: string; sessionID: string; src: string; file: File; completion?: Promise<boolean> }
 
+type ImageAnnotationEventDetail = { sessionID: string; serverID?: string; src: string; alt?: string; x: number; y: number; time?: number; comment: string; completion?: Promise<boolean> }
+
+type ImageAnnotation = { x: number; y: number; left: number; top: number; text: string; time?: number; error?: boolean }
+
 // Previews closing at once, such as one still flying home under the next, share the body's closing mark.
 let closingPreviews = 0
 
@@ -118,8 +122,8 @@ export function ImagePreview(props: ImagePreviewProps) {
   // its shadow travel above the dialog in place of the real one.
   const [flight, setFlight] = createSignal(INITIAL_PREVIEW_FLIGHT_STATE)
   const [zoom, setZoom] = createSignal(INITIAL_PREVIEW_ZOOM_STATE)
-  const [annotation, setAnnotation] = createSignal<{ x: number; y: number; left: number; top: number; text: string; time?: number; error?: boolean }>()
-  const [sentAnnotations, setSentAnnotations] = createSignal<{ x: number; y: number; comment: string }[]>([])
+  const [annotation, setAnnotation] = createSignal<ImageAnnotation>()
+  const [pendingAnnotations, setPendingAnnotations] = createSignal<ImageAnnotation[]>([])
   const [annotationMode, setAnnotationMode] = createSignal<"comment" | "markup">("comment")
   const [drawingBox, setDrawingBox] = createSignal<{ left: number; top: number; width: number; height: number }>()
   const [strokes, setStrokes] = createSignal<DrawingStroke[]>([])
@@ -330,7 +334,7 @@ export function ImagePreview(props: ImagePreviewProps) {
 
     if (!props.video) image.style.transform = `translate(${xSpring.value}px, ${ySpring.value}px) scale(${scale})`
 
-    if (sentAnnotations().length) positionSentAnnotations()
+    if (pendingAnnotations().length) positionPendingAnnotations()
     const level = Math.round(scale * fitRatio * 100)
 
     if (shown.zoomed !== scale > 1) setShown("zoomed", scale > 1)
@@ -628,10 +632,13 @@ export function ImagePreview(props: ImagePreviewProps) {
   }
 
   const mark = (left: number, top: number) => {
-    if (!props.sessionID || !interactive() || annotation()) return
+    if (!props.sessionID || !interactive() || drawingBusy()) return
     const bounds = image.getBoundingClientRect()
 
     if (!bounds.width || !bounds.height) return
+    const current = annotation()
+
+    if (current?.text.trim()) setPendingAnnotations((notes) => [...notes, current])
     setAnnotation({
       x: Math.max(0, Math.min(100, ((left - bounds.left) / bounds.width) * 100)),
       y: Math.max(0, Math.min(100, ((top - bounds.top) / bounds.height) * 100)),
@@ -643,7 +650,7 @@ export function ImagePreview(props: ImagePreviewProps) {
   }
 
   const startMarkup = () => {
-    if (!interactive() || props.video || annotation()) return
+    if (!interactive() || props.video || annotation() || pendingAnnotations().length) return
     follow(FIT_VIEW.scale, FIT_VIEW.x, FIT_VIEW.y)
     const box = image.getBoundingClientRect()
 
@@ -653,13 +660,54 @@ export function ImagePreview(props: ImagePreviewProps) {
     setAnnotationMode("markup")
   }
 
-  const positionSentAnnotations = () => {
+  const positionPendingAnnotations = () => {
     if (!root || !image) return
     const box = image.getBoundingClientRect()
-    root.querySelectorAll<HTMLElement>('[data-slot="image-preview-sent-marker"]').forEach((marker) => {
+    root.querySelectorAll<HTMLElement>('[data-slot="image-preview-pending-marker"]').forEach((marker) => {
       marker.style.left = `${box.left + box.width * Number(marker.dataset.x) / 100}px`
       marker.style.top = `${box.top + box.height * Number(marker.dataset.y) / 100}px`
     })
+  }
+
+  const sendComments = async () => {
+    if (!props.sessionID || drawingBusy()) return
+    const current = annotation()
+    const pending = [...pendingAnnotations(), ...(current?.text.trim() ? [current] : [])]
+
+    if (!pending.length) return
+    setDrawingBusy(true)
+    setDrawingError(false)
+
+    for (const [index, point] of pending.entries()) {
+      const detail: ImageAnnotationEventDetail = {
+        sessionID: props.sessionID,
+        serverID: props.serverID,
+        src: props.reference ?? props.src,
+        alt: props.alt,
+        x: point.x,
+        y: point.y,
+        time: point.time,
+        comment: point.text.trim(),
+      }
+
+      const event = new CustomEvent("opencode:image-annotation", { cancelable: true, detail })
+      window.dispatchEvent(event)
+      const accepted = event.defaultPrevented && (!detail.completion || await detail.completion.catch(() => false))
+
+      if (!accepted) {
+        const remaining = pending.slice(index)
+        setPendingAnnotations(remaining.slice(0, -1))
+        setAnnotation({ ...remaining.at(-1)!, error: true })
+        setDrawingBusy(false)
+
+        return
+      }
+    }
+
+    setPendingAnnotations([])
+    setAnnotation(undefined)
+    setMarkingVideo(false)
+    setDrawingBusy(false)
   }
 
   const drawingPoint = (event: PointerEvent): DrawingPoint => {
@@ -725,7 +773,7 @@ export function ImagePreview(props: ImagePreviewProps) {
   }
 
   makeEventListener(window, "resize", () => {
-    if (sentAnnotations().length) requestAnimationFrame(positionSentAnnotations)
+    if (pendingAnnotations().length) requestAnimationFrame(positionPendingAnnotations)
 
     if (annotationMode() !== "markup") return
     const box = image.getBoundingClientRect()
@@ -853,7 +901,7 @@ export function ImagePreview(props: ImagePreviewProps) {
       data-component="image-preview"
       data-stage={selectFlightStage(flight())}
       // Zoomed in, the first Escape zooms back out; the dialog stack leaves it to the preview.
-      data-owns-escape={shown.ownsEscape || !!annotation() || strokes().length > 0 ? "" : undefined}
+      data-owns-escape={shown.ownsEscape || !!annotation() || pendingAnnotations().length > 0 || strokes().length > 0 ? "" : undefined}
       style={{ "--image-preview-exit": `${EXIT_DURATION_MS}ms` }}
     >
       <div ref={scrim} data-slot="image-preview-scrim" />
@@ -866,7 +914,7 @@ export function ImagePreview(props: ImagePreviewProps) {
           close?.focus()
         }}
         onEscapeKeyDown={(event) => {
-          if (annotation() || strokes().length) return event.preventDefault()
+          if (annotation() || pendingAnnotations().length || strokes().length) return event.preventDefault()
 
           if (scaleSpring.target <= 1) return
           event.preventDefault()
@@ -887,7 +935,7 @@ export function ImagePreview(props: ImagePreviewProps) {
         }}
         // The preview fills the window, so a click on the backdrop around the image lands here rather than outside.
         onClick={(event: MouseEvent) => {
-          if (strokes().length) return
+          if (annotation() || pendingAnnotations().length || strokes().length) return
           dispatchZoom({
             type: "backdrop.click",
             onBackdrop: event.target === content || event.target === viewport,
@@ -947,13 +995,13 @@ export function ImagePreview(props: ImagePreviewProps) {
             )}
           </Show>
         </div>
-        <For each={sentAnnotations()}>
+        <For each={pendingAnnotations()}>
           {(note, index) => (
             <span
-              data-slot="image-preview-sent-marker"
+              data-slot="image-preview-pending-marker"
               data-x={note.x}
               data-y={note.y}
-              title={note.comment}
+              title={note.text}
               style={{ left: `${image.getBoundingClientRect().left + image.getBoundingClientRect().width * note.x / 100}px`, top: `${image.getBoundingClientRect().top + image.getBoundingClientRect().height * note.y / 100}px` }}
             >{index() + 1}</span>
           )}
@@ -1006,81 +1054,66 @@ export function ImagePreview(props: ImagePreviewProps) {
         <Show when={annotation()}>
           {(point) => (
             <>
-              <span data-slot="image-preview-annotation-marker" style={{ left: `${point().left}px`, top: `${point().top}px` }} aria-hidden="true">{sentAnnotations().length + 1}</span>
+              <span data-slot="image-preview-annotation-marker" style={{ left: `${point().left}px`, top: `${point().top}px` }} aria-hidden="true">{pendingAnnotations().length + 1}</span>
               <form
                 data-slot="image-preview-annotation"
-                style={{ left: `${Math.max(16, Math.min(point().left + 20, window.innerWidth - 376))}px`, top: `${Math.max(16, Math.min(point().top - 20, window.innerHeight - 250))}px` }}
+                style={{ left: `${Math.max(16, Math.min(point().left + 20, window.innerWidth - 296))}px`, top: `${Math.max(16, Math.min(point().top - 20, window.innerHeight - 90))}px` }}
                 onSubmit={(event) => {
                   event.preventDefault()
-                  const comment = point().text.trim()
-
-                  if (!comment || !props.sessionID) return
-
-                  const delivered = new CustomEvent("opencode:image-annotation", {
-                    cancelable: true,
-                    detail: { sessionID: props.sessionID, serverID: props.serverID, src: props.reference ?? props.src, alt: props.alt, x: point().x, y: point().y, time: point().time, comment },
-                  })
-
-                  window.dispatchEvent(delivered)
-
-                  if (!delivered.defaultPrevented) return setAnnotation({ ...point(), error: true })
-
-                  setSentAnnotations((current) => [...current, { x: point().x, y: point().y, comment }])
-                  setAnnotation(undefined)
+                  void sendComments()
                 }}
               >
-                <label for="image-preview-annotation-input">{i18n.t("ui.imagePreview.comment")}</label>
-                <textarea
+                <input
                   id="image-preview-annotation-input"
-                  rows={3}
+                  type="text"
+                  aria-label={i18n.t("ui.imagePreview.comment")}
                   autofocus
                   value={point().text}
-                  placeholder={i18n.t("ui.imagePreview.commentPlaceholder")}
+                  placeholder={i18n.t("ui.imagePreview.compactPlaceholder")}
                   onInput={(event) => setAnnotation({ ...point(), text: event.currentTarget.value })}
                   onKeyDown={(event) => event.stopPropagation()}
                 />
-                <Show when={point().error}><p role="alert">{i18n.t("ui.imagePreview.commentUnavailable")}</p></Show>
-                <div data-slot="image-preview-annotation-actions">
-                  <Button type="button" variant="ghost-muted" size="small" onClick={() => setAnnotation(undefined)}>{i18n.t("ui.common.cancel")}</Button>
-                  <Button type="submit" size="small" disabled={!point().text.trim()}>{i18n.t("ui.imagePreview.addComment")}</Button>
-                </div>
               </form>
             </>
           )}
         </Show>
-        <Show when={!props.video && props.sessionID}>
+        <Show when={props.sessionID}>
           <div data-slot="image-preview-dock" role="toolbar" aria-label={i18n.t("ui.imagePreview.annotationTools")}>
             <span data-slot="image-preview-dock-grip" aria-hidden="true"><svg width="12" height="16" viewBox="0 0 12 16"><circle cx="4" cy="4" r="1"/><circle cx="8" cy="4" r="1"/><circle cx="4" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="8" cy="12" r="1"/></svg></span>
-            <button type="button" aria-pressed={annotationMode() === "markup"} disabled={!!annotation()} title={annotation() ? i18n.t("ui.imagePreview.finishAnnotation") : undefined} onClick={startMarkup}>
-              <Icon name="edit" /><span>{i18n.t("ui.imagePreview.markup")}</span>
-            </button>
-            <button type="button" aria-pressed={annotationMode() === "comment"} disabled={strokes().length > 0} title={strokes().length ? i18n.t("ui.imagePreview.finishAnnotation") : undefined} onClick={() => { setAnnotationMode("comment"); setDrawingError(false) }}>
+            <Show when={annotationMode() !== "comment" || (!annotation() && !pendingAnnotations().length)} fallback={<span data-slot="image-preview-dock-instruction">{i18n.t("ui.imagePreview.addPoints")}</span>}>
+            <Show when={!props.video}>
+              <button type="button" aria-pressed={annotationMode() === "markup"} disabled={!!annotation() || pendingAnnotations().length > 0} title={annotation() || pendingAnnotations().length ? i18n.t("ui.imagePreview.finishAnnotation") : undefined} onClick={startMarkup}>
+                <Icon name="edit" /><span>{i18n.t("ui.imagePreview.markup")}</span>
+              </button>
+            </Show>
+            <button type="button" aria-label={props.video ? i18n.t("ui.imagePreview.commentOnVideo") : undefined} aria-pressed={annotationMode() === "comment"} disabled={strokes().length > 0} title={strokes().length ? i18n.t("ui.imagePreview.finishAnnotation") : undefined} onClick={() => {
+              setAnnotationMode("comment")
+              setDrawingError(false)
+
+              if (!props.video || markingVideo()) return
+              follow(FIT_VIEW.scale, FIT_VIEW.x, FIT_VIEW.y)
+              const rect = image.getBoundingClientRect()
+              setVideoMarkBox({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
+              setMarkingVideo(true)
+            }}>
               <Icon name="comment" /><span>{i18n.t("ui.imagePreview.commentTool")}</span>
             </button>
+            </Show>
             <Show when={annotationMode() === "markup"}>
               <span data-slot="image-preview-dock-divider" />
               <button type="button" aria-label={i18n.t("ui.imagePreview.addComment")} disabled={!strokes().length} aria-disabled={drawingBusy()} onClick={() => void sendMarkup()}>{i18n.t("ui.imagePreview.sendMarkup")}</button>
               <button type="button" aria-label={i18n.t("ui.common.cancel")} onClick={() => { setStrokes([]); setDrawingError(false); setAnnotationMode("comment") }}><Icon name="close" /></button>
             </Show>
+            <Show when={annotationMode() === "comment" && (!!annotation() || pendingAnnotations().length > 0)}>
+              <span data-slot="image-preview-dock-divider" />
+              <button type="button" data-slot="image-preview-comment-send" aria-label={i18n.t("ui.imagePreview.addComment")} disabled={!annotation()?.text.trim() && !pendingAnnotations().length} aria-disabled={drawingBusy()} onClick={() => void sendComments()}>{i18n.t("ui.imagePreview.sendMarkup")}</button>
+              <button type="button" aria-label={i18n.t("ui.common.cancel")} onClick={() => { setAnnotation(undefined); setPendingAnnotations([]); setMarkingVideo(false) }}><Icon name="close" /></button>
+            </Show>
             <Show when={drawingError()}><span role="alert">{i18n.t("ui.imagePreview.markupUnavailable")}</span></Show>
+            <Show when={annotation()?.error}><span role="alert">{i18n.t("ui.imagePreview.commentUnavailable")}</span></Show>
           </div>
         </Show>
         <div data-slot="image-preview-controls">
-          <Show when={props.video && props.sessionID}>
-            <IconButton
-              icon={<Icon name="comment" />}
-              variant="ghost"
-              aria-label={i18n.t("ui.imagePreview.commentOnVideo")}
-              aria-pressed={markingVideo()}
-              onClick={() => {
-                if (markingVideo()) return setMarkingVideo(false)
-                ease(FIT_VIEW)
-                const rect = image.getBoundingClientRect()
-                setVideoMarkBox({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
-                setMarkingVideo(true)
-              }}
-            />
-          </Show>
           <IconButton
             data-slot="image-preview-zoom-out"
             icon={<Icon name="minus" />}
@@ -1127,7 +1160,6 @@ export function ImagePreview(props: ImagePreviewProps) {
             onClick={(event) => {
               const rect = event.currentTarget.getBoundingClientRect()
               mark(event.detail === 0 ? rect.left + rect.width / 2 : event.clientX, event.detail === 0 ? rect.top + rect.height / 2 : event.clientY)
-              setMarkingVideo(false)
             }}
           />
         )}

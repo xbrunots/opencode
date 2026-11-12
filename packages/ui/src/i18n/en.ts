@@ -255,6 +255,8 @@ const source = {
   "ui.imagePreview.commentOnVideo": "Add a comment to the video",
   "ui.imagePreview.selectVideoPoint": "Select a point in the video",
   "ui.imagePreview.commentPlaceholder": "Describe the change you want…",
+  "ui.imagePreview.compactPlaceholder": "Add a comment…",
+  "ui.imagePreview.addPoints": "Click to add comments",
   "ui.imagePreview.addComment": "Add to message",
   "ui.imagePreview.commentUnavailable": "The conversation is unavailable. Your comment has not been added.",
   "ui.imagePreview.annotationTools": "Image annotation tools",

@@ -5,6 +5,7 @@ const text = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(16_38
 
 export const HtmlPreview = Ipc.define({
   id: "file.preview",
+  events: { contextMenu: Schema.Struct({ id: text }) },
   methods: {
     open: {
       input: Schema.Struct({ server: text, session: text, path: text, inline: Schema.optionalKey(Schema.String.check(Schema.isMaxLength(4 * 1024 * 1024))) }),
@@ -23,6 +24,7 @@ export const HtmlPreview = Ipc.define({
       })),
     },
     freeze: { input: Schema.Struct({ id: text, active: Schema.Boolean }) },
+    appearance: { input: Schema.Struct({ id: text, mode: Schema.Literals(["light", "dark"]) }) },
     close: { input: Schema.Struct({ id: text }) },
   },
 })

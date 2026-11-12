@@ -240,7 +240,7 @@
     margin-inline: 3px;
   }
 
-  :is([data-slot="image-preview-annotation-marker"], [data-slot="image-preview-sent-marker"]) {
+  :is([data-slot="image-preview-annotation-marker"], [data-slot="image-preview-pending-marker"]) {
     position: fixed;
     z-index: 55;
     width: 30px;
@@ -260,34 +260,36 @@
   [data-slot="image-preview-annotation"] {
     position: fixed;
     z-index: 55;
-    width: min(360px, calc(100vw - 32px));
-    padding: 14px;
-    border-radius: var(--radius-md);
-    background: var(--v2-background-bg-layer-01);
-    box-shadow: var(--v2-elevation-floating);
-    color: var(--v2-text-text-strong);
+    width: min(280px, calc(100vw - 32px));
+    color: #ededed;
     font-size: 13px;
     line-height: var(--line-height-base);
 
-    textarea {
+    input {
       display: block;
       width: 100%;
-      margin-top: 8px;
-      padding: 8px;
-      resize: vertical;
+      height: 40px;
+      padding: 0 16px;
       color: inherit;
-      background: var(--v2-background-bg-base);
-      border: 1px solid var(--v2-border-border-base);
-      border-radius: var(--radius-md);
+      background: #2a2a2c;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 9999px;
       font: inherit;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+      &:focus-visible { outline: 2px solid white; outline-offset: 2px; }
     }
   }
 
-  [data-slot="image-preview-annotation-actions"] {
-    display: flex;
-    justify-content: flex-end;
-    gap: 6px;
-    margin-top: 8px;
+  [data-slot="image-preview-dock-instruction"] {
+    padding-inline: 8px;
+    color: #bdbdbd;
+    white-space: nowrap;
+  }
+
+  [data-slot="image-preview-dock"] button[data-slot="image-preview-comment-send"] {
+    background: #ededed;
+    color: #171719;
+    &:hover { background: #fff; color: #171719; }
   }
 
   [data-slot="image-preview-zoom-level"] {

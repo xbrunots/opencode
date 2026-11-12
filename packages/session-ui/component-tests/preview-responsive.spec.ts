@@ -58,6 +58,28 @@ story("thumbnail actions escape the scrolling gallery and remain clickable", asy
   await expect(page.locator("body")).toHaveAttribute("data-preview-open", "wide.png:true:panel")
 })
 
+story("preview actions stay inside a small viewport when their anchor moves offscreen", async ({ page, mount }) => {
+  await mount("components-markdown--complete-response")
+  await page.evaluate(async (fixture) => {
+    const { mountMarkdown } = await import(fixture)
+    await mountMarkdown({ text: "`wide.png`", fixtureImages: true })
+  }, fixture)
+  const item = page.getByTestId("markdown-fixture").locator("[data-markdown-image-item]")
+  const trigger = item.getByLabel("Opções de prévia")
+  await trigger.click()
+  const menu = item.locator("[popover]")
+  await expect(menu).toBeVisible()
+  await page.setViewportSize({ width: 180, height: 120 })
+  for (const offset of [-900, 900]) {
+    await trigger.evaluate((element, value) => { element.style.transform = `translate(${value}px, ${value}px)` }, offset)
+    await page.evaluate(() => window.dispatchEvent(new Event("scroll")))
+    await expect.poll(async () => {
+      const box = await menu.boundingBox()
+      return box && box.x >= 7 && box.y >= 7 && box.x + box.width <= 173 && box.y + box.height <= 113
+    }).toBe(true)
+  }
+})
+
 story("HTML blocks retain their code and fit narrow and wide chat views", async ({ page, mount }, testInfo) => {
   await mount("components-markdown--complete-response")
   await page.evaluate(async (fixture) => {

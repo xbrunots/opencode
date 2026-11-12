@@ -48,6 +48,9 @@ import "./html-activity.css"
 type ContextFile = { key: string; name: string; href?: string; data?: string; mime?: string }
 type ContextSkill = { id: string; name: string; text?: string; count: number; automatic?: boolean }
 
+// Keep the configuration actions available to restore when they return to this menu.
+const showConfigurationActions = false
+
 const decodeCall = Schema.decodeUnknownOption(
   Schema.Struct({
     tool: Schema.String,
@@ -211,6 +214,7 @@ export function ConversationContext() {
         (plugin) => plugin.source.type !== "builtin",
       ),
   )
+  const pluginList = () => (plugins.state === "ready" || plugins.state === "refreshing" ? plugins.latest : undefined)
   createEffect(() => {
     const dir = directory()
     if (!opened() || !dir) return
@@ -754,22 +758,24 @@ export function ConversationContext() {
                     <Icon name="plus" />
                     <span>{language.t("context.addMcp")}</span>
                   </button>
-                  <button
-                    type="button"
-                    class="conversation-context-item"
-                    onClick={() => void extensionAction("mcp", "config")}
-                  >
-                    <Icon name="settings-gear" />
-                    <span>
-                      {server.isLocal ? language.t("context.configuration") : language.t("context.copyConfiguration")}
-                    </span>
-                  </button>
+                  <Show when={showConfigurationActions}>
+                    <button
+                      type="button"
+                      class="conversation-context-item"
+                      onClick={() => void extensionAction("mcp", "config")}
+                    >
+                      <Icon name="settings-gear" />
+                      <span>
+                        {server.isLocal ? language.t("context.configuration") : language.t("context.copyConfiguration")}
+                      </span>
+                    </button>
+                  </Show>
                 </details>
                 <details class="conversation-context-section">
                   <summary>
                     <Icon name="cube" />
                     <span>{language.t("context.availablePlugins")}</span>
-                    <b>{plugins()?.length ?? "-"}</b>
+                    <b>{pluginList()?.length ?? "-"}</b>
                     <Icon name="chevron-down" class="conversation-context-chevron" />
                   </summary>
                   <Show
@@ -784,7 +790,7 @@ export function ConversationContext() {
                     }
                   >
                     <Show
-                      when={plugins()?.length}
+                      when={pluginList()?.length}
                       fallback={
                         <p class="conversation-context-empty">
                           {plugins.loading ? language.t("context.loading") : language.t("context.noConfigured")}
@@ -792,7 +798,7 @@ export function ConversationContext() {
                       }
                     >
                       <div class="conversation-context-catalog">
-                        <For each={plugins()}>
+                        <For each={pluginList()}>
                           {(plugin) => (
                             <div class="conversation-context-item">
                               <Icon name="cube" />
@@ -819,16 +825,18 @@ export function ConversationContext() {
                     <Icon name="plus" />
                     <span>{language.t("context.addPlugin")}</span>
                   </button>
-                  <button
-                    type="button"
-                    class="conversation-context-item"
-                    onClick={() => void extensionAction("plugins", "config")}
-                  >
-                    <Icon name="settings-gear" />
-                    <span>
-                      {server.isLocal ? language.t("context.configuration") : language.t("context.copyConfiguration")}
-                    </span>
-                  </button>
+                  <Show when={showConfigurationActions}>
+                    <button
+                      type="button"
+                      class="conversation-context-item"
+                      onClick={() => void extensionAction("plugins", "config")}
+                    >
+                      <Icon name="settings-gear" />
+                      <span>
+                        {server.isLocal ? language.t("context.configuration") : language.t("context.copyConfiguration")}
+                      </span>
+                    </button>
+                  </Show>
                 </details>
                 <details class="conversation-context-section">
                   <summary>
@@ -877,16 +885,18 @@ export function ConversationContext() {
                     <Icon name="plus" />
                     <span>{language.t("context.addSkill")}</span>
                   </button>
-                  <button
-                    type="button"
-                    class="conversation-context-item"
-                    onClick={() => void extensionAction("skills", "config")}
-                  >
-                    <Icon name="settings-gear" />
-                    <span>
-                      {server.isLocal ? language.t("context.configuration") : language.t("context.copyConfiguration")}
-                    </span>
-                  </button>
+                  <Show when={showConfigurationActions}>
+                    <button
+                      type="button"
+                      class="conversation-context-item"
+                      onClick={() => void extensionAction("skills", "config")}
+                    >
+                      <Icon name="settings-gear" />
+                      <span>
+                        {server.isLocal ? language.t("context.configuration") : language.t("context.copyConfiguration")}
+                      </span>
+                    </button>
+                  </Show>
                 </details>
               </section>
               <Show when={data.session.message.more(params.id)}>

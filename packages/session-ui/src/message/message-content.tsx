@@ -96,6 +96,7 @@ import {
   type PacedTextEvent,
 } from "./paced-text-machine"
 import { createCopyFeedback, writeClipboard } from "../components/copy"
+import { messagePreviewMarkdown, messagePreviewReferences } from "./preview-reference"
 
 type MetaItem = { label: string; variant?: boolean; model?: { providerID: string; id: string; name: string } }
 
@@ -349,6 +350,7 @@ export function CurrentUserMessageDisplay(props: {
   const inlineFiles = createMemo(() => files().filter((file) => !!file.mention))
   const agents = createMemo(() => props.message.agents ?? [])
   const comments = createMemo(() => props.comments ?? [])
+  const previewReferences = createMemo(() => messagePreviewReferences(props.text))
   const copyText = () => (props.voice ? props.text : props.message.text)
 
   // Mobile shows the current agent and model in the composer and switch notices, so repeating them per message is noise.
@@ -729,7 +731,7 @@ export function CurrentUserMessageDisplay(props: {
       }}
       data-timeline-part-id={props.text ? `${props.message.id}:text:0` : undefined}
     >
-      {renderAttachments()}
+      <Show when={!props.text}>{renderAttachments()}</Show>
       <Show
         when={props.text}
         fallback={
@@ -752,6 +754,14 @@ export function CurrentUserMessageDisplay(props: {
             data-comments={comments().length > 0 ? "true" : undefined}
             onCopy={copySessionReferences}
           >
+            {renderAttachments()}
+            <Show when={previewReferences().length > 0}>
+              <div data-slot="user-message-previews">
+                <For each={previewReferences()}>
+                  {(source) => <Markdown text={messagePreviewMarkdown(source)} />}
+                </For>
+              </div>
+            </Show>
             <Show
               when={props.fold}
               fallback={<CurrentHighlightedText text={props.text} files={inlineFiles()} agents={agents()} />}

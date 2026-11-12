@@ -1,6 +1,6 @@
 import type { OpenMarkdownPreview } from "../context/markdown"
 
-export function markdownPreviewActions(source: string, local: boolean, open: OpenMarkdownPreview) {
+export function markdownPreviewActions(source: string, local: boolean, open?: OpenMarkdownPreview, edit?: () => void) {
   const menu = document.createElement("details")
   menu.dataset.markdownPreviewActions = ""
   const trigger = document.createElement("summary")
@@ -20,6 +20,13 @@ export function markdownPreviewActions(source: string, local: boolean, open: Ope
   // A gallery scrolls horizontally and clips descendants. A popover enters the browser's top layer
   // while remaining next to the trigger in the accessibility tree.
   list.setAttribute("popover", "auto")
+  Object.assign(list.style, {
+    boxSizing: "border-box",
+    minWidth: "min(210px, calc(100vw - 16px))",
+    maxWidth: "calc(100vw - 16px)",
+    maxHeight: "calc(100vh - 16px)",
+    overflow: "auto",
+  })
   let removal: MutationObserver | undefined
   const place = () => {
     const anchor = trigger.getBoundingClientRect()
@@ -27,7 +34,8 @@ export function markdownPreviewActions(source: string, local: boolean, open: Ope
     const margin = 8
     const left = Math.max(margin, Math.min(anchor.right - box.width, window.innerWidth - box.width - margin))
     const below = anchor.bottom + 4
-    const top = below + box.height <= window.innerHeight - margin ? below : Math.max(margin, anchor.top - box.height - 4)
+    const preferred = below + box.height <= window.innerHeight - margin ? below : anchor.top - box.height - 4
+    const top = Math.max(margin, Math.min(preferred, window.innerHeight - box.height - margin))
     Object.assign(list.style, { position: "fixed", left: `${left}px`, top: `${top}px`, right: "auto", bottom: "auto", margin: "0" })
   }
   const stopPositioning = () => {
@@ -55,7 +63,17 @@ export function markdownPreviewActions(source: string, local: boolean, open: Ope
     stopPositioning()
     menu.open = false
   })
-  ;(
+  if (edit) {
+    const button = document.createElement("button")
+    button.type = "button"
+    button.textContent = "Editar"
+    button.addEventListener("click", () => {
+      menu.open = false
+      edit()
+    })
+    list.append(button)
+  }
+  if (open) (
     [
       ["panel", "Abrir no painel direito"],
       ["system", local ? "Abrir no aplicativo padrão" : "Abrir no navegador padrão"],

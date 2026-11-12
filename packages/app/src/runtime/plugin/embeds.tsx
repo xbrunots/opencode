@@ -238,7 +238,7 @@ function EmbedView(props: EmbedProps & { input: Input; bridge: Bridge }) {
   // The native embed always paints above the DOM, so hide it while a floating
   // menu, select, or popover overlaps it. Tooltips are excluded.
   const covered = (rect: DOMRect) => {
-    const floating = document.querySelectorAll('[data-popper-positioner]:not(:has([role="tooltip"]))')
+    const floating = document.querySelectorAll('[data-popper-positioner]:not(:has([role="tooltip"])), [popover]:popover-open')
 
     // An index loop: this runs every frame of a transition or a drag.
     for (let index = 0; index < floating.length; index++) {
@@ -281,7 +281,24 @@ function EmbedView(props: EmbedProps & { input: Input; bridge: Bridge }) {
     const top = Math.round(rect.top * zoom)
     const right = Math.round(rect.right * zoom)
     const bottom = Math.round(rect.bottom * zoom)
-    const shown = props.visible && current().documentVisible && !props.input.moving()
+    // Native views paint above the DOM and are not clipped by the timeline's scroll viewport.
+    // Hide a partially clipped view while the chat renders its still in the card instead.
+    let scroll = element.parentElement?.closest<HTMLElement>("[data-scrollable]")
+    let contained = true
+    while (scroll) {
+      const viewportRect = scroll.getBoundingClientRect()
+      if (
+        rect.left < viewportRect.left + scroll.clientLeft - 0.5 ||
+        rect.top < viewportRect.top + scroll.clientTop - 0.5 ||
+        rect.right > viewportRect.left + scroll.clientLeft + scroll.clientWidth + 0.5 ||
+        rect.bottom > viewportRect.top + scroll.clientTop + scroll.clientHeight + 0.5
+      ) {
+        contained = false
+        break
+      }
+      scroll = scroll.parentElement?.closest<HTMLElement>("[data-scrollable]")
+    }
+    const shown = props.visible && current().documentVisible && !props.input.moving() && contained
     // A dialog's scrim covers the box like floating content does, so it dims a still of the page
     // instead of a blank box, and the page does not blink out and back as the dialog opens and closes.
     const cover = !!props.frozen || props.input.dialog() || covered(rect)
@@ -394,6 +411,19 @@ function EmbedView(props: EmbedProps & { input: Input; bridge: Bridge }) {
   // animation frame keeps the native view in step with a region drag.
   createResizeObserver(() => element, measure)
   createEventListener(window, "resize", () => schedule(300))
+  // Scroll does not bubble. Capture it so a native view tracks its own scrolling ancestor,
+  // while ignoring scrolls in unrelated conversations and controls.
+  const scroll = (event: Event) => {
+    if (!element || !(event.target instanceof Node) || !event.target.contains(element)) return
+    measure()
+    schedule()
+  }
+  document.addEventListener("scroll", scroll, { capture: true, passive: true })
+  onCleanup(() => document.removeEventListener("scroll", scroll, true))
+  // Native HTML popovers use the top layer instead of the popper positioner used by menus.
+  const popover = () => schedule(300)
+  document.addEventListener("toggle", popover, true)
+  onCleanup(() => document.removeEventListener("toggle", popover, true))
   // A layout transition elsewhere, such as the chat column's width while the side pane opens, can
   // move the box without resizing it. Track it from when it actually runs, and settle on its end.
   createEventListener(document, "transitionrun", (event) => {

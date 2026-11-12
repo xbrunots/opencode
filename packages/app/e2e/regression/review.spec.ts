@@ -10,6 +10,22 @@ import { readFile } from "node:fs/promises"
 
 test.use({ viewport: { width: 1440, height: 900 } })
 
+test("the conversation remains usable while the right panel loads changes", async ({ page }) => {
+  await openSession(page, { name: "ReviewLoading" })
+  const editor = page.locator('[data-component="composer-editor"]')
+  const pending = await holdRoute(page, /\/api\/vcs\/diff(?:\?|$)/)
+  try {
+    await page.getByRole("button", { name: "Toggle review", exact: true }).click()
+    await openReviewLauncher(page.locator("#review-panel"))
+    await pending.arrived
+    await expect(editor).toBeEditable()
+    await editor.fill("Continue while the panel loads")
+    await expect(editor).toContainText("Continue while the panel loads")
+  } finally {
+    pending.release()
+  }
+})
+
 test("an artifact annotation keeps the draft and identifies a point in the active conversation", async ({ page }) => {
   await openSession(page, {
     name: "ArtifactAnnotation",

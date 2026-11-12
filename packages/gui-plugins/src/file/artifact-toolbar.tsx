@@ -19,6 +19,7 @@ export function ArtifactToolbar(props: {
   text?: string
   mode: "preview" | "source"
   onModeChange?: (mode: "preview" | "source") => void
+  onEdit?: () => void
   meta: string[]
   html: boolean
 }) {
@@ -114,6 +115,9 @@ export function ArtifactToolbar(props: {
             />
             <Menu.Portal>
               <Menu.Content class="artifact-actions-menu">
+                <Show when={props.onEdit}>
+                  {(edit) => <Menu.Item onSelect={() => edit()()}>{ctx.t("common.edit")}</Menu.Item>}
+                </Show>
                 <Show when={props.text !== undefined}>
                   <Menu.Item
                     onSelect={() => {

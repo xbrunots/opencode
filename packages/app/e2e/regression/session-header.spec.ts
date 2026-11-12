@@ -1002,6 +1002,28 @@ test.describe("conversation actions", () => {
     expect(viewport.height - initial!.y - initial!.height).toBeCloseTo(24, 0)
 
     await expect(side.locator(".workspace-floating-chat-heading")).toHaveCount(0)
+    await expect(side.getByRole("button", { name: "Session details" })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Session details" })).toHaveCount(0)
+    const usage = page.getByRole("button", { name: "Toggle session context", exact: true })
+    const actions = page.getByRole("button", { name: "Open side chat", exact: true })
+    await expect(usage).toBeVisible()
+    await expect(actions).toBeVisible()
+    await expect.poll(async () => {
+      const left = await usage.boundingBox()
+      const right = await actions.boundingBox()
+      return right!.x - left!.x - left!.width
+    }).toBeLessThanOrEqual(8)
+    await expect.poll(async () => {
+      const left = await actions.boundingBox()
+      const right = await page.getByRole("button", { name: "Conversation actions", exact: true }).boundingBox()
+      return right!.x - left!.x - left!.width
+    }).toBeLessThanOrEqual(8)
+    await expect.poll(async () => {
+      const left = await actions.boundingBox()
+      const right = await page.getByRole("button", { name: "Conversation actions", exact: true }).boundingBox()
+      return right!.x - left!.x - left!.width
+    }).toBeGreaterThanOrEqual(0)
+    await expect(side.locator(".session-header-actions")).toHaveCSS("gap", "0px")
     const close = side.getByRole("button", { name: "Close conversation pane" })
     const location = side.locator('[data-slot="session-location-trigger"]')
     await expect(close).toBeVisible()
@@ -1024,12 +1046,22 @@ test.describe("conversation actions", () => {
     await expect.poll(async () => (await side.boundingBox())!.width).toBeGreaterThan(moved.width)
     await expect.poll(async () => (await side.boundingBox())!.height).toBeGreaterThan(moved.height)
     const resized = (await side.boundingBox())!
+    await expect(side).toHaveCSS("resize", "none")
+    await page.mouse.move(resized.x + 2, resized.y + 2)
+    await page.mouse.down()
+    await page.mouse.move(resized.x - 18, resized.y - 18, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(async () => (await side.boundingBox())!.x).toBeCloseTo(resized.x - 20, 0)
+    await expect.poll(async () => (await side.boundingBox())!.y).toBeCloseTo(resized.y - 20, 0)
+    await expect.poll(async () => (await side.boundingBox())!.width).toBeCloseTo(resized.width + 20, 0)
+    await expect.poll(async () => (await side.boundingBox())!.height).toBeCloseTo(resized.height + 20, 0)
+    const expanded = (await side.boundingBox())!
     await side.focus()
     await expect(side).toBeFocused()
     await page.keyboard.press("Shift+ArrowRight")
     await page.keyboard.press("Shift+ArrowDown")
-    await expect.poll(async () => (await side.boundingBox())?.width).toBeCloseTo(resized.width + 16, 0)
-    await expect.poll(async () => (await side.boundingBox())?.height).toBeCloseTo(resized.height + 16, 0)
+    await expect.poll(async () => (await side.boundingBox())?.width).toBeCloseTo(expanded.width + 16, 0)
+    await expect.poll(async () => (await side.boundingBox())?.height).toBeCloseTo(expanded.height + 16, 0)
 
     await side.locator('[data-component="composer-editor"]').click()
     await side.locator('[data-slot="conversation-actions-trigger"]').click()

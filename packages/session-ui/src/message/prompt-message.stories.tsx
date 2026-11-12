@@ -5,6 +5,7 @@ import type { SessionUserActions } from "../actions"
 import { CurrentUserMessageDisplay } from "./message-content"
 import { CurrentSessionProviders } from "../storybook/current-session-story"
 import { CURRENT_SESSION_ID, STORY_MODEL, STORY_TIME } from "../storybook/current-session-fixtures"
+import { MarkdownProvider } from "../context/markdown"
 
 export default {
   title: "OpenCode/Conversation/Prompt message",
@@ -143,6 +144,31 @@ export const Pending = {
           />
         </CurrentSessionProviders>
       </section>
+    )
+  },
+}
+
+export const PreviewReferences = {
+  render: () => {
+    const text = "[Preview: foto-bruno.jpg; x: 17.3%, y: 10.0%] Remova o fundo. Confira effect.html e missing.png."
+    const message: SessionMessageUser = {
+      id: "msg_preview_reference_story",
+      type: "user",
+      text,
+      time: { created: STORY_TIME },
+      files: [{ name: "capture.png", mime: "image/png", data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", source: { type: "inline" } }],
+    }
+    const document = { sessionID: CURRENT_SESSION_ID, messages: [message], status: { type: "idle" as const }, diffs: [] }
+    return (
+      <CurrentSessionProviders document={document}>
+        <MarkdownProvider
+          previewSession={CURRENT_SESSION_ID}
+          readImage={async (path) => path === "foto-bruno.jpg" ? new Blob(['<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><circle cx="30" cy="30" r="20" fill="red"/></svg>'], { type: "image/svg+xml" }) : undefined}
+          readPreview={async (path) => path === "effect.html" ? new Blob(["<h1>Artifact preview</h1>"], { type: "text/html" }) : undefined}
+        >
+          <CurrentUserMessageDisplay sessionID={CURRENT_SESSION_ID} message={message} text={text} agent="build" model={STORY_MODEL} />
+        </MarkdownProvider>
+      </CurrentSessionProviders>
     )
   },
 }

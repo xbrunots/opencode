@@ -24,6 +24,10 @@ export function ChatHtmlPreview(props: { session: MountedSession; path: string; 
   let pending = false
   let captured = false
 
+  createKeyed(() => ({ id: id(), mode: ctx.appearance.mode() }), (target) => {
+    if (target.id) void ipc.appearance({ id: target.id, mode: target.mode }).catch(() => undefined)
+  })
+
   const capture = (id: string) => {
     let timer: number | undefined
     const deadline = new Promise<undefined>((resolve) => {

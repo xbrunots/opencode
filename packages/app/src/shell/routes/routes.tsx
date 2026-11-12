@@ -6,7 +6,7 @@ import {
 } from "@/shell/workspace-resize-machine"
 import { SessionTargetProvider } from "@/session/target"
 import { useWorkspaceViews } from "@/shell/workspace-views"
-import { transitionFloatingDrag, type FloatingDragState } from "@/shell/floating-drag-machine"
+import { floatingResizeBounds, transitionFloatingDrag, type FloatingDragState, type FloatingResizeEdge } from "@/shell/floating-drag-machine"
 import { tabKey, useTabs } from "@/shell/tabs/tabs"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Icon } from "@opencode/ui/icon"
@@ -354,6 +354,17 @@ function FloatingSession(props: { server: ServerConnection.Key; sessionID: strin
           views.setFloatingFocused(true)
           const source = event.target
           if (event.button !== 0 || !element || !(source instanceof Element)) return
+          const edge = source.closest<HTMLElement>("[data-floating-resize]")?.dataset.floatingResize as FloatingResizeEdge | undefined
+          if (edge) {
+            const bounds = element.getBoundingClientRect()
+            setGesture(transitionFloatingDrag(gesture(), {
+              type: "resize-started", pointer: event.pointerId, x: event.clientX, y: event.clientY,
+              left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height, edge,
+            }))
+            event.currentTarget.setPointerCapture(event.pointerId)
+            event.preventDefault()
+            return
+          }
           if (!source.closest("[data-session-title]") || source.closest("button, a, input, textarea, [role=button]")) return
           const bounds = element.getBoundingClientRect()
           setGesture(transitionFloatingDrag(gesture(), {
@@ -363,8 +374,16 @@ function FloatingSession(props: { server: ServerConnection.Key; sessionID: strin
         }}
         onPointerMove={(event) => {
           const current = transitionFloatingDrag(gesture(), { type: "moved", pointer: event.pointerId, x: event.clientX, y: event.clientY })
-          if (current === gesture() || current.type !== "dragging") return
+          if (current === gesture() || current.type === "idle") return
           setGesture(current)
+          if (current.type === "resizing" && element) {
+            const bounds = floatingResizeBounds(current, window.innerWidth, window.innerHeight)
+            setPosition({ left: bounds.left, top: bounds.top })
+            element.style.width = `${bounds.width}px`
+            element.style.height = `${bounds.height}px`
+            return
+          }
+          if (current.type !== "dragging") return
           move(current.left + event.clientX - current.x, current.top + event.clientY - current.y)
         }}
         onPointerUp={(event) => {
@@ -382,8 +401,8 @@ function FloatingSession(props: { server: ServerConnection.Key; sessionID: strin
           event.preventDefault()
           const bounds = element.getBoundingClientRect()
           if (event.shiftKey) {
-            element.style.width = `${Math.max(280, Math.min(window.innerWidth - 16, bounds.width + x))}px`
-            element.style.height = `${Math.max(320, Math.min(window.innerHeight - 16, bounds.height + y))}px`
+            element.style.width = `${Math.max(Math.min(280, window.innerWidth - 16), Math.min(window.innerWidth - bounds.left, bounds.width + x))}px`
+            element.style.height = `${Math.max(Math.min(320, window.innerHeight - 16), Math.min(window.innerHeight - bounds.top, bounds.height + y))}px`
             return
           }
           move(bounds.left + x, bounds.top + y)
@@ -398,6 +417,9 @@ function FloatingSession(props: { server: ServerConnection.Key; sessionID: strin
             </Suspense>
           </SessionTargetProvider>
         </div>
+        <For each={(["n", "s", "e", "w", "ne", "nw", "se", "sw"] as const)}>
+          {(edge) => <div aria-hidden="true" data-floating-resize={edge} />}
+        </For>
       </section>
     </Portal>
   )

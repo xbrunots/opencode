@@ -31,6 +31,7 @@ export function ArtifactAnnotation(props: {
 }) {
   const ctx = usePlugin()
   const ipc = ctx.main(HtmlPreview)
+  const [editing, setEditing] = createSignal(false)
   const [mode, setMode] = createSignal<"draw" | "comment">()
   const [notes, setNotes] = createSignal<Note[]>([])
   const [selected, setSelected] = createSignal<Note>()
@@ -63,6 +64,7 @@ export function ArtifactAnnotation(props: {
     if (hoverFrame) cancelAnimationFrame(hoverFrame)
     hoverFrame = 0
     setMode(undefined)
+    setEditing(false)
     props.onActiveChange?.(false)
     setNotes([])
     setSelected(undefined)
@@ -87,6 +89,12 @@ export function ArtifactAnnotation(props: {
   onMount(() => {
     if (!stage) return
     const root = stage
+    const edit = () => setEditing(true)
+    root.addEventListener("opencode-preview-edit", edit)
+    onCleanup(() => root.removeEventListener("opencode-preview-edit", edit))
+    onCleanup(ipc.on("contextMenu", (event) => {
+      if (event.id === props.previewID) setEditing(true)
+    }))
     const resize = new ResizeObserver(() => {
       setGeometry((value) => value + 1)
       setHover(undefined)
@@ -345,18 +353,24 @@ export function ArtifactAnnotation(props: {
   }
 
   return (
-    <div ref={stage} data-slot="artifact-annotation-stage" data-native={props.native ? "" : undefined} onKeyDown={(event) => {
+    <div ref={stage} data-slot="artifact-annotation-stage" data-native={props.native ? "" : undefined} onContextMenu={(event) => {
+      if (mode()) return
+      event.preventDefault()
+      setEditing(true)
+    }} onKeyDown={(event) => {
       if (event.key !== "Escape" || !mode()) return
       event.preventDefault()
       event.stopPropagation()
     }}>
       {props.children}
+      <Show when={editing()}>
       <div data-slot="artifact-annotation-dock-zone" data-active={overlay() ? "" : undefined}>
         <div data-slot="artifact-annotation-dock" role="toolbar" aria-label={ctx.t("view.annotate.toolbar")}>
           <span data-slot="artifact-annotation-grip" aria-hidden="true"><svg viewBox="0 0 8 14" width="8" height="14"><circle cx="2" cy="2" r="1"/><circle cx="6" cy="2" r="1"/><circle cx="2" cy="7" r="1"/><circle cx="6" cy="7" r="1"/><circle cx="2" cy="12" r="1"/><circle cx="6" cy="12" r="1"/></svg></span>
           <Show when={!mode()}>
             <Show when={drawable()}><button type="button" onClick={() => void enter("draw")} disabled={busy()}><Icon name="edit" />{ctx.t("view.annotate.draw")}</button></Show>
             <button type="button" data-slot="artifact-annotation-native-open" onClick={() => void enter("comment")} disabled={busy()}><Icon name="outline-browser-annotate" />{ctx.t("view.annotate.comment")}</button>
+            <button type="button" aria-label={ctx.t("view.annotate.discard")} onClick={() => setEditing(false)}><Icon name="close" /></button>
           </Show>
           <Show when={mode()}>
             <span data-slot="artifact-annotation-instruction">{ctx.t(outside() ? "view.annotate.outside" : mode() === "draw" ? "view.annotate.drawHint" : "view.annotate.hint")}</span>
@@ -366,6 +380,7 @@ export function ArtifactAnnotation(props: {
         </div>
         <Show when={failed()}><p data-slot="artifact-annotation-error" role="alert">{ctx.t("view.annotate.failed")}</p></Show>
       </div>
+      </Show>
       <Show when={overlay()}>
         <button
           type="button"

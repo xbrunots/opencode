@@ -129,12 +129,14 @@ export function createMarkdownReferencedMedia() {
         const name = document.createElement("span")
         name.textContent = entry.kind === "youtube" ? `YouTube · ${entry.source}` : entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source
         card.append(name, button)
-        if (open && entry.kind !== "html-code" && entry.kind !== "artifact")
+        const native = !!renderPreview && (entry.kind === "html" || entry.kind === "artifact" || entry.kind === "html-code")
+        if ((open && entry.kind !== "html-code" && entry.kind !== "artifact") || native)
           card.append(
             markdownPreviewActions(
               entry.kind === "youtube" ? `https://www.youtube.com/watch?v=${entry.source}` : entry.source,
               entry.local,
-              open,
+              entry.kind === "html-code" || entry.kind === "artifact" ? undefined : open,
+              native ? () => card.querySelector('[data-slot="artifact-annotation-stage"]')?.dispatchEvent(new Event("opencode-preview-edit")) : undefined,
             ),
           )
         const load = async (staticOnly = false) => {

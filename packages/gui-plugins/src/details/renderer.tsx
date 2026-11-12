@@ -39,7 +39,9 @@ const setup: Plugin.Setup<typeof Details> = (ctx) => {
     at: "session.header",
     order: 20,
     render: (input) => (
-      <DetailsHeader menus={menus} session={input.session} active={input.active} panel={DetailsPanel} mcp={mcp} />
+      <div data-slot="session-details-trigger" class="contents">
+        <DetailsHeader menus={menus} session={input.session} active={input.active} panel={DetailsPanel} mcp={mcp} />
+      </div>
     ),
   })
 
