@@ -58,6 +58,7 @@ export const messageToText = (message: SessionMessage.Info | SessionStored.User)
       return `[Synthetic context]: ${message.text}`
 
     case "skill":
+      if (message.skill.startsWith("opencodex-motion:")) return ""
       return `[Skill activated: ${message.name}]\n${message.text}`
 
     case "shell":

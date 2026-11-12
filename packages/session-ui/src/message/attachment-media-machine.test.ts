@@ -169,6 +169,13 @@ describe("transitionAttachmentMedia", () => {
     expect(viewAttachmentMedia(INITIAL_ATTACHMENT_MEDIA_STATE, peeked).src).toBe("blob:cached")
   })
 
+  test("video attachments use the same bounded media reader as images", () => {
+    const video = resolveAttachmentMediaTarget(media(hashA, "video/mp4"), reader)
+    expect(video).toEqual({ kind: "remote", key: `video/mp4:${hashA}`, uri: hashA, mime: "video/mp4" })
+    expect(transitionAttachmentMedia(INITIAL_ATTACHMENT_MEDIA_STATE, { type: "target.synced", target: video }).effects)
+      .toEqual([{ type: "read", attempt: 1, uri: hashA, mime: "video/mp4", timeoutMs: ATTACHMENT_MEDIA_TIMEOUT_MS }])
+  })
+
   test("leaving a read for a direct URL or unmounting cancels it, and nothing settles after", () => {
     const loading = transitionAttachmentMedia(INITIAL_ATTACHMENT_MEDIA_STATE, {
       type: "target.synced",

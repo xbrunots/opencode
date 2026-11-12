@@ -449,7 +449,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
             <Show when={!props.controller.value()}>
               <div
                 dir={mode() === "normal" ? "auto" : "ltr"}
-                class="pointer-events-none absolute inset-x-0 top-0 ps-4 pe-[var(--composer-scroll-end)] pt-4 text-[13px] font-[440] leading-5 text-v2-text-text-faint"
+                class="pointer-events-none absolute inset-x-0 top-0 truncate ps-4 pe-[var(--composer-scroll-end)] pt-4 text-[13px] font-[440] leading-5 text-v2-text-text-faint"
                 classList={{ "font-mono! tracking-[-0.04px]": mode() === "shell" }}
                 style={{ "unicode-bidi": mode() === "normal" ? "plaintext" : undefined, "text-align": "start" }}
               >
@@ -1128,7 +1128,13 @@ function ComposerEditorConfiguredSelect(props: {
       current={current()}
       currentIcon={
         <Show when={props.model && providerID()}>
-          {(id) => <ProviderModelIcon provider={{ id: id(), name: id() }} class="shrink-0 opacity-60" />}
+          {(id) => (
+            <ProviderModelIcon
+              provider={{ id: id(), name: id() }}
+              model={{ id: current() }}
+              class="shrink-0 opacity-60"
+            />
+          )}
         </Show>
       }
       onSelect={props.control.onSelect}

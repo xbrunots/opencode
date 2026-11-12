@@ -1191,6 +1191,7 @@ export function unwrapErrorMessage(message: string) {
 }
 
 function isNotice(message: SessionMessageInfo): message is Notice {
+  if (message.type === "skill" && message.skill.startsWith("opencodex-motion:")) return false
   if (message.type === "user" || message.type === "assistant" || message.type === "shell" || message.type === "idle")
     return false
 

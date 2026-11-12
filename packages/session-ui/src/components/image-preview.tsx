@@ -1,10 +1,13 @@
 import { useDialog } from "@opencode/ui/context/dialog"
 import { useI18n } from "@opencode/ui/context/i18n"
 import { ImagePreview } from "@opencode/ui/image-preview"
+import { useContext } from "solid-js"
+import { DataContext } from "../context"
 
 export function createImagePreview() {
   const dialog = useDialog()
   const i18n = useI18n()
+  const data = useContext(DataContext)
 
   const open = (event: MouseEvent | KeyboardEvent) => {
     const image = event.currentTarget
@@ -16,7 +19,9 @@ export function createImagePreview() {
     const alt = image.alt || i18n.t("ui.imagePreview.alt")
     event.preventDefault()
     event.stopPropagation()
-    dialog.show(() => <ImagePreview src={src} alt={alt} origin={image} />)
+    const sessionID = data?.sessionID
+    const reference = image.dataset.localImage
+    dialog.show(() => <ImagePreview src={src} alt={alt} origin={image} sessionID={sessionID} reference={reference} />)
   }
 
   return (root: HTMLElement) => {

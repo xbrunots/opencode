@@ -249,6 +249,11 @@ const source = {
   "ui.textField.copied": "Copied",
 
   "ui.imagePreview.alt": "Image preview",
+  "ui.imagePreview.comment": "Comment on this point",
+  "ui.imagePreview.commentOnImage": "Add a comment to the image",
+  "ui.imagePreview.commentPlaceholder": "Describe the change you want…",
+  "ui.imagePreview.addComment": "Add to message",
+  "ui.imagePreview.commentUnavailable": "The conversation is unavailable. Your comment has not been added.",
   "ui.imagePreview.zoomIn": "Zoom in",
   "ui.imagePreview.zoomOut": "Zoom out",
   "ui.imagePreview.zoomToFit": "Zoom to fit",

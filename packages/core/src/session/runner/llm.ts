@@ -1,8 +1,8 @@
 export * as SessionRunnerLLM from "./llm.js"
 
-import { Message } from "@opencode/ai/effect"
-import { and, desc, eq, inArray, sql } from "drizzle-orm"
-import { Cause, Effect, Exit, FiberMap, Layer } from "effect"
+import { LLMClient, Message, SystemPart } from "@opencode/ai/effect"
+import { and, asc, desc, eq, gt, inArray, lt, sql } from "drizzle-orm"
+import { Cause, Effect, Exit, FiberMap, Layer, Option } from "effect"
 import { Database } from "../../database/database.js"
 import { Bus } from "../../bus.js"
 import { LocationLifecycle } from "../../location-lifecycle.js"
@@ -34,6 +34,13 @@ import { ToolOutput } from "../../tool-output.js"
 import { Plugin } from "../../plugin.js"
 import { PluginHooks } from "../../plugin/hooks.js"
 import { MAX_STEPS_PROMPT } from "./max-steps.js"
+import { MotionSkills } from "../motion/index.js"
+import { Token } from "../../util/token.js"
+import { Agent } from "../../agent.js"
+import { Skill } from "../../skill.js"
+import { Event } from "@opencode/schema/event"
+import { SessionUsage } from "../usage.js"
+import { MotionForkDelivery } from "../motion/fork-delivery.js"
 
 const CONTINUE_AFTER_OUTPUT_LIMIT =
   "Your last response hit the output token limit (stop reason: length). Do not apologize, recap, or repeat yourself. Break the remaining work into smaller pieces."
@@ -44,6 +51,8 @@ const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const bus = yield* Bus.Service
+    const llm = yield* LLMClient.Service
+    const agents = yield* Agent.Service
     const lifecycle = yield* LocationLifecycle.Service
     const store = yield* SessionStore.Service
     const context = yield* SessionContext.Service
@@ -204,7 +213,14 @@ const layer = Layer.effect(
                       onlyIfMissing: true,
                     })
                   if (promoted > 0) step = 1
-                  return { _tag: "Ready" as const, context: yield* context.load(selected) }
+                  const loaded = yield* context.load(selected)
+                  const assessed = yield* assessMotion(selected, loaded)
+                  if (!assessed) {
+                    // The current input is already durable even if the new steer is withdrawn before retry.
+                    force = true
+                    return undefined
+                  }
+                  return { _tag: "Ready" as const, context: assessed }
                 }),
               )
               if (ready) return ready
@@ -233,6 +249,101 @@ const layer = Layer.effect(
       return selected
     })
 
+    const activeMotion = Effect.fn("SessionRunner.activeMotion")(function* (sessionID: SessionSchema.ID) {
+      const idle = yield* db.select({ seq: SessionMessageTable.seq, outcome: sql<string>`json_extract(${SessionMessageTable.data}, '$.outcome')` }).from(SessionMessageTable)
+        .where(and(eq(SessionMessageTable.session_id, sessionID), eq(SessionMessageTable.type, "idle")))
+        .orderBy(desc(SessionMessageTable.seq)).get().pipe(Effect.orDie)
+      const previous = idle?.outcome === "interrupted"
+        ? yield* db.select({ seq: SessionMessageTable.seq }).from(SessionMessageTable).where(and(
+            eq(SessionMessageTable.session_id, sessionID), eq(SessionMessageTable.type, "idle"), lt(SessionMessageTable.seq, idle.seq),
+            sql`json_extract(${SessionMessageTable.data}, '$.outcome') != 'interrupted'`,
+          )).orderBy(desc(SessionMessageTable.seq)).get().pipe(Effect.orDie)
+        : undefined
+      const after = idle?.outcome === "interrupted" ? previous?.seq : idle?.seq
+      const rows = yield* db.select({
+        id: SessionMessageTable.id,
+        type: SessionMessageTable.type,
+        seq: SessionMessageTable.seq,
+        text: sql<string>`json_extract(${SessionMessageTable.data}, '$.text')`,
+        skill: sql<string>`json_extract(${SessionMessageTable.data}, '$.skill')`,
+        skillCount: sql<number>`coalesce(json_array_length(json_extract(${SessionMessageTable.data}, '$.skills')), 0)`,
+      }).from(SessionMessageTable).where(and(
+        eq(SessionMessageTable.session_id, sessionID),
+        inArray(SessionMessageTable.type, ["user", "skill"]),
+        after === undefined ? undefined : gt(SessionMessageTable.seq, after),
+      )).orderBy(asc(SessionMessageTable.seq)).all().pipe(Effect.orDie)
+      const delivery = yield* MotionForkDelivery.resolve(db, sessionID, rows.filter((row) => row.type === "user"))
+      const firstAfterInterrupt = idle?.outcome === "interrupted" ? rows.find((row) => row.seq > idle.seq && row.type === "user") : undefined
+      const continuation = firstAfterInterrupt && delivery.get(firstAfterInterrupt.id) === "steer" && MotionSkills.isContinuation(firstAfterInterrupt.text ?? "")
+      const scoped = firstAfterInterrupt && !continuation ? rows.filter((row) => row.seq > idle!.seq) : rows
+      return MotionSkills.active(scoped.flatMap((row): Parameters<typeof MotionSkills.active>[0][number][] => {
+        if (row.type === "user") return [{ type: "user", id: row.id, text: row.text ?? "", skillCount: row.skillCount, queued: delivery.get(row.id) !== "steer" }]
+        if (row.type === "skill" && row.skill?.startsWith(MotionSkills.skillPrefix)) return [{ type: "skill", skill: row.skill, text: row.text ?? "" }]
+        return []
+      }))
+    })
+
+    const assessMotion = Effect.fn("SessionRunner.assessMotion")(function* (
+      selected: SessionContext.Selection,
+      loaded: SessionContext.Loaded,
+    ) {
+      const active = yield* activeMotion(loaded.session.id)
+      if (!active) return loaded
+      const { anchor, fallback } = active
+      const id = MotionSkills.skillID(anchor.id)
+
+      const remotion = yield* Effect.tryPromise({
+        try: MotionSkills.loadRemotion,
+        catch: () => undefined,
+      }).pipe(Effect.orElseSucceed(() => undefined))
+      const missing = !!active.selection?.includes("remotion") && !remotion
+      if (active.selection && !missing) return loaded
+
+      const evaluator = yield* agents.get(Agent.ID.make(MotionSkills.agentID))
+      const result = evaluator && !missing
+        ? yield* Effect.gen(function* () {
+            const request = yield* context.request.generate({
+              session: loaded.session,
+              agent: evaluator.id,
+              model: loaded.model,
+              system: [SystemPart.make(`${evaluator.system ?? MotionSkills.agentPrompt}\nRemotion is ${remotion ? "available" : "not available"} in this installation.`)],
+              messages: [Message.user(active.text.slice(0, 8000))],
+              toolChoice: "none",
+            })
+            const response = yield* llm.generate({ ...request.request, maxTokens: Math.min(request.request.maxTokens ?? 512, 512) }, request.options)
+            yield* bus.publish(SessionEvent.UsageRecorded, {
+              sessionID: loaded.session.id,
+              source: "generate",
+              ...SessionUsage.record(response.usage, loaded.model.cost),
+            })
+            return MotionSkills.parseSelection(response.text)
+          }).pipe(Effect.timeoutOption("15 seconds"), Effect.catch(() => Effect.succeed(Option.none())))
+        : Option.none()
+      const predicted = remotion && /\bremotion\b/i.test(active.text) ? ["remotion"] : fallback.guides
+      const chosen = Option.isSome(result) ? result.value?.filter((guide) => guide !== "remotion" || !!remotion) : undefined
+      const selectedGuides = chosen?.length ? chosen : predicted
+      const guides = remotion && /\bremotion\b/i.test(active.text) && !selectedGuides.includes("remotion")
+        ? ["remotion", ...selectedGuides].slice(0, 2)
+        : selectedGuides
+      if (!MotionSkills.guidance({ opencodeMotion: { guides } }, remotion)) return loaded
+      const text = JSON.stringify({ guides, source: missing ? "remotion-unavailable" : chosen?.length ? "model" : "fallback" })
+      const committed = yield* SessionInbox.serialized(
+        loaded.session.id,
+        Effect.gen(function* () {
+          // A steer admitted during evaluation takes precedence at this same boundary.
+          if (yield* SessionInbox.has(db, loaded.session.id, "steer")) return false
+          yield* bus.publish(
+            SessionEvent.Skill.Activated,
+            { sessionID: loaded.session.id, id: Skill.ID.make(id), name: Skill.Name.make(missing ? `${fallback.label} · Remotion unavailable` : fallback.label), text },
+            { id: Event.ID.make(`evt_motion_${missing ? "missing_" : ""}${anchor.id.slice(4)}`) },
+          )
+          return true
+        }),
+      )
+      if (!committed) return undefined
+      return yield* context.load(selected)
+    })
+
     /** Owns logical Step policy; each attempt owns its streaming, tools, and durable settlement. */
     const runStep = Effect.fn("SessionRunner.runStep")(function* (
       first: SessionContext.Loaded,
@@ -250,7 +361,13 @@ const layer = Layer.effect(
         // Reuse boundary preparation once; retries refresh context without delivering more input.
         const loaded = initial ?? (yield* prepareContext(sessionID).pipe(Effect.flatMap(context.load)))
         initial = undefined
-        const estimate = SessionCompaction.estimatePrompt(loaded)
+        const active = yield* activeMotion(sessionID)
+        const remotion = active?.selection?.includes("remotion")
+          ? yield* Effect.tryPromise({ try: MotionSkills.loadRemotion, catch: () => undefined }).pipe(Effect.orElseSucceed(() => undefined))
+          : undefined
+        const motionText = active?.selection ? MotionSkills.guidance({ opencodeMotion: { guides: active.selection } }, remotion) : undefined
+        const baseEstimate = SessionCompaction.estimatePrompt(loaded)
+        const estimate = motionText ? { ...baseEstimate, estimated: baseEstimate.estimated + Token.estimate(motionText) } : baseEstimate
         const compacted = yield* compaction.compact({ reason: "auto", context: loaded, estimate })
         if (compacted.status === "failed") return yield* new StepFailedError({ error: compacted.error })
         if (compacted.status === "completed") {
@@ -272,7 +389,7 @@ const layer = Layer.effect(
             agent: loaded.agent.id,
             model: loaded.model,
             tools: loaded.tools,
-            system: transcript.system,
+            system: motionText ? [...transcript.system, SystemPart.make(motionText)] : transcript.system,
             messages: stepLimitReached
               ? [...transcript.messages, Message.assistant(MAX_STEPS_PROMPT)]
               : transcript.messages,
@@ -462,6 +579,7 @@ export const node = makeLocationNode({
     PluginHooks.node,
     Job.node,
     SessionTitle.node,
+    Agent.node,
     Snapshot.node,
     PersistentPty.node,
     ToolOutput.node,

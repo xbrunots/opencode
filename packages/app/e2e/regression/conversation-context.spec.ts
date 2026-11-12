@@ -3,6 +3,26 @@ import type { SessionMessageInfo } from "@opencode/client/promise"
 import { pageMessagesFrom } from "../utils/app"
 import { openSession } from "../utils/workspace"
 
+test("shows the recorded motion evaluator only in conversation context", async ({ page }) => {
+  const id = "ses_motion_context"
+  const history: SessionMessageInfo[] = [
+    { id: "msg_motion_user", type: "user", text: "Animate this interface", time: { created: 1 } },
+    { id: "msg_motion_selection", type: "skill", skill: "opencodex-motion:msg_motion_user", name: "OpenCodex Motion Aura", text: "PRIVATE MOTION INSTRUCTIONS", time: { created: 2 } },
+    { id: "msg_motion_fallback", type: "skill", skill: "opencodex-motion:msg_motion_user", name: "OpenCodex Motion Aura · Remotion unavailable", text: '{"guides":["launchVideo"],"source":"remotion-unavailable"}', time: { created: 2 } },
+    { id: "msg_motion_answer", type: "assistant", agent: "build", model: { providerID: "opencode", id: "test" }, time: { created: 3, completed: 4 }, content: [{ type: "text", text: "Done" }], cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } } },
+  ]
+  await openSession(page, {
+    name: "MotionContext",
+    sessions: [{ id, title: "Motion context" }],
+    seed: { tabs: [id] },
+    pageMessages: pageMessagesFrom({ [id]: history }),
+  })
+  const card = page.getByRole("region", { name: "Conversation context", exact: true })
+  await expect(card.getByRole("button", { name: /OpenCodex Motion Aura · Remotion unavailable/ })).toBeVisible()
+  await expect(page.getByText("OpenCodex Motion Aura · Remotion unavailable", { exact: true })).toHaveCount(1)
+  await expect(page.getByText("PRIVATE MOTION INSTRUCTIONS")).toHaveCount(0)
+})
+
 test("conversation context shows recorded resources, opens review and subagents, and stays exclusive to Focus", async ({
   page,
 }) => {

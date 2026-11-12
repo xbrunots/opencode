@@ -73,7 +73,7 @@ export function resolveAttachmentMediaTarget(
   file: PromptAttachment,
   options: { readonly peekMedia?: (uri: string, mime: string) => string | undefined; readonly hasReader: boolean },
 ): AttachmentMediaTarget {
-  if (!file.mime.startsWith("image/")) return NONE_ATTACHMENT_MEDIA_TARGET
+  if (!file.mime.startsWith("image/") && !file.mime.startsWith("video/")) return NONE_ATTACHMENT_MEDIA_TARGET
 
   if (file.source?.type === "uri") return { kind: "direct", src: file.source.uri }
 

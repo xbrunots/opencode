@@ -30,7 +30,7 @@ await Bun.write(
 const pkg = await Bun.file(path.join(repository, "packages", "desktop", "package.json")).json()
 await Bun.write(
   path.join(output, "README-portable.txt"),
-  `OpenCode — pacote portátil local\nIdentificação: ${identity}\nVersão base: ${pkg.version}\n\nExecute ${executables[0]}. Dados locais serão criados em data/ ao lado do executável. Este pacote não substitui a instalação existente nem o portable anterior. Os hashes SHA-256 dos arquivos empacotados estão em portable-build.json.\n`,
+  `OpenCodex - pacote portátil local\nIdentificação: ${identity}\nVersão base: ${pkg.version}\n\nExecute ${executables[0]}. Dados locais são preservados em data/ ao lado do executável. Os hashes SHA-256 dos arquivos empacotados estão em portable-build.json.\n`,
 )
 
 const files: Record<string, string> = {}

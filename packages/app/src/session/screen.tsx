@@ -296,6 +296,7 @@ function SessionScreenContent(props: {
         <PluginLinks session={own()} active={active()}>
           <MessageTimeline
             active={active()}
+            commandsFocused={targetFocused()}
             hideHeader={!isDesktop()}
             registerHeaderGap={registerHeaderGap}
             session={source}

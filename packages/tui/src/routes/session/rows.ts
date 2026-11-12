@@ -22,6 +22,7 @@ import {
   defaultVerbosity,
 } from "./grouping/session"
 import { groupID } from "./anchors"
+import { isAutomaticMotionSkill } from "../../util/auto-motion"
 export type { CacheUsage, PartRef, SessionRow } from "./grouping/session"
 
 /**
@@ -382,6 +383,7 @@ export function reduceSessionRows(
     ...messages.filter(isInput),
   ].reduce<ProjectionEntry[]>((rows, message) => {
     if (message.type !== "assistant") {
+      if (message.type === "skill" && isAutomaticMotionSkill(message.skill)) return rows
       if (message.type === "idle") {
         if (message.error && (message.error.type !== shownError?.type || message.error.message !== shownError.message))
           rows.push({ entry: { type: "message", messageID: message.id }, path: [], closesPrevious: true })

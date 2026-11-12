@@ -14,6 +14,14 @@ import {
 const reduceSessionRows = (messages: SessionMessageInfo[], inputs = new Set<string>(), turnTokens = false) =>
   reduceRows(messages, inputs, turnTokens, "medium")
 
+test("hides automatic motion skill notices while retaining ordinary skills", () => {
+  const rows = reduceSessionRows([
+    { type: "skill", id: "msg_auto", skill: "opencodex-motion:msg_user", name: "OpenCodex Motion Aura", text: "{}", time: { created: 1 } },
+    { type: "skill", id: "msg_regular", skill: "review", name: "Review", text: "Review guidance", time: { created: 2 } },
+  ])
+  expect(rows).toEqual([{ type: "message", messageID: "msg_regular" }])
+})
+
 test("indexed tail footer calculations do not subscribe to an unrelated history prefix", () => {
   createRoot((dispose) => {
     try {

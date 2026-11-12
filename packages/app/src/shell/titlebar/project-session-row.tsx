@@ -147,6 +147,7 @@ export function ProjectSessionRow(props: {
               aria-hidden="true"
             >
               <ProviderModelIcon
+                model={model()}
                 provider={
                   ctx()
                     ?.data.location.provider.list(props.session.location)
@@ -179,13 +180,6 @@ export function ProjectSessionRow(props: {
         <span class="min-w-0 flex-1 truncate" dir="auto">
           {sessionLabel(props.session)}
         </span>
-        <Show when={ctx()?.data.location.vcs.info({ directory: props.session.location.directory })?.branch.current}>
-          {(branch) => (
-            <span data-slot="session-branch-tag" title={branch()}>
-              {branch()}
-            </span>
-          )}
-        </Show>
         <Show when={props.label}>
           {(label) => (
             <span class="max-w-[40%] shrink-0 truncate text-[11px] leading-[var(--line-height-compact)] text-v2-text-text-faint [font-weight:400]">

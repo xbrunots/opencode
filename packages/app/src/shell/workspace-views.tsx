@@ -1,6 +1,7 @@
 import { useCurrentRoute } from "@/shell/state/layout"
-import { createContext, createMemo, useContext, type ParentProps } from "solid-js"
+import { createContext, createEffect, createMemo, createSignal, useContext, type ParentProps } from "solid-js"
 import { Schema } from "effect"
+import type { ServerConnection } from "@/runtime/server/registry"
 import { Persist, persisted } from "@/runtime/persistence/storage"
 import { Persistence } from "@/runtime/persistence/schema"
 import { tabKey, useTabs } from "@/shell/tabs/tabs"
@@ -11,6 +12,8 @@ const WorkspaceViewsContext = createContext<ReturnType<typeof createWorkspaceVie
 function createWorkspaceViews() {
   const tabs = useTabs()
   const route = useCurrentRoute()
+  const [floating, setFloating] = createSignal<{ server: ServerConnection.Key; sessionID: string }>()
+  const [floatingFocused, setFloatingFocused] = createSignal(false)
   const [state, setState] = persisted(
     Persist.window("workspace.views"),
     Persistence.struct({ mode: Schema.Literals(["focus", "grid", "islands"]), minimum: Schema.Finite }),
@@ -25,7 +28,26 @@ function createWorkspaceViews() {
     )
     return tab ? tabKey(tab) : undefined
   })
+  createEffect(() => {
+    const current = route()
+    const open = floating()
+    if (!open || current.type !== "session" || current.server !== open.server || current.sessionId !== open.sessionID)
+      return
+    setFloatingFocused(false)
+    setFloating(undefined)
+  })
   return {
+    floating,
+    floatingFocused,
+    setFloatingFocused,
+    openFloating: (server: ServerConnection.Key, sessionID: string) => {
+      setFloatingFocused(false)
+      setFloating({ server, sessionID })
+    },
+    closeFloating: () => {
+      setFloatingFocused(false)
+      setFloating(undefined)
+    },
     mode: () => state.mode,
     setMode: (mode: WorkspaceViewMode) => setState("mode", mode),
     minimum: () => state.minimum,

@@ -6,6 +6,7 @@ import {
 } from "@/shell/workspace-resize-machine"
 import { SessionTargetProvider } from "@/session/target"
 import { useWorkspaceViews } from "@/shell/workspace-views"
+import { transitionFloatingDrag, type FloatingDragState } from "@/shell/floating-drag-machine"
 import { tabKey, useTabs } from "@/shell/tabs/tabs"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Icon } from "@opencode/ui/icon"
@@ -13,6 +14,7 @@ import "@/shell/workspace-views.css"
 import { Route, useParams } from "@solidjs/router"
 import { createMemo, createSignal, For, lazy, onCleanup, onMount, Show, Suspense, type ParentProps } from "solid-js"
 import { createStore } from "solid-js/store"
+import { Portal } from "solid-js/web"
 import { Home } from "@/home/route"
 import { ServerProvider } from "@/runtime/server/current"
 import { useGlobal } from "@/runtime/server/runtime"
@@ -78,18 +80,45 @@ function WorkspaceSessions() {
   const language = useLanguage()
   const views = useWorkspaceViews()
   const tabs = useTabs()
+  const params = useParams<{ serverKey: string; id: string }>()
+  const visibleSessions = () =>
+    views.sessions().filter((tab) => {
+      const floating = views.floating()
+      return !floating || tab.server !== floating.server || tab.sessionId !== floating.sessionID
+    })
   const [geometry, setGeometry] = createStore({ height: 600 })
+  let singleRoot: HTMLDivElement | undefined
   const single = () => (
-    <SessionRouteFrame>
-      <Suspense fallback={<SessionPanelFrame raised />}>
-        <TargetServerRoute>
-          <TargetSessionRouteContent />
-        </TargetServerRoute>
-      </Suspense>
-    </SessionRouteFrame>
+    <div
+      ref={singleRoot}
+      class="flex size-full min-h-0 min-w-0"
+      onFocusIn={() => views.setFloatingFocused(false)}
+      onPointerDown={() => views.setFloatingFocused(false)}
+    >
+      <SessionTargetProvider
+        value={{
+          get serverKey() {
+            return requireServerKey(params.serverKey)
+          },
+          get sessionID() {
+            return params.id
+          },
+          focused: () => !views.floatingFocused(),
+          root: () => singleRoot,
+        }}
+      >
+        <SessionRouteFrame>
+          <Suspense fallback={<SessionPanelFrame raised />}>
+            <TargetServerRoute>
+              <TargetSessionRouteContent />
+            </TargetServerRoute>
+          </Suspense>
+        </SessionRouteFrame>
+      </SessionTargetProvider>
+    </div>
   )
   return (
-    <Show when={views.mode() !== "focus" && views.sessions().length > 0} fallback={single()}>
+    <Show when={views.mode() !== "focus" && visibleSessions().length > 0} fallback={single()}>
       <div
         ref={(element) =>
           onMount(() => {
@@ -104,7 +133,7 @@ function WorkspaceSessions() {
         data-mode={views.mode()}
         style={{ "--workspace-pane-minimum": `${views.minimum()}px` }}
       >
-        <For each={views.sessions()}>
+        <For each={visibleSessions()}>
           {(tab) => {
             const [size, setSize] = createStore({ width: views.minimum() })
             const [resize, setResize] = createSignal<WorkspaceResizeState>({ type: "idle" })
@@ -126,7 +155,7 @@ function WorkspaceSessions() {
               get sessionID() {
                 return tab.routeSessionId ?? tab.sessionId
               },
-              focused,
+              focused: () => focused() && !views.floatingFocused(),
               root: () => element,
             }
             return (
@@ -139,8 +168,14 @@ function WorkspaceSessions() {
                   "--workspace-pane-height": `${geometry.height}px`,
                 }}
                 aria-label={tabs.info[key]?.title || tab.sessionId}
-                onPointerDown={() => views.focus(key)}
-                onFocusIn={() => views.focus(key)}
+                onPointerDown={() => {
+                  views.setFloatingFocused(false)
+                  views.focus(key)
+                }}
+                onFocusIn={() => {
+                  views.setFloatingFocused(false)
+                  views.focus(key)
+                }}
               >
                 <header class="workspace-session-pane-heading">
                   <span>{tabs.info[key]?.title || tab.sessionId}</span>
@@ -270,6 +305,136 @@ function TargetServerRoute(props: ParentProps<{ serverKey?: ServerConnection.Key
   )
 }
 
+function FloatingSession(props: { server: ServerConnection.Key; sessionID: string }) {
+  const language = useLanguage()
+  const views = useWorkspaceViews()
+  const tabs = useTabs()
+  const key = tabKey({ type: "session", server: props.server, sessionId: props.sessionID })
+  const [position, setPosition] = createStore<{ left?: number; top?: number }>({})
+  const [gesture, setGesture] = createSignal<FloatingDragState>({ type: "idle" })
+  onCleanup(() => setGesture(transitionFloatingDrag(gesture(), { type: "disposed" })))
+  let element: HTMLElement | undefined
+  const move = (left: number, top: number) => {
+    if (!element) return
+    const bounds = element.getBoundingClientRect()
+    setPosition({
+      left: Math.max(0, Math.min(window.innerWidth - bounds.width, left)),
+      top: Math.max(0, Math.min(window.innerHeight - bounds.height, top)),
+    })
+  }
+  const target = {
+    serverKey: props.server,
+    sessionID: props.sessionID,
+    floating: true,
+    focused: views.floatingFocused,
+    root: () => element,
+  }
+  onMount(() => {
+    const resize = () => {
+      if (position.left !== undefined && position.top !== undefined) move(position.left, position.top)
+    }
+    window.addEventListener("resize", resize)
+    onCleanup(() => window.removeEventListener("resize", resize))
+  })
+  return (
+    <Portal>
+      <section
+        ref={element}
+        class="workspace-floating-chat workspace-session-pane"
+        data-focused={views.floatingFocused() || undefined}
+        aria-label={tabs.info[key]?.title || props.sessionID}
+        style={{
+          left: position.left === undefined ? undefined : `${position.left}px`,
+          top: position.top === undefined ? undefined : `${position.top}px`,
+        }}
+        onFocusIn={() => views.setFloatingFocused(true)}
+      >
+        <header class="workspace-session-pane-heading workspace-floating-chat-heading">
+          <button
+            type="button"
+            class="workspace-floating-chat-handle"
+            aria-label={language.t("workspace.pane.move")}
+            onPointerDown={(event) => {
+              if (event.button !== 0 || !element) return
+              const bounds = element.getBoundingClientRect()
+              setGesture(
+                transitionFloatingDrag(gesture(), {
+                  type: "started",
+                  pointer: event.pointerId,
+                  x: event.clientX,
+                  y: event.clientY,
+                  left: bounds.left,
+                  top: bounds.top,
+                }),
+              )
+              event.currentTarget.setPointerCapture(event.pointerId)
+            }}
+            onPointerMove={(event) => {
+              const current = transitionFloatingDrag(gesture(), {
+                type: "moved",
+                pointer: event.pointerId,
+                x: event.clientX,
+                y: event.clientY,
+              })
+              if (current === gesture() || current.type !== "dragging") return
+              setGesture(current)
+              move(current.left + event.clientX - current.x, current.top + event.clientY - current.y)
+            }}
+            onPointerUp={(event) => {
+              setGesture(transitionFloatingDrag(gesture(), { type: "finished", pointer: event.pointerId }))
+              if (event.currentTarget.hasPointerCapture(event.pointerId))
+                event.currentTarget.releasePointerCapture(event.pointerId)
+            }}
+            onPointerCancel={(event) =>
+              setGesture(transitionFloatingDrag(gesture(), { type: "cancelled", pointer: event.pointerId }))
+            }
+            onLostPointerCapture={(event) =>
+              setGesture(transitionFloatingDrag(gesture(), { type: "cancelled", pointer: event.pointerId }))
+            }
+            onKeyDown={(event) => {
+              if (!element) return
+              const delta = event.shiftKey ? 64 : 16
+              const x = event.key === "ArrowLeft" ? -delta : event.key === "ArrowRight" ? delta : 0
+              const y = event.key === "ArrowUp" ? -delta : event.key === "ArrowDown" ? delta : 0
+              if (!x && !y) return
+              event.preventDefault()
+              const bounds = element.getBoundingClientRect()
+              move(bounds.left + x, bounds.top + y)
+            }}
+          >
+            <span>{tabs.info[key]?.title || props.sessionID}</span>
+          </button>
+          <IconButton
+            aria-label={language.t("workspace.pane.focus")}
+            icon={<Icon name="arrow-top-right" />}
+            variant="ghost"
+            onClick={() => {
+              const tab = tabs.sessionTab(props.server, props.sessionID)
+              if (tab) tabs.select(tab)
+              views.closeFloating()
+            }}
+          />
+          <IconButton
+            aria-label={language.t("workspace.pane.close")}
+            icon={<Icon name="xmark-small" />}
+            variant="ghost"
+            onClick={views.closeFloating}
+          />
+        </header>
+        <div class="workspace-session-pane-content">
+          <SessionTargetProvider value={target}>
+            <Suspense fallback={<SessionPanelFrame raised />}>
+              <TargetServerRoute serverKey={props.server}>
+                <TargetSessionRouteContent />
+              </TargetServerRoute>
+            </Suspense>
+          </SessionTargetProvider>
+        </div>
+      </section>
+    </Portal>
+  )
+}
+
 function AppLayout(props: ParentProps) {
   const servers = useServers()
   const global = useGlobal()
@@ -288,7 +453,12 @@ function AppLayout(props: ParentProps) {
       <LayoutProvider>
         <SettingsSurfaceProvider>
           <PluginAttachment>
-            <Shell>{props.children}</Shell>
+            <Shell>
+              {props.children}
+              <Show when={useWorkspaceViews().floating()} keyed>
+                {(floating) => <FloatingSession server={floating.server} sessionID={floating.sessionID} />}
+              </Show>
+            </Shell>
           </PluginAttachment>
         </SettingsSurfaceProvider>
       </LayoutProvider>

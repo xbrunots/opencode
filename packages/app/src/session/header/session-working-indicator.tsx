@@ -1,4 +1,4 @@
-import { SessionProgressIndicatorV2 } from "@opencode/session-ui/v2/session-progress-indicator-v2"
+import { MorphLoader } from "@opencode/ui/morph-loader"
 import { Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createAnimatedPresence } from "@/runtime/animated-presence"
@@ -37,7 +37,7 @@ export function SessionWorkingIndicator(props: { sessionID?: string }) {
           "animate-out fade-out fill-mode-forwards": presence.animate() && !presence.show(),
         }}
       >
-        <SessionProgressIndicatorV2 class="shrink-0" />
+        <MorphLoader class="shrink-0" />
       </span>
     </Show>
   )

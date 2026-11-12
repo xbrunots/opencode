@@ -37,6 +37,8 @@ import { BuiltinSlot, type BuiltinSlotMap } from "@opencode/plugin/gui/builtin"
 import { PluginContext } from "@opencode/plugin/gui/host"
 import { usePluginHost, type Item } from "./host"
 import { createLinkCheck } from "./link-check"
+import { usePlatform } from "@/runtime/platform/platform"
+import { showToast } from "@/shell/notifications/toast"
 
 /**
  * Renders one plugin contribution with its context and error isolation: a contribution that throws records the
@@ -154,6 +156,7 @@ export function PluginThemes(props: { loaded: () => boolean }) {
 export function PluginLinks(props: ParentProps<{ session: MountedSession; active?: boolean }>) {
   const host = usePluginHost()
   const markdown = useMarkdown()
+  const platform = usePlatform()
 
   // Checks untracked: markdown calls this inside its render effect, which must not follow the routed session.
   const localFileExists = createLinkCheck(
@@ -166,6 +169,20 @@ export function PluginLinks(props: ParentProps<{ session: MountedSession; active
       readImage={markdown?.readImage}
       openLocalFile={(href) => void host.links.open({ href, session: props.session })}
       localFileExists={localFileExists}
+      previewSession={props.session.id}
+      openPreview={(source, local, destination) => {
+        if (destination === "panel") {
+          host.links.open({ href: source, origin: local ? undefined : "browser", session: props.session })
+          return
+        }
+        if (!local) return platform.openExternal(source)
+        if (!props.session.server.local) {
+          showToast({ title: "Abrir no aplicativo padrão não está disponível para arquivos de servidores remotos." })
+          return
+        }
+        const absolute = /^([a-z]:[\\/]|\/)/i.test(source)
+        void platform.openPath?.(absolute ? source : `${props.session.directory}/${source}`)
+      }}
       codeBlocks={inner.codeBlocks}
     >
       {inner.children}

@@ -1,0 +1,57 @@
+[data-component="image-generation-tool"] {
+  width: min(208px, 100%);
+  color: var(--v2-text-text-base);
+  font-size: 13px;
+}
+
+[data-slot="image-generation-preview"] {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--v2-background-bg-layer-02);
+}
+
+[data-slot="image-generation-dots"] {
+  display: grid;
+  grid-template-columns: repeat(11, 1fr);
+  place-items: center;
+  width: 80%;
+  height: 80%;
+}
+
+[data-slot="image-generation-dots"] span {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .15;
+}
+
+[data-slot="image-generation-preview"][data-active] [data-slot="image-generation-dots"] span {
+  animation: image-generation-pulse 1.8s ease-in-out var(--dot-delay) infinite alternate;
+}
+
+@keyframes image-generation-pulse {
+  to { opacity: .8; transform: scale(1.5); }
+}
+
+[data-slot="image-generation-label"] {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+[data-slot="image-generation-prompt"], [data-slot="image-generation-model"] {
+  margin: 4px 0 0;
+  color: var(--v2-text-text-muted);
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="image-generation-dots"] span { animation: none !important; }
+}
+
+:root[data-motion="reduce"] [data-slot="image-generation-dots"] span { animation: none !important; }

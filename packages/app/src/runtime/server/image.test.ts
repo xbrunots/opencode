@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { resolveObjectURL } from "node:buffer"
 import { resolveBlobUrl, setMediaBlobLoader } from "../persistence/drafts"
 import { createApiForServer } from "./api"
-import { readLocalImage } from "./image"
+import { MAX_PREVIEW_BYTES, readLocalImage, readLocalPreview } from "./image"
 import { createMediaCache } from "./media"
 
 function setup(
@@ -211,4 +211,32 @@ describe("readLocalImage", () => {
     setMediaBlobLoader("srv-1", undefined)
     expect(await resolveBlobUrl({ id: `media:${hashA}` })).toBeUndefined()
   })
+})
+
+test("reads local video and HTML previews through the authenticated file API", async () => {
+  const { api } = setup()
+  const requests: Array<{ url: URL; init?: RequestInit }> = []
+  const transport = {
+    server: { url: "https://server.example:4096", password: "secret" },
+    fetch: (async (url: string | URL | Request, init?: RequestInit) => {
+      requests.push({ url: new URL(String(url)), init })
+      return new Response(new Uint8Array([0, 127, 255]))
+    }) as typeof fetch,
+  }
+  const video = await readLocalPreview(api, "/repo", "out/demo.mp4", new AbortController().signal, transport)
+  const html = await readLocalPreview(api, "/repo", "out/demo.html", new AbortController().signal, transport)
+  expect(video?.type).toBe("video/mp4")
+  expect(html?.type).toBe("text/html")
+  expect(requests.map((request) => request.url.pathname)).toEqual(["/api/fs/read/out/demo.mp4", "/api/fs/read/out/demo.html"])
+  expect(new Headers(requests[0].init?.headers).get("authorization")).toBe(`Basic ${btoa("opencode:secret")}`)
+  expect(new Headers(requests[0].init?.headers).get("range")).toBe(`bytes=0-${MAX_PREVIEW_BYTES}`)
+})
+
+test("rejects oversized previews before reading the response body", async () => {
+  const { api } = setup()
+  const options = {
+    server: { url: "https://server.example:4096" },
+    fetch: (async (_input: string | URL | Request, _init?: RequestInit) => new Response("large", { headers: { "content-range": `bytes 0-1/${MAX_PREVIEW_BYTES + 1}` } })) as typeof fetch,
+  }
+  await expect(readLocalPreview(api, "/repo", "large.mp4", new AbortController().signal, options)).rejects.toThrow("32 MiB")
 })

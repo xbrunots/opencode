@@ -77,7 +77,7 @@ export function Composer(props: {
         compactLogo={
           <span title={modelName()} aria-label={modelName()}>
             <Show when={props.model.model.selection.current()?.provider}>
-              {(provider) => <ProviderModelIcon provider={provider()} />}
+              {(provider) => <ProviderModelIcon provider={provider()} model={props.model.model.selection.current()} />}
             </Show>
           </span>
         }
@@ -173,7 +173,7 @@ function ComposerModelControl(props: {
   const content = () => (
     <>
       <Show when={props.model.current()?.provider}>
-        {(provider) => <ProviderModelIcon provider={provider()} class="shrink-0" />}
+        {(provider) => <ProviderModelIcon provider={provider()} model={props.model.current()} class="shrink-0" />}
       </Show>
       <span class="flex min-w-0 whitespace-nowrap leading-4">
         <Show when={props.label.provider}>

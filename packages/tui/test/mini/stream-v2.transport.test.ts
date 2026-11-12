@@ -3633,6 +3633,14 @@ describe("V2 mini transport", () => {
       messages: {
         ses_1: [
           {
+            id: "msg_hidden_history",
+            type: "skill" as const,
+            skill: "opencodex-motion:msg_user",
+            name: "OpenCodex Motion Aura",
+            text: "{}",
+            time: { created: 1 },
+          },
+          {
             id: "msg_skill",
             type: "skill" as const,
             skill: "tigerstyle",
@@ -3652,6 +3660,13 @@ describe("V2 mini transport", () => {
       footer: ui.api,
     })
     events.push({
+      id: "evt_hidden_live",
+      created: 0,
+      type: "session.skill.activated",
+      durable: durable("ses_1"),
+      data: { sessionID: "ses_1", id: "opencodex-motion:msg_other", name: "OpenCodex Motion Nova", text: "{}" },
+    })
+    events.push({
       id: "evt_skill",
       created: 0,
       type: "session.skill.activated",
@@ -3667,6 +3682,7 @@ describe("V2 mini transport", () => {
     await Bun.sleep(0)
 
     expect(ui.commits.filter((item) => item.text === '→ Skill "tigerstyle"')).toHaveLength(1)
+    expect(ui.commits.some((item) => item.text?.includes("OpenCodex Motion"))).toBe(false)
     await transport.close()
   })
 

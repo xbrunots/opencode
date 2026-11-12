@@ -87,6 +87,8 @@ import { Expected } from "./lib/session-message"
 import { permissionLayer } from "./lib/permission"
 import { agentHost, modelHost, host, noProviders } from "./plugin/host"
 import { CodeModeInstructions } from "@opencode/core/codemode/instructions"
+import { MotionSkills } from "@opencode/core/session/motion/index"
+import { Skill } from "@opencode/core/skill"
 
 const emptyCodeMode = `${CodeModeInstructions.render({ total: 0, namespaces: [] })}\n\n`
 type ToolBarrier = {
@@ -1009,6 +1011,240 @@ const watchRename = Effect.fnUntraced(function* (sessionID: Session.ID) {
 })
 
 describe("SessionRunnerLLM", () => {
+  scenario("motion evaluator persists the chosen references and reuses them after recovery", function* (s) {
+    const agents = yield* Agent.Service
+    yield* agents.transform((editor) => editor.update(Agent.ID.make(MotionSkills.agentID), (agent) => {
+      agent.system = MotionSkills.agentPrompt
+      agent.hidden = true
+    }))
+    const message = yield* s.admit("Crie uma animação React")
+    const primaryStarted = yield* Deferred.make<void>()
+    yield* s.llm.push(
+      TestLLM.textWithUsage('{"guides":["gsapReact"]}', "motion-choice", 41),
+      Stream.fromEffect(Deferred.succeed(primaryStarted, undefined)).pipe(Stream.flatMap(() => Stream.never)),
+      TestLLM.text("Done", "motion-answer"),
+    )
+    const runner = yield* SessionRunner.Service
+    const first = yield* runner.drain({ sessionID, force: true }).pipe(Effect.forkChild)
+    yield* Deferred.await(primaryStarted)
+    yield* Fiber.interrupt(first)
+    const selected = (yield* s.messages).filter((item) => item.type === "skill" && item.skill === MotionSkills.skillID(message.id))
+    expect(selected).toHaveLength(1)
+    expect(selected[0]?.type === "skill" && selected[0].text).toContain('"gsapReact"')
+    expect(selected[0]?.type === "skill" && selected[0].text).not.toContain("GSAP with React")
+    yield* runner.drain({ sessionID, force: true })
+    expect((yield* s.messages).filter((item) => item.type === "skill" && item.skill === MotionSkills.skillID(message.id))).toHaveLength(1)
+    expect(s.requests).toHaveLength(3)
+    expect(s.requests[0]?.maxTokens).toBeLessThanOrEqual(512)
+    expect(s.requests[1]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(true)
+    expect(s.requests[2]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(true)
+    expect((yield* s.session.get(sessionID)).tokens.input).toBeGreaterThanOrEqual(41)
+  })
+
+  scenario("a complementary steer during motion evaluation preserves the motion request", function* (s) {
+    const agents = yield* Agent.Service
+    yield* agents.transform((editor) => editor.update(Agent.ID.make(MotionSkills.agentID), (agent) => {
+      agent.system = MotionSkills.agentPrompt
+      agent.hidden = true
+    }))
+    const started = yield* Deferred.make<void>()
+    const release = yield* Deferred.make<void>()
+    const initial = yield* s.admit("Crie uma animação React")
+    yield* s.llm.push(
+      Stream.unwrap(Deferred.succeed(started, undefined).pipe(
+        Effect.andThen(Deferred.await(release)),
+        Effect.as(Stream.fromIterable(TestLLM.text('{"guides":["gsapReact"]}', "motion-choice"))),
+      )),
+      TestLLM.text('{"guides":["gsapReact"]}', "motion-after-steer"),
+      TestLLM.text("Understood", "after-steer"),
+    )
+    const first = yield* s.resume.pipe(Effect.forkChild)
+    yield* Deferred.await(started)
+    yield* s.admit("Use uma cor roxa")
+    yield* Deferred.succeed(release, undefined)
+    yield* Fiber.join(first)
+    expect((yield* s.messages).filter((item) => item.type === "skill" && item.skill === MotionSkills.skillID(initial.id))).toHaveLength(1)
+    expect(userTexts(s.requests[1]).join(" ")).toContain("Use uma cor roxa")
+    expect(s.requests[2]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(true)
+  })
+
+  scenario("motion evaluator falls back when the configured model fails", function* (s) {
+    const agents = yield* Agent.Service
+    yield* agents.transform((editor) => editor.update(Agent.ID.make(MotionSkills.agentID), (agent) => {
+      agent.system = MotionSkills.agentPrompt
+      agent.hidden = true
+    }))
+    const message = yield* s.admit("Crie uma animação React")
+    yield* s.llm.push(Stream.fail(invalidRequest()), TestLLM.text("Done", "motion-fallback"))
+    yield* s.resume
+    expect((yield* s.messages).filter((item) => item.type === "skill" && item.skill === MotionSkills.skillID(message.id))).toHaveLength(1)
+    expect(s.requests[1]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(true)
+  })
+
+  scenario("motion evaluator times out without blocking the conversation", function* (s) {
+    const agents = yield* Agent.Service
+    yield* agents.transform((editor) => editor.update(Agent.ID.make(MotionSkills.agentID), (agent) => {
+      agent.system = MotionSkills.agentPrompt
+      agent.hidden = true
+    }))
+    const started = yield* Deferred.make<void>()
+    const message = yield* s.admit("Crie uma animação React")
+    yield* s.llm.push(
+      Stream.fromEffect(Deferred.succeed(started, undefined)).pipe(Stream.flatMap(() => Stream.never)),
+      TestLLM.text("Done", "motion-timeout"),
+    )
+    const run = yield* s.resume.pipe(Effect.forkChild)
+    yield* Deferred.await(started)
+    yield* TestClock.adjust("15 seconds")
+    yield* Fiber.join(run)
+    expect((yield* s.messages).filter((item) => item.type === "skill" && item.skill === MotionSkills.skillID(message.id))).toHaveLength(1)
+    expect(s.requests[1]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(true)
+  })
+
+  scenario("motion selection respects an attached skill followed by a steer", function* (s) {
+    const agents = yield* Agent.Service
+    yield* agents.transform((editor) => editor.update(Agent.ID.make(MotionSkills.agentID), (agent) => { agent.system = MotionSkills.agentPrompt }))
+    yield* s.bus.publish(SessionEvent.InboxEnqueued, {
+      sessionID, inboxID: SessionMessage.ID.create(), item: {
+        type: "user", delivery: "steer", payload: { text: "Use this guide", skills: [{ id: Skill.ID.make("custom"), name: Skill.Name.make("Custom"), text: "Custom guide" }] },
+      },
+    })
+    yield* s.admit("Anime o botão")
+    yield* s.llm.push(TestLLM.text("Done", "custom-skill-answer"))
+    yield* s.resume
+    expect(s.requests).toHaveLength(1)
+    expect((yield* s.messages).filter((message) => message.type === "skill" && message.skill.startsWith(MotionSkills.skillPrefix))).toHaveLength(0)
+  })
+
+  scenario("queued motion and non-motion requests do not share motion guidance", function* (s) {
+    const agents = yield* Agent.Service
+    yield* agents.transform((editor) => editor.update(Agent.ID.make(MotionSkills.agentID), (agent) => { agent.system = MotionSkills.agentPrompt }))
+    yield* s.session.prompt({ sessionID, text: "Anime a interface React", delivery: "queue", resume: false })
+    yield* s.session.prompt({ sessionID, text: "Explique a arquitetura", delivery: "queue", resume: false })
+    yield* s.llm.push(TestLLM.text('{"guides":["gsapReact"]}', "choice"), TestLLM.text("Animated", "first"), TestLLM.text("Explained", "second"))
+    yield* s.resume
+    expect(s.requests).toHaveLength(3)
+    expect(s.requests[1]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(true)
+    expect(s.requests[2]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(false)
+  })
+
+  scenario("motion selection survives a compaction within the active execution", function* (s) {
+    const agents = yield* Agent.Service
+    yield* agents.transform((editor) => editor.update(Agent.ID.make(MotionSkills.agentID), (agent) => { agent.system = MotionSkills.agentPrompt }))
+    yield* s.admit("Anime a interface React")
+    yield* s.llm.push(
+      TestLLM.text('{"guides":["gsapReact"]}', "choice"),
+      TestLLM.toolCall("motion-tool", "echo", { text: "working" }),
+      TestLLM.text("## Objective\n- Animate the interface", "summary"),
+      TestLLM.text("Done", "after-compaction"),
+    )
+    const tools = yield* s.blockTools()
+    const run = yield* s.resume.pipe(Effect.forkChild)
+    yield* tools.started
+    yield* s.session.compact({ sessionID })
+    yield* tools.release
+    yield* Fiber.join(run)
+    expect(s.requests).toHaveLength(4)
+    expect(JSON.stringify(s.requests[2]?.messages)).not.toContain('"guides"')
+    expect(s.requests[3]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(true)
+  })
+
+  scenario("motion selection survives an interrupted execution resumed without a new prompt", function* (s) {
+    const agents = yield* Agent.Service
+    yield* agents.transform((editor) => editor.update(Agent.ID.make(MotionSkills.agentID), (agent) => { agent.system = MotionSkills.agentPrompt }))
+    const started = yield* Deferred.make<void>()
+    yield* s.admit("Anime a interface React")
+    yield* s.llm.push(
+      TestLLM.text('{"guides":["gsapReact"]}', "choice"),
+      Stream.fromEffect(Deferred.succeed(started, undefined)).pipe(Stream.flatMap(() => Stream.never)),
+      TestLLM.text("Continued", "continued"),
+    )
+    const run = yield* s.resume.pipe(Effect.forkChild)
+    yield* Deferred.await(started)
+    yield* s.session.interrupt(sessionID)
+    yield* Fiber.await(run)
+    yield* s.session.resume(sessionID)
+    expect(s.requests).toHaveLength(3)
+    expect(s.requests[2]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(true)
+  })
+
+  scenario("motion selection survives repeated interruptions and a continue steer", function* (s) {
+    const agents = yield* Agent.Service
+    yield* agents.transform((editor) => editor.update(Agent.ID.make(MotionSkills.agentID), (agent) => { agent.system = MotionSkills.agentPrompt }))
+    const firstStarted = yield* Deferred.make<void>()
+    const secondStarted = yield* Deferred.make<void>()
+    yield* s.admit("Anime a interface React")
+    yield* s.llm.push(
+      TestLLM.text('{"guides":["gsapReact"]}', "choice"),
+      Stream.fromEffect(Deferred.succeed(firstStarted, undefined)).pipe(Stream.flatMap(() => Stream.never)),
+      Stream.fromEffect(Deferred.succeed(secondStarted, undefined)).pipe(Stream.flatMap(() => Stream.never)),
+      TestLLM.text("Continued", "after-two-interruptions"),
+    )
+    const first = yield* s.resume.pipe(Effect.forkChild)
+    yield* Deferred.await(firstStarted)
+    yield* s.session.interrupt(sessionID)
+    yield* Fiber.await(first)
+    yield* s.admit("continue")
+    const second = yield* s.resume.pipe(Effect.forkChild)
+    yield* Deferred.await(secondStarted)
+    yield* s.session.interrupt(sessionID)
+    yield* Fiber.await(second)
+    yield* s.session.resume(sessionID)
+    expect(s.requests).toHaveLength(4)
+    expect(s.requests[2]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(true)
+    expect(s.requests[3]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(true)
+  })
+
+  scenario("a queue admitted before interruption starts independent work afterwards", function* (s) {
+    const agents = yield* Agent.Service
+    yield* agents.transform((editor) => editor.update(Agent.ID.make(MotionSkills.agentID), (agent) => { agent.system = MotionSkills.agentPrompt }))
+    const started = yield* Deferred.make<void>()
+    yield* s.admit("Anime a interface React")
+    yield* s.llm.push(
+      TestLLM.text('{"guides":["gsapReact"]}', "choice"),
+      Stream.fromEffect(Deferred.succeed(started, undefined)).pipe(Stream.flatMap(() => Stream.never)),
+      TestLLM.text("Explained", "queued-after-interruption"),
+    )
+    const run = yield* s.resume.pipe(Effect.forkChild)
+    yield* Deferred.await(started)
+    yield* s.session.prompt({ sessionID, text: "Explique a arquitetura", delivery: "queue", resume: false })
+    yield* s.session.interrupt(sessionID)
+    yield* Fiber.await(run)
+    yield* s.session.resume(sessionID)
+    expect(s.requests).toHaveLength(3)
+    expect(s.requests[2]?.system.some((part) => part.text.includes("GSAP with React"))).toBe(false)
+  })
+
+  scenario("motion selection records a visible fallback when private Remotion is unavailable", function* (s) {
+    yield* Effect.acquireUseRelease(
+      Effect.sync(() => {
+        const previous = process.env.OPENCODE_MOTION_SKILLS_DIR
+        process.env.OPENCODE_MOTION_SKILLS_DIR = `missing-${SessionMessage.ID.create()}`
+        return previous
+      }),
+      () => Effect.gen(function* () {
+        const message = yield* s.admit("Crie uma animação de vídeo com Remotion")
+        yield* s.bus.publish(SessionEvent.InboxDelivered, { sessionID, inboxID: message.id })
+        yield* s.bus.publish(SessionEvent.Skill.Activated, {
+          sessionID,
+          id: Skill.ID.make(MotionSkills.skillID(message.id)),
+          name: Skill.Name.make("OpenCodex Motion Aura"),
+          text: '{"guides":["remotion"],"source":"model"}',
+        })
+        yield* s.llm.push(TestLLM.text("Done", "without-remotion"))
+        yield* s.session.resume(sessionID)
+        const selections = (yield* s.messages).filter((item) => item.type === "skill" && item.skill === MotionSkills.skillID(message.id))
+        expect(selections).toHaveLength(2)
+        expect(selections.some((item) => item.type === "skill" && item.name.includes("Remotion unavailable") && item.text.includes("remotion-unavailable"))).toBe(true)
+        expect(s.requests).toHaveLength(1)
+        expect(s.requests[0]?.system.some((part) => part.text.includes("Launch video"))).toBe(true)
+      }),
+      (previous) => Effect.sync(() => {
+        if (previous === undefined) delete process.env.OPENCODE_MOTION_SKILLS_DIR
+        else process.env.OPENCODE_MOTION_SKILLS_DIR = previous
+      }),
+    )
+  })
   scenario("generates the title while the first model step is still running", function* (s) {
     yield* prepareTitleGeneration
 

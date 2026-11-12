@@ -60,6 +60,8 @@
     "./mcp-sign-in/machine": "./src/overlays/mcp-sign-in/machine.ts",
     "./menu": "./src/navigation/menu/menu.tsx",
     "./motion": "./src/motion/index.ts",
+    "./morph-loader": "./src/feedback/morph-loader/morph-loader.tsx",
+    "./reasoning-status": "./src/feedback/reasoning-status/reasoning-status.tsx",
     "./motion/solid": "./src/motion/solid.ts",
     "./motion-tuning": "./src/motion-tuning.ts",
     "./motion-tuning-features": "./src/motion-tuning-features.ts",

@@ -1,0 +1,30 @@
+[data-component="reasoning-status"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--v2-text-text-muted);
+}
+
+[data-slot="reasoning-status-clip"] {
+  display: inline-flex;
+  overflow: hidden;
+  min-width: 0;
+}
+
+[data-slot="reasoning-status-text"] {
+  display: inline-block;
+  white-space: nowrap;
+  animation: reasoning-status-swap 200ms ease-out both;
+}
+
+@keyframes reasoning-status-swap {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="reasoning-status-text"] { animation: none; }
+}
+
+:root[data-motion="reduce"] [data-slot="reasoning-status-text"] { animation: none; }

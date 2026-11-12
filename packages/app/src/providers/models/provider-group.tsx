@@ -10,6 +10,7 @@ import { consoleProviderGroup, consoleProviderName } from "@/providers/catalog/c
 import { OpenCodeLogo } from "@/providers/opencode-logo"
 import { useLanguage } from "@/runtime/i18n/language"
 import customManagedProvider from "@/providers/custom-managed-provider.svg"
+import { modelLogo } from "./model-logo"
 import "@/settings/settings.css"
 
 type ModelProvider = { id: string; canonical?: string; name: string }
@@ -24,7 +25,19 @@ function CustomManagedProviderIcon(props: { class?: string }) {
   return <img data-component="custom-managed-provider-icon" src={customManagedProvider} alt="" class={props.class} />
 }
 
-export function ProviderModelIcon(props: { provider: ModelProvider; class?: string }) {
+const modelLogos = import.meta.glob<string>("./model-logos/*.svg", { eager: true, query: "?url", import: "default" })
+
+export function ProviderModelIcon(props: {
+  provider: ModelProvider
+  model?: { id?: string; name?: string; family?: string }
+  class?: string
+}) {
+  const logo = () => {
+    const key = props.model && modelLogo(props.model)
+
+    return key ? modelLogos[`./model-logos/${key}.svg`] : undefined
+  }
+
   const icon = () =>
     [
       props.provider.canonical,
@@ -34,6 +47,20 @@ export function ProviderModelIcon(props: { provider: ModelProvider; class?: stri
 
   return (
     <Switch>
+      <Match when={logo()} keyed>
+        {(src) => (
+          <span
+            aria-hidden="true"
+            class={`inline-block size-4 bg-current ${props.class ?? ""}`}
+            style={{
+              "mask-image": `url("${src}")`,
+              "mask-position": "center",
+              "mask-repeat": "no-repeat",
+              "mask-size": "contain",
+            }}
+          />
+        )}
+      </Match>
       <Match when={props.provider.id === "opencode"}>
         <OpenCodeLogo class={`size-4 ${props.class ?? ""}`} />
       </Match>

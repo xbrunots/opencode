@@ -64,6 +64,10 @@ export interface ImagePreviewProps {
    * flies out of its place and back, and returns it once the close lands.
    */
   video?: HTMLVideoElement
+  /** Enables comments that are routed to this conversation's composer. */
+  sessionID?: string
+  /** Durable path or media reference when the rendered source is a temporary blob URL. */
+  reference?: string
 }
 
 const STEP = Math.SQRT2
@@ -106,6 +110,7 @@ export function ImagePreview(props: ImagePreviewProps) {
   // its shadow travel above the dialog in place of the real one.
   const [flight, setFlight] = createSignal(INITIAL_PREVIEW_FLIGHT_STATE)
   const [zoom, setZoom] = createSignal(INITIAL_PREVIEW_ZOOM_STATE)
+  const [annotation, setAnnotation] = createSignal<{ x: number; y: number; left: number; top: number; text: string; error?: boolean }>()
   // What the view shows the controls and the stylesheet, written only when it changes rather than on every frame.
   const [shown, setShown] = createStore({ zoomed: false, ownsEscape: false, level: 100 })
 
@@ -585,6 +590,19 @@ export function ImagePreview(props: ImagePreviewProps) {
     ease(zoomAt(goal(), detailScale(fitRatio), point(event), bounds))
   }
 
+  const mark = (left: number, top: number) => {
+    if (!props.sessionID || !interactive()) return
+    const bounds = image.getBoundingClientRect()
+    if (!bounds.width || !bounds.height) return
+    setAnnotation({
+      x: Math.max(0, Math.min(100, ((left - bounds.left) / bounds.width) * 100)),
+      y: Math.max(0, Math.min(100, ((top - bounds.top) / bounds.height) * 100)),
+      left,
+      top,
+      text: "",
+    })
+  }
+
   const press = (event: PointerEvent, target: PanTarget | "content", onBackdrop: boolean) => {
     if (!interactive()) return
     dispatchZoom({
@@ -723,6 +741,7 @@ export function ImagePreview(props: ImagePreviewProps) {
         }}
         onPointerDown={(event: PointerEvent) => {
           const target = event.target
+          if (target instanceof Element && target.closest('[data-slot="image-preview-annotation"]')) return
           const body = target instanceof Node && viewport.contains(target)
           press(event, body ? "viewport" : "content", target === content || target === viewport)
         }}
@@ -754,6 +773,21 @@ export function ImagePreview(props: ImagePreviewProps) {
                 alt={props.alt ?? i18n.t("ui.imagePreview.alt")}
                 data-slot="image-preview-image"
                 draggable={false}
+                tabIndex={props.sessionID ? 0 : undefined}
+                role={props.sessionID ? "button" : undefined}
+                aria-label={props.sessionID ? i18n.t("ui.imagePreview.commentOnImage") : undefined}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return
+                  event.preventDefault()
+                  event.stopPropagation()
+                  const bounds = event.currentTarget.getBoundingClientRect()
+                  mark(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)
+                }}
+                onClick={(event) => {
+                  if (event.detail !== 1) return
+                  event.stopPropagation()
+                  mark(event.clientX, event.clientY)
+                }}
                 onLoad={() => {
                   measure()
                   dispatchFlight({ type: "image.loaded" })
@@ -772,6 +806,45 @@ export function ImagePreview(props: ImagePreviewProps) {
             )}
           </Show>
         </div>
+        <Show when={annotation()}>
+          {(point) => (
+            <>
+              <span data-slot="image-preview-annotation-marker" style={{ left: `${point().left}px`, top: `${point().top}px` }} aria-hidden="true" />
+              <form
+                data-slot="image-preview-annotation"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  const comment = point().text.trim()
+                  if (!comment || !props.sessionID) return
+                  const delivered = new CustomEvent("opencode:image-annotation", {
+                    cancelable: true,
+                    detail: { sessionID: props.sessionID, src: props.reference ?? props.src, alt: props.alt, x: point().x, y: point().y, comment },
+                  })
+                  window.dispatchEvent(delivered)
+                  if (!delivered.defaultPrevented) return setAnnotation({ ...point(), error: true })
+                  setAnnotation(undefined)
+                  dialog.close()
+                }}
+              >
+                <label for="image-preview-annotation-input">{i18n.t("ui.imagePreview.comment")}</label>
+                <textarea
+                  id="image-preview-annotation-input"
+                  rows={3}
+                  autofocus
+                  value={point().text}
+                  placeholder={i18n.t("ui.imagePreview.commentPlaceholder")}
+                  onInput={(event) => setAnnotation({ ...point(), text: event.currentTarget.value })}
+                  onKeyDown={(event) => event.stopPropagation()}
+                />
+                <Show when={point().error}><p role="alert">{i18n.t("ui.imagePreview.commentUnavailable")}</p></Show>
+                <div data-slot="image-preview-annotation-actions">
+                  <Button type="button" variant="ghost-muted" size="small" onClick={() => setAnnotation(undefined)}>{i18n.t("ui.common.cancel")}</Button>
+                  <Button type="submit" size="small" disabled={!point().text.trim()}>{i18n.t("ui.imagePreview.addComment")}</Button>
+                </div>
+              </form>
+            </>
+          )}
+        </Show>
         <div data-slot="image-preview-controls">
           <IconButton
             data-slot="image-preview-zoom-out"

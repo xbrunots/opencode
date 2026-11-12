@@ -29,6 +29,7 @@ import { SessionExecution } from "@opencode/core/session/execution"
 import { SessionInbox } from "@opencode/core/session/inbox"
 import { InstructionEntry } from "@opencode/core/session/instruction-entry"
 import { SessionEvent } from "@opencode/core/session/event"
+import { MotionSkills } from "@opencode/core/session/motion/index"
 import { SessionTable } from "@opencode/core/session/sql"
 import { SessionStore } from "@opencode/core/session/store"
 import { SessionTransfer } from "@opencode/core/session/transfer"
@@ -670,6 +671,110 @@ describe("Session.create", () => {
         ),
       ).toEqual([0, 5, 6])
       expect(yield* SessionInbox.find(db, admitted.id)).toBeUndefined()
+    }),
+  )
+
+  it.effect("preserves user metadata and inbox delivery events through replay", () =>
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      const bus = yield* Bus.Service
+      const { db } = yield* Database.Service
+      const created = yield* session.create({ location })
+      yield* session.prompt({
+        sessionID: created.id,
+        text: "Steer",
+        metadata: { note: "kept", opencodeMotionQueue: true },
+        resume: false,
+      })
+      const first = yield* session.prompt({ sessionID: created.id, text: "Queued one", delivery: "queue", resume: false })
+      yield* session.prompt({
+        sessionID: created.id,
+        text: "Queued two",
+        delivery: "queue",
+        metadata: { note: "also kept" },
+        resume: false,
+      })
+      yield* SessionInbox.promote(db, bus, created.id, "steer")
+      yield* SessionInbox.promote(db, bus, created.id, "input")
+      yield* SessionInbox.promote(db, bus, created.id, "input")
+
+      const expected = [
+        { type: "user", text: "Steer", metadata: { note: "kept", opencodeMotionQueue: true } },
+        { type: "user", text: "Queued one" },
+        { type: "user", text: "Queued two", metadata: { note: "also kept" } },
+      ]
+      expect(yield* session.context(created.id)).toMatchObject(expected)
+      const recorded = (yield* db.select().from(EventTable).where(eq(EventTable.aggregate_id, created.id))
+        .orderBy(asc(EventTable.seq)).all().pipe(Effect.orDie)).map((event) => ({
+          id: event.id,
+          created: event.created,
+          aggregateID: event.aggregate_id,
+          seq: event.seq,
+          type: event.type,
+          data: event.data,
+        }))
+      expect(recorded.find((event) => event.type === Bus.versionedType(SessionEvent.InboxEnqueued.type, 1) && event.data.inboxID === first.id)?.data)
+        .toMatchObject({ item: { delivery: "queue" } })
+      yield* bus.remove(created.id)
+      yield* db.delete(SessionTable).where(eq(SessionTable.id, created.id)).run().pipe(Effect.orDie)
+      yield* Effect.forEach(recorded, (event) => bus.replay(event), { discard: true })
+      expect(yield* session.context(created.id)).toMatchObject(expected)
+      const messages = yield* session.context(created.id)
+      expect(messages[0]?.metadata).toEqual({ note: "kept", opencodeMotionQueue: true })
+    }),
+  )
+
+  it.effect("forks automatic motion skill references with their originating user message", () =>
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      const bus = yield* Bus.Service
+      const { db } = yield* Database.Service
+      const parent = yield* session.create({ location, title: "Motion" })
+      const prompt = yield* session.prompt({ sessionID: parent.id, text: "Animate this", resume: false })
+      yield* SessionInbox.promote(db, bus, parent.id, "steer")
+      yield* bus.publish(SessionEvent.Skill.Activated, {
+        sessionID: parent.id,
+        id: Skill.ID.make(MotionSkills.skillID(prompt.id)),
+        name: Skill.Name.make("OpenCodex Motion Aura"),
+        text: '{"guides":["gsapCore"]}',
+      })
+      yield* bus.publish(SessionEvent.Skill.Activated, {
+        sessionID: parent.id,
+        id: Skill.ID.make("ordinary-skill"),
+        name: Skill.Name.make("Ordinary"),
+        text: "Ordinary guidance",
+      })
+      yield* bus.publish(SessionEvent.Skill.Activated, {
+        sessionID: parent.id,
+        id: Skill.ID.make("opencodex-motion:msg_missing"),
+        name: Skill.Name.make("Orphan"),
+        text: "Missing originating message",
+      })
+
+      const child = yield* session.fork({ sessionID: parent.id })
+      const messages = yield* session.context(child.id)
+      const user = messages.find((message) => message.type === "user")
+      const skills = messages.filter((message) => message.type === "skill")
+      expect(user?.id).not.toBe(prompt.id)
+      expect(skills.map((skill) => String(skill.skill))).toEqual([
+        MotionSkills.skillID(user!.id),
+        "ordinary-skill",
+        "opencodex-motion:msg_missing",
+      ])
+      // The runner's real selector reuses the copied choice on resume, including after a second fork.
+      const select = (messages: readonly SessionMessage.Info[]) => MotionSkills.active(messages.flatMap(
+        (message): Parameters<typeof MotionSkills.active>[0][number][] => {
+          if (message.type === "user") return [{ type: "user", id: message.id, text: message.text, skillCount: message.skills?.length ?? 0, queued: message.metadata?.opencodeMotionQueue === true }]
+          if (message.type === "skill") return [{ type: "skill", skill: message.skill, text: message.text }]
+          return []
+        },
+      ))
+      expect(select(messages)?.selection).toEqual(["gsapCore"])
+      const grandchild = yield* session.fork({ sessionID: child.id })
+      const nested = yield* session.context(grandchild.id)
+      expect(select(nested)?.selection).toEqual(["gsapCore"])
+      const parentSkills = (yield* session.context(parent.id)).filter((message) => message.type === "skill")
+      expect(String(parentSkills[0]?.skill)).toBe(MotionSkills.skillID(prompt.id))
     }),
   )
 
@@ -1335,6 +1440,53 @@ describe("Session.create", () => {
 })
 
 describe("SessionTransfer", () => {
+  it.effect("exports and imports motion selections without exporting private guides", () =>
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      const transfer = yield* SessionTransfer.Service
+      const bus = yield* Bus.Service
+      const { db } = yield* Database.Service
+      const source = yield* session.create({ location, title: "Motion transfer" })
+      const prompt = yield* session.prompt({ sessionID: source.id, text: "Animate a Remotion video", resume: false })
+      yield* SessionInbox.promote(db, bus, source.id, "steer")
+      const selected = { guides: ["remotion", "gsapReact"], source: "model" }
+      yield* bus.publish(SessionEvent.Skill.Activated, {
+        sessionID: source.id,
+        id: Skill.ID.make(MotionSkills.skillID(prompt.id)),
+        name: Skill.Name.make("OpenCodex Motion Aura"),
+        text: JSON.stringify(selected),
+      })
+
+      const privateReference = "Private Remotion reference content for transfer verification"
+      const guidance = MotionSkills.guidance({ opencodeMotion: selected }, privateReference)
+      expect(guidance).toBeDefined()
+      expect(guidance).toContain(privateReference)
+      const exported = yield* transfer.export({ sessionID: source.id })
+      const encoded = JSON.stringify(exported)
+      expect(encoded).not.toContain(privateReference)
+      expect(encoded).not.toContain(guidance!)
+      expect(exported.messages).toMatchObject([
+        { id: prompt.id, type: "user", text: "Animate a Remotion video" },
+        { type: "skill", skill: MotionSkills.skillID(prompt.id), text: JSON.stringify(selected) },
+      ])
+
+      // Import back into a clean target, as when restoring an exported conversation.
+      yield* session.remove(source.id)
+      const restored = yield* transfer.import({ data: exported, location })
+      const messages = yield* session.context(restored.id)
+      expect(messages).toEqual([...exported.messages])
+      const active = MotionSkills.active(messages.flatMap(
+        (message): Parameters<typeof MotionSkills.active>[0][number][] => {
+          if (message.type === "user") return [{ type: "user", id: message.id, text: message.text, skillCount: message.skills?.length ?? 0, queued: message.metadata?.opencodeMotionQueue === true }]
+          if (message.type === "skill") return [{ type: "skill", skill: message.skill, text: message.text }]
+          return []
+        },
+      ))
+      expect(active?.selection).toEqual(["remotion", "gsapReact"])
+      expect(active?.anchor.id).toBe(prompt.id)
+    }),
+  )
+
   it.effect("exports only settled projected messages", () =>
     Effect.gen(function* () {
       const session = yield* Session.Service

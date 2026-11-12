@@ -48,6 +48,20 @@ const completed = (
 })
 
 describe("conversation context facts", () => {
+  test("shows automatically selected motion references by their friendly label", () => {
+    const facts = conversationContextFacts([
+      { id: "msg_motion", type: "skill", skill: "opencodex-motion:msg_request", name: "OpenCodex Motion Aura", text: "private instructions", time: { created: 0 } },
+    ], [])
+
+    expect(facts.skills).toEqual([{ id: "opencodex-motion:msg_request", name: "OpenCodex Motion Aura", text: undefined, count: 1, automatic: true }])
+  })
+  test("shows the latest automatic selection when Remotion is unavailable", () => {
+    const facts = conversationContextFacts([
+      { id: "msg_first", type: "skill", skill: "opencodex-motion:msg_request", name: "OpenCodex Motion Aura", text: '{"guides":["remotion"]}', time: { created: 0 } },
+      { id: "msg_fallback", type: "skill", skill: "opencodex-motion:msg_request", name: "OpenCodex Motion Aura · Remotion unavailable", text: '{"guides":["launchVideo"],"source":"remotion-unavailable"}', time: { created: 1 } },
+    ], [])
+    expect(facts.skills).toEqual([{ id: "opencodex-motion:msg_request", name: "OpenCodex Motion Aura · Remotion unavailable", text: undefined, count: 2, automatic: true }])
+  })
   test("an empty conversation never invents sources, artifacts, skills or MCP usage", () => {
     expect(conversationContextFacts([], [{ name: "unused-server" }])).toEqual({
       sources: [],

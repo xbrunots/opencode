@@ -967,8 +967,13 @@ test.describe("conversation actions", () => {
     expect((await download).suggestedFilename()).toBe("conversation-actions-sample.json")
   })
 
-  test("conversation actions create a real side session in the same workspace and open grid", async ({ page }) => {
+  test("conversation actions create a movable floating side chat without changing the main session", async ({ page }) => {
     const created: Record<string, unknown>[] = []
+    const duplicateCommands: string[] = []
+    page.on("console", (message) => {
+      if (message.type() === "warning" && message.text().includes("duplicate command id"))
+        duplicateCommands.push(message.text())
+    })
     await setup(page, {
       createdSessionTitle: "Side conversation",
       onSessionCreate: (body) => {
@@ -981,15 +986,52 @@ test.describe("conversation actions", () => {
       .click()
     await expect.poll(() => created.length).toBe(1)
     expect(created[0]!.location).toEqual({ directory })
-    const id = created[0]!.id
-    expect(typeof id).toBe("string")
-    await page.getByRole("button", { name: "Conversation layout", exact: true }).click()
-    await expect(page.getByRole("menuitemradio", { name: "Grid", exact: true })).toHaveAttribute("aria-checked", "true")
-    await page.keyboard.press("Escape")
-    await expect(page.getByRole("region", { name: target.title, exact: true })).toBeVisible()
-    const side = page.getByRole("region", { name: "Side conversation", exact: true })
+    expect(typeof created[0]!.id).toBe("string")
+    const side = page
+      .getByRole("region", { name: "Side conversation", exact: true })
+      .and(page.locator(".workspace-floating-chat"))
     await expect(side.locator('[data-component="composer-editor"]')).toBeEditable()
-    await expect(page).toHaveURL(new RegExp(sessionHref(String(id)).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$"))
+    await expect(page).toHaveURL(new RegExp(sessionHref(target.id).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$"))
+
+    const viewport = page.viewportSize()!
+    const initial = await side.boundingBox()
+    expect(initial).not.toBeNull()
+    expect(initial!.width).toBeCloseTo(340, 0)
+    expect(initial!.height).toBeCloseTo(viewport.height * 0.75, 0)
+    expect(viewport.width - initial!.x - initial!.width).toBeCloseTo(24, 0)
+    expect(viewport.height - initial!.y - initial!.height).toBeCloseTo(24, 0)
+
+    const handle = side.getByLabel("Move side chat")
+    const box = await handle.boundingBox()
+    expect(box).not.toBeNull()
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box!.x + box!.width / 2 - 100, box!.y + box!.height / 2 - 80, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(async () => (await side.boundingBox())?.x).toBeCloseTo(initial!.x - 100, 0)
+    await expect.poll(async () => (await side.boundingBox())?.y).toBeCloseTo(initial!.y - 80, 0)
+
+    await side.locator('[data-component="composer-editor"]').click()
+    await side.locator('[data-slot="conversation-actions-trigger"]').click()
+    await expect(menu(page).getByRole("menuitem", { name: /^Pin conversation/ })).toBeVisible()
+    const pinned = page.waitForRequest(
+      (request) => request.method() === "PATCH" && new URL(request.url()).pathname === `/api/session/${created[0]!.id}`,
+    )
+    await menu(page).getByRole("menuitem", { name: /^Pin conversation/ }).click()
+    expect((await pinned).postDataJSON()).toMatchObject({ metadata: { opencodexPinned: true } })
+
+    await page.locator('[data-component="composer-editor"]:not(.workspace-floating-chat *)').click()
+    await page.getByRole("button", { name: "Conversation layout", exact: true }).click()
+    await page.getByRole("menuitemradio", { name: "Grid", exact: true }).click()
+    await page.keyboard.press("Escape")
+    await expect(side).toHaveCount(1)
+    await expect(page.locator(".workspace-session-grid .workspace-session-pane")).toHaveCount(1)
+    expect(duplicateCommands).toEqual([])
+
+    await side.getByRole("button", { name: "Close conversation pane" }).click()
+    await expect(side).toHaveCount(0)
+    await expect(page.getByRole("region", { name: target.title }).locator('[data-component="composer-editor"]')).toBeEditable()
+    await expect(page).toHaveURL(new RegExp(sessionHref(target.id).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$"))
   })
 
   test("conversation actions fork from the chosen message through the session command", async ({ page }) => {

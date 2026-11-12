@@ -21,7 +21,7 @@ import { popularProviders } from "@/providers/catalog/providers"
 import { Persist, persisted } from "@/runtime/persistence/storage"
 import { SettingsList } from "@/settings/list"
 import { SettingsRow } from "@/settings/row"
-import { CONSOLE_GROUP_KEY, consoleModelGroup, ProviderModelSections } from "@/providers/models/provider-group"
+import { CONSOLE_GROUP_KEY, consoleModelGroup, ProviderModelIcon, ProviderModelSections } from "@/providers/models/provider-group"
 import { SettingsSearchEmpty } from "@/settings/search-empty"
 import { SettingsSearchField } from "@/settings/search-field"
 import { settingsScroller } from "@/settings/scroller"
@@ -103,7 +103,15 @@ export const SettingsModels: Component<{
             const key = { providerID: item.provider.id, modelID: item.id }
 
             return (
-              <SettingsRow title={item.name} description="">
+              <SettingsRow
+                title={
+                  <span class="flex min-w-0 items-center gap-2">
+                    <ProviderModelIcon provider={item.provider} model={item} class="shrink-0" />
+                    <span class="min-w-0 truncate">{item.name}</span>
+                  </span>
+                }
+                description=""
+              >
                 <div>
                   <Switch
                     checked={models.visible(key)}

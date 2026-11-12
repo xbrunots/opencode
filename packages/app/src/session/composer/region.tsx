@@ -12,7 +12,7 @@ import { VoiceComposer } from "@/voice/composer"
 import { useComposerState } from "@/composer/persistence"
 import { createComposerControls } from "@/composer/selection"
 import { setCursorPosition } from "@/composer/editor/dom"
-import { promptLength } from "@/composer/prompt-parts"
+import { appendPrompt, promptLength } from "@/composer/prompt-parts"
 import { useCommand } from "@/shell/commands/command"
 import { useLanguage } from "@/runtime/i18n/language"
 import { useData, useServer } from "@/runtime/server/current"
@@ -75,6 +75,20 @@ export function createActiveSessionRegion(input: {
   const state = createSessionRequestModel()
   const controls = createComposerControls()
   let promptRef: HTMLDivElement | undefined
+
+  makeEventListener(window, "opencode:image-annotation", (event: Event) => {
+    if (!(event instanceof CustomEvent) || !input.visible()) return
+    const note = event.detail as { sessionID: string; src: string; alt?: string; element?: string; time?: number; x: number; y: number; comment: string }
+    if (note.sessionID !== input.session.identity.sessionID()) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    const source = note.src.startsWith("blob:") || note.src.startsWith("data:") ? note.alt || "attached image" : note.src
+    const content = `[Preview: ${source}; x: ${note.x.toFixed(1)}%, y: ${note.y.toFixed(1)}%${note.element ? `; element: ${note.element}` : ""}${note.time === undefined ? "" : `; time: ${note.time.toFixed(1)}s`}] ${note.comment}`
+    const current = prompt.current()
+    const next = appendPrompt(current, [{ type: "text", content, start: 0, end: content.length }])
+    prompt.set(next, promptLength(next))
+    requestAnimationFrame(() => promptRef?.focus())
+  })
 
   createEffect(
     on(

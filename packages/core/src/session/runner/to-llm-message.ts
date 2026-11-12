@@ -16,6 +16,7 @@ import { SessionMessage } from "../message.js"
 import { SessionHistory } from "../history.js"
 import { SessionRecentText } from "../recent-text.js"
 import type { FileAttachment } from "@opencode/schema/prompt"
+import { MotionSkills } from "../motion/index.js"
 
 const imageMimes = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"])
 
@@ -274,6 +275,7 @@ function toLLMMessage(message: SessionMessage.Info, model: Model.Ref, providerMe
     case "synthetic":
       return [Message.make({ id: message.id, role: "user", content: message.text })]
     case "skill":
+      if (message.skill.startsWith(MotionSkills.skillPrefix)) return []
       return [Message.make({ id: message.id, role: "user", content: message.text })]
     case "system":
       return [Message.system(message.text)]

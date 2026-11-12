@@ -68,6 +68,8 @@ import {
   type MarkdownLocalFileExists,
 } from "../context/markdown"
 import { createMarkdownImages } from "./markdown-image"
+import { syncMarkdownReferencedImages } from "./markdown-referenced-images"
+import { createMarkdownReferencedMedia } from "./markdown-referenced-media"
 import { createImagePreview } from "./image-preview"
 import { setupFragmentLinks } from "./markdown-fragment-links"
 import { markSessionLinks, sessionReferenceClipboardText, setupSessionLinks } from "./markdown-session-links"
@@ -734,6 +736,7 @@ export function Markdown(
   const i18n = useI18n()
   const markdown = useMarkdown()
   const previewImages = createImagePreview()
+  const referencedMedia = createMarkdownReferencedMedia()
   const [root, setRoot] = createSignal<HTMLDivElement>()
   const owner = createUniqueId()
   const lifetime = new AbortController()
@@ -1026,6 +1029,7 @@ export function Markdown(
       renderedBlocks = []
       disposeCodeHosts(container)
       disposeRenderedMarkdown(container)
+      referencedMedia.dispose()
       container.innerHTML = ""
       images?.update(container)
       renderedEvent.pendingChecks = 0
@@ -1084,6 +1088,8 @@ export function Markdown(
       child.remove()
     }
 
+    syncMarkdownReferencedImages(container, !!readImage && mode() !== "streaming", markdown?.openPreview)
+    referencedMedia.update(container, markdown?.readPreview, mode() !== "streaming", markdown?.openPreview, markdown?.previewSession)
     images?.update(container)
     previewImages(container)
     container.querySelectorAll<HTMLImageElement>("img[data-markdown-favicon]").forEach((image) => {
@@ -1123,6 +1129,7 @@ export function Markdown(
   onCleanup(() => {
     abort(lifetime)
     images?.dispose()
+    referencedMedia.dispose()
 
     if (copyCleanup) copyCleanup()
 

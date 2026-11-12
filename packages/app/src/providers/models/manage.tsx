@@ -12,7 +12,7 @@ import { useLanguage } from "@/runtime/i18n/language"
 import { useDialog } from "@opencode/ui/context/dialog"
 import { DialogConnectProvider } from "@/providers/connect/dialog"
 import { decode64 } from "@/runtime/persistence/base64"
-import { consoleModelGroup, ProviderModelSections } from "@/providers/models/provider-group"
+import { consoleModelGroup, ProviderModelIcon, ProviderModelSections } from "@/providers/models/provider-group"
 import "@/settings/settings.css"
 import "@/shell/search-list.css"
 import "./manage.css"
@@ -84,7 +84,10 @@ export const DialogManageModels: Component = () => {
               onClick={() => setModelVisibility(item, !visible(item))}
             >
               <div class="search-list-row-text">
-                <span class="search-list-title">{item.name}</span>
+                <span class="search-list-title flex min-w-0 items-center gap-2">
+                  <ProviderModelIcon provider={item.provider} model={item} class="shrink-0" />
+                  <span class="min-w-0 truncate">{item.name}</span>
+                </span>
               </div>
               <div class="search-list-trailing" onClick={(event) => event.stopPropagation()}>
                 <Switch checked={visible(item)} onChange={(checked) => setModelVisibility(item, checked)} hideLabel>

@@ -36,12 +36,12 @@ import { ProviderModelIcon } from "@/providers/models/provider-group"
 import { DialogMcp } from "@/providers/connect/mcp-dialog"
 import { globalConfigDirectory, serviceConfigFile } from "@opencode/gui-plugins/details/config-file"
 import { useTabs } from "@/shell/tabs/tabs"
-import { useRoutedSessionTargetParams, useSessionTargetFocused } from "@/session/target"
+import { useRoutedSessionTargetParams, useSessionTargetFocused, useSessionTargetFloating } from "@/session/target"
 import { useOpenSessionRoute } from "@/session/session-identity-header"
 import "./conversation-context.css"
 
 type ContextFile = { key: string; name: string; href?: string; data?: string; mime?: string }
-type ContextSkill = { id: string; name: string; text?: string; count: number }
+type ContextSkill = { id: string; name: string; text?: string; count: number; automatic?: boolean }
 
 const decodeCall = Schema.decodeUnknownOption(
   Schema.Struct({
@@ -93,13 +93,14 @@ export function conversationContextFacts(
   })
 
   const loaded = messages.flatMap((message) =>
-    message.type === "skill" ? [{ id: message.skill, name: message.name, text: message.text }] : [],
+    message.type === "skill" ? [{ id: message.skill, name: message.name, text: message.skill.startsWith("opencodex-motion:") ? undefined : message.text }] : [],
   )
   const attached = messages.flatMap((message) => (message.type === "user" ? (message.skills ?? []) : []))
   const skills = new Map<string, ContextSkill>()
   attached.concat(loaded).forEach((skill) => {
     const existing = skills.get(skill.id)
-    if (!existing) skills.set(skill.id, { id: skill.id, name: skill.name, text: skill.text, count: 0 })
+    if (!existing) skills.set(skill.id, { id: skill.id, name: skill.name, text: skill.text, count: 0, ...(skill.id.startsWith("opencodex-motion:") ? { automatic: true } : {}) })
+    if (existing?.automatic) existing.name = skill.name
     if (skill.text) skills.get(skill.id)!.text = skill.text
   })
   skills.forEach((skill) => {
@@ -139,6 +140,7 @@ export function conversationContextFacts(
 export function ConversationContext() {
   const params = useRoutedSessionTargetParams()
   const focused = useSessionTargetFocused()
+  const floating = useSessionTargetFloating()
   const views = useWorkspaceViews()
   const { view } = useSessionLayout()
   const data = useData()
@@ -156,7 +158,9 @@ export function ConversationContext() {
   const cardID = createUniqueId()
   let trigger: HTMLButtonElement | undefined
   let diffAbort: AbortController | undefined
-  const [card, setCard] = createSignal<{ status: "open" } | { status: "closed" }>({ status: "open" })
+  const [card, setCard] = createSignal<{ status: "open" } | { status: "closed" }>({
+    status: floating ? "closed" : "open",
+  })
   const visible = () => views.mode() === "focus" && focused()
   const sideOpened = () => view().side.opened()
   const opened = () => visible() && !sideOpened() && card().status === "open"
@@ -246,14 +250,14 @@ export function ConversationContext() {
   createEffect(
     on(
       () => params.id,
-      () => setCard({ status: "open" }),
+      () => setCard({ status: floating ? "closed" : "open" }),
     ),
   )
   createEffect(
     on(
       sideOpened,
       (open) => {
-        if (!open) setCard({ status: "open" })
+        if (!open && !floating) setCard({ status: "open" })
       },
       { defer: true },
     ),
@@ -496,6 +500,7 @@ export function ConversationContext() {
                       <Show when={child.model} fallback={<Icon name="brain" />}>
                         {(model) => (
                           <ProviderModelIcon
+                            model={model()}
                             provider={
                               data.location.provider
                                 .list(child.location)
@@ -592,7 +597,7 @@ export function ConversationContext() {
               >
                 <For each={facts().skills}>
                   {(skill) => (
-                    <button type="button" class="conversation-context-item" onClick={() => openSkill(skill)}>
+                    <button type="button" class="conversation-context-item" disabled={skill.automatic} onClick={() => openSkill(skill)}>
                       <Icon name="post-skill" />
                       <span>{skill.name}</span>
                       <small>×{skill.count}</small>

@@ -20,6 +20,7 @@ import { messagePrompt } from "./session.shared"
 import { createSubagentTracker, toolCommit, toolFinalPhase } from "./stream-v2.subagent"
 import { normalizeTool, toolOutputText } from "./tool"
 import { toolDisplayContent } from "../util/tool-display"
+import { isAutomaticMotionSkill } from "../util/auto-motion"
 import type {
   FooterApi,
   FooterPatch,
@@ -779,6 +780,10 @@ export async function createSessionTransport(input: StreamInput): Promise<Sessio
       return
     }
     if (message.type === "skill") {
+      if (isAutomaticMotionSkill(message.skill)) {
+        state.skillMessages.add(message.id)
+        return
+      }
       if (state.wait?.messageID === message.id) promoteWait(state.wait, false)
       if (!render || !showTools() || state.skillMessages.has(message.id)) {
         state.skillMessages.add(message.id)
@@ -1095,6 +1100,7 @@ export async function createSessionTransport(input: StreamInput): Promise<Sessio
       return
     }
     if (event.type === "session.skill.activated") {
+      if (isAutomaticMotionSkill(event.data.id)) return
       const messageID = messageIDFromEvent(event.id)
       if (state.wait?.messageID === messageID) promoteWait(state.wait, true)
       if (state.skillMessages.has(messageID)) return

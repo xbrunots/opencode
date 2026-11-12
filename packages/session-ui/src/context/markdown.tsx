@@ -3,6 +3,9 @@ import { createContext, useContext, type ParentProps } from "solid-js"
 import type { SessionReferenceMenu } from "../components/markdown-session-links"
 
 export type ReadMarkdownImage = (path: string, signal: AbortSignal) => Promise<Blob | undefined>
+/** Read a local video or HTML artifact for a sandboxed preview. */
+export type ReadMarkdownPreview = (path: string, signal: AbortSignal) => Promise<Blob | undefined>
+export type OpenMarkdownPreview = (source: string, local: boolean, destination: "panel" | "system") => void
 
 /** Open a local file path linked from markdown. The path is decoded and may be relative or absolute. */
 export type OpenMarkdownLocalFile = (path: string) => void
@@ -57,6 +60,9 @@ export type MarkdownCodeBlocks = {
 
 const context = createContext<{
   readonly readImage?: ReadMarkdownImage
+  readonly readPreview?: ReadMarkdownPreview
+  readonly openPreview?: OpenMarkdownPreview
+  readonly previewSession?: string
   readonly openLocalFile?: OpenMarkdownLocalFile
   readonly localFileExists?: MarkdownLocalFileExists
   readonly openSession?: (sessionID: string) => void
@@ -68,6 +74,9 @@ const context = createContext<{
 export function MarkdownProvider(
   props: ParentProps<{
     readImage?: ReadMarkdownImage
+    readPreview?: ReadMarkdownPreview
+    openPreview?: OpenMarkdownPreview
+    previewSession?: string
     openLocalFile?: OpenMarkdownLocalFile
     localFileExists?: MarkdownLocalFileExists
     openSession?: (id: string) => void
@@ -84,6 +93,15 @@ export function MarkdownProvider(
       value={{
         get readImage() {
           return props.readImage
+        },
+        get readPreview() {
+          return props.readPreview ?? parent?.readPreview
+        },
+        get openPreview() {
+          return props.openPreview ?? parent?.openPreview
+        },
+        get previewSession() {
+          return props.previewSession ?? parent?.previewSession
         },
         get openLocalFile() {
           return props.openLocalFile

@@ -10,7 +10,7 @@ import { IconButton } from "@opencode/ui/icon-button"
 import { Menu } from "@opencode/ui/menu"
 import { InlineInput } from "@opencode/ui/inline-input"
 import { Keybind } from "@opencode/ui/keybind"
-import { TextShimmer } from "@opencode/ui/text-shimmer"
+import { ReasoningStatus } from "@opencode/ui/reasoning-status"
 import type { BackgroundTask, MountedSession, SessionScreen } from "@opencode/plugin/gui"
 import { PluginSlot } from "@/runtime/plugin/render"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -72,6 +72,7 @@ export function BackgroundMoveHint(props: { keybind?: string[]; onMove?: () => v
 }
 
 type MessageTimelineProps = {
+  commandsFocused?: boolean
   hideHeader?: boolean
   /** Hands the header's empty gap to the pane's window drag area. */
   registerHeaderGap?: (gap: HTMLElement) => () => void
@@ -275,7 +276,7 @@ function MessageTimelineView(
   const title = props.title.view
 
   command.register(() =>
-    props.active === false || props.hideHeader
+    props.active === false || props.hideHeader || props.commandsFocused === false
       ? []
       : [
           {
@@ -528,7 +529,7 @@ function MessageTimelineView(
           <div class={`flex h-9 items-center gap-2 pt-3 text-[13px] font-[530] leading-text-compact ${turnPadding()}`}>
             <Show when={live() && showWorking()}>
               <div data-component="session-working" role="status">
-                <TextShimmer text={language.t("session.timeline.working")} active />
+                <ReasoningStatus text={language.t("session.timeline.working")} />
               </div>
             </Show>
             {hint(live)}

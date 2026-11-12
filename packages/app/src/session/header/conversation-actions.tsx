@@ -83,9 +83,8 @@ export function ConversationActions() {
     if (!current) return
     const created = data.session.create({ location: current.location, model: current.model, agent: current.agent })
     await created.request
-    const tab = tabs.addSessionTab({ server: server.key, sessionId: created.id })
-    tabs.select(tab)
-    views.setMode("grid")
+    tabs.addSessionTab({ server: server.key, sessionId: created.id })
+    views.openFloating(server.key, created.id)
   }
   const archive = async () => {
     const current = info()

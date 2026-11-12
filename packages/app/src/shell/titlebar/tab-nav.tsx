@@ -535,6 +535,7 @@ export function TabNavItem(
           >
             {(model) => (
               <ProviderModelIcon
+                model={model()}
                 provider={
                   serverCtx()
                     ?.data.location.provider.list(props.session?.location)
@@ -595,18 +596,6 @@ export function TabNavItem(
             event.preventDefault()
           }}
         />
-        <Show
-          when={
-            props.session &&
-            serverCtx()?.data.location.vcs.info({ directory: props.session.location.directory })?.branch.current
-          }
-        >
-          {(branch) => (
-            <span data-slot="session-branch-tag" title={branch()}>
-              {branch()}
-            </span>
-          )}
-        </Show>
       </Menu.Context.Trigger>
       <Show when={props.label}>
         {(label) => (

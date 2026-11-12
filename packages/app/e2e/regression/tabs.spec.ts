@@ -2778,19 +2778,30 @@ test("projects can be grouped, dragged and retained after reload", async ({ page
     .filter({ has: page.getByRole("button", { name: "Group project", exact: true }) })
   await expect(row).toBeVisible()
   await expect(row.locator('[data-folder-state="open"]')).toBeVisible()
-  await expect(row.locator('[data-slot="session-branch-tag"]').first()).toHaveText("main")
-  await expect(page.getByRole("banner").locator('[data-slot="session-branch-tag"]').first()).toHaveText("main")
+  await expect(row.locator("summary").getByText("main", { exact: true })).toBeVisible()
+  await expect(row.getByTitle("Group conversation", { exact: true })).toHaveText("Group conversation")
+  await expect(page.getByRole("banner").getByText("main", { exact: true })).toHaveCount(0)
   await row.getByRole("button", { name: "Group project", exact: true }).click()
   await expect(row.locator('[data-folder-state="closed"]')).toBeVisible()
   await row.getByRole("button", { name: "Group project", exact: true }).click()
-  await page.getByRole("button", { name: "+ Create group", exact: true }).click()
-  const dialog = page.getByRole("dialog")
-  await dialog.getByRole("textbox", { name: "Create group" }).fill("Work")
-  await dialog.getByRole("button", { name: "Save", exact: true }).click()
+  const projects = page.getByRole("button", { name: "Add project or group", exact: true })
+  await projects.click()
+  const popover = page.getByRole("dialog", { name: "Projects", exact: true })
+  await expect(popover).toBeVisible()
+  await expect(popover).not.toHaveAttribute("aria-modal", "true")
+  await expect(popover.getByRole("button", { name: "Create project", exact: true })).toBeVisible()
+  await popover.getByRole("button", { name: "Create group", exact: true }).click()
+  await popover.getByRole("textbox", { name: "Group name" }).fill("Discarded")
+  await popover.getByRole("button", { name: "Cancel", exact: true }).click()
+  await expect(popover).toBeHidden()
+  await projects.click()
+  await popover.getByRole("button", { name: "Create group", exact: true }).click()
+  await popover.getByRole("textbox", { name: "Group name" }).fill("Work")
+  await popover.getByRole("button", { name: "Save", exact: true }).click()
   const group = page.locator("details").filter({ has: page.locator("summary", { hasText: "Work" }) })
   await expect(group).toBeVisible()
   const sourceBox = await row.getByRole("button", { name: "Group project", exact: true }).boundingBox()
-  const targetBox = await group.locator("summary").boundingBox()
+  const targetBox = await group.locator(":scope > summary").boundingBox()
   expect(sourceBox).not.toBeNull()
   expect(targetBox).not.toBeNull()
   await page.mouse.move(sourceBox!.x + sourceBox!.width / 2, sourceBox!.y + sourceBox!.height / 2)
@@ -2800,6 +2811,27 @@ test("projects can be grouped, dragged and retained after reload", async ({ page
   await expect(group.locator('[data-slot="sidebar-project-row"]')).toContainText("Group project")
   await page.reload()
   await expect(group.locator('[data-slot="sidebar-project-row"]')).toContainText("Group project")
+  await group.locator(":scope > summary").click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Rename", exact: true }).click()
+  const rename = page.getByRole("dialog", { name: "Rename group", exact: true })
+  await rename.getByRole("textbox", { name: "Group name" }).fill("Renamed work")
+  await rename.getByRole("button", { name: "Save", exact: true }).click()
+  const renamed = page.locator("details").filter({ has: page.locator("summary", { hasText: "Renamed work" }) })
+  await expect(renamed.locator('[data-slot="sidebar-project-row"]')).toContainText("Group project")
+  await renamed.locator(":scope > summary").click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Archive", exact: true }).click()
+  const archive = page.getByRole("dialog", { name: "Archive group", exact: true })
+  await archive.getByRole("button", { name: "Archive", exact: true }).click()
+  await expect(renamed).toHaveCount(0)
+  await projects.click()
+  await popover.getByRole("button", { name: /Restore.*Renamed work|Renamed work.*Restore/ }).click()
+  await expect(renamed.locator('[data-slot="sidebar-project-row"]')).toContainText("Group project")
+  await renamed.locator(":scope > summary").click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click()
+  const remove = page.getByRole("dialog", { name: "Delete group", exact: true })
+  await remove.getByRole("button", { name: "Delete", exact: true }).click()
+  await expect(renamed).toHaveCount(0)
+  await expect(row).toHaveCount(0)
 })
 
 test("renaming a project updates the matching project and sidebar", async ({ page }) => {
@@ -2829,7 +2861,7 @@ test("renaming a project updates the matching project and sidebar", async ({ pag
 })
 
 for (const scheme of ["light", "dark"] as const) {
-  test(`project and tab activity and branch badges remain visible in ${scheme} mode`, async ({ page }) => {
+  test(`project and tab activity remains visible in ${scheme} mode`, async ({ page }) => {
     const running = { id: `ses_morph_${scheme}`, title: "Running branch" }
     const idle = { id: `ses_idle_${scheme}`, title: "Idle branch" }
     await mockWorkspace(page, {
@@ -2850,32 +2882,6 @@ for (const scheme of ["light", "dark"] as const) {
     await expect(idleRow.locator('[data-component="morph-loader"]')).toHaveCount(0)
     const top = page.locator('[data-slot="workspace-conversation-tabs"]')
     await expect(top.locator('[data-titlebar-tab][data-status="busy"] [data-component="morph-loader"]')).toBeVisible()
-    for (const badge of [
-      runningRow.locator('[data-slot="session-branch-tag"]'),
-      idleRow.locator('[data-slot="session-branch-tag"]'),
-      top.locator('[data-titlebar-tab][data-active="true"] [data-slot="session-branch-tag"]'),
-      top.locator('[data-titlebar-tab]:not([data-active="true"]) [data-slot="session-branch-tag"]').first(),
-    ]) {
-      await expect(badge).toHaveText("main")
-      const contrast = await badge.evaluate((element) => {
-        const surface = element.closest("[data-titlebar-tab-action], [data-titlebar-tab]")
-        if (!surface) throw new Error("Missing tab surface")
-        const canvas = document.createElement("canvas")
-        canvas.width = 1
-        canvas.height = 1
-        const context = canvas.getContext("2d")!
-        const pixel = (color: string) => {
-          context.clearRect(0, 0, 1, 1)
-          context.fillStyle = color
-          context.fillRect(0, 0, 1, 1)
-          return [...context.getImageData(0, 0, 1, 1).data]
-        }
-        const foreground = pixel(getComputedStyle(element).backgroundColor)
-        const background = pixel(getComputedStyle(surface).backgroundColor)
-        return Math.max(...foreground.slice(0, 3).map((value, i) => Math.abs(value - background[i]!)))
-      })
-      expect(contrast).toBeGreaterThan(20)
-    }
     await page.emulateMedia({ reducedMotion: "reduce" })
     await expect(runningRow.locator('[data-component="morph-loader"]')).toHaveCSS("animation-name", "none")
   })

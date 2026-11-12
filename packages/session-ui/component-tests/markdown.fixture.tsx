@@ -7,6 +7,9 @@ import { preloadMarkdown } from "../src/components/markdown-cache"
 import { MarkdownProvider, type MarkdownLocalFileExists } from "../src/context/markdown"
 import { OpenCode } from "@opencode/client/promise"
 import { readLocalImage } from "../../app/src/runtime/server/image"
+import { CurrentUserMessageDisplay } from "../src/message/message-content"
+import { CurrentSessionProviders } from "../src/storybook/current-session-story"
+import { CURRENT_SESSION_ID, STORY_MODEL, STORY_TIME } from "../src/storybook/current-session-fixtures"
 
 export {
   getCachedMarkdown,
@@ -22,6 +25,26 @@ export { MarkdownWorkerDisposedError } from "../src/components/markdown-worker"
 
 export { preloadMarkdown }
 
+export function mountVideoAttachment() {
+  const host = document.createElement("div")
+  host.dataset.testid = "video-fixture"
+  document.body.appendChild(host)
+  const message = {
+    id: "msg_video_fixture", type: "user" as const, text: "Vídeo anexado", time: { created: STORY_TIME },
+    files: [{ name: "demo.webm", mime: "video/webm", data: "AAAA", source: { type: "inline" as const } }],
+  }
+  const fixtureDocument = { sessionID: CURRENT_SESSION_ID, messages: [message], status: { type: "idle" as const }, diffs: [] }
+  render(() => (
+    <DialogProvider>
+      <MarkdownProvider>
+        <CurrentSessionProviders document={fixtureDocument}>
+          <CurrentUserMessageDisplay sessionID={CURRENT_SESSION_ID} message={message} text={message.text} agent="build" model={STORY_MODEL} actions={{ openAttachment: () => { window.document.body.dataset.videoSaved = "true" } }} />
+        </CurrentSessionProviders>
+      </MarkdownProvider>
+    </DialogProvider>
+  ), host)
+}
+
 // Inline code naming one of these is a file link; any other path stays plain code.
 const existingFiles = new Set(["src/file.ts", "new/file.ts"])
 
@@ -30,6 +53,7 @@ export async function mountMarkdown(options: {
   streaming?: boolean
   cached?: boolean
   images?: boolean
+  previews?: boolean
   synchronousFiles?: boolean
   localFileExists?: MarkdownLocalFileExists
 }) {
@@ -77,6 +101,13 @@ export async function mountMarkdown(options: {
             readImage={(path, signal) =>
               options.images ? readLocalImage(api, "C:/project", path, signal) : Promise.resolve(undefined)
             }
+            readPreview={options.previews ? async () => new Blob([
+              '<style>body{margin:0} #target{width:100%;height:180px;background:#ddd}</style><div id="target">Hello</div><script>parent.document.body.dataset.previewScript = "ran"</script>',
+            ], { type: "text/html" }) : undefined}
+            previewSession="fixture-session"
+            openPreview={(source, local, destination) => {
+              document.body.dataset.previewOpen = `${source}:${local}:${destination}`
+            }}
             localFileExists={(path) =>
               options.localFileExists?.(path) ??
               (options.synchronousFiles ? existingFiles.has(path) : Promise.resolve(existingFiles.has(path)))

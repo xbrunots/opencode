@@ -44,6 +44,7 @@ import { useDialog } from "@opencode/ui/context/dialog"
 import { Dialog, DialogBody, DialogHeader, DialogTitle } from "@opencode/ui/dialog"
 import { IconButton } from "@opencode/ui/icon-button"
 import { TextShimmer } from "@opencode/ui/text-shimmer"
+import { ReasoningStatus } from "@opencode/ui/reasoning-status"
 import { AnimatedNumber } from "@opencode/ui/animated-number"
 import { changedFileDiff, patchFileGroups } from "../components/apply-patch-file"
 import { animate } from "@kitlangton/solid-motion"
@@ -84,6 +85,7 @@ import {
   type SubagentRunState,
 } from "./run-machine"
 import { LinkedText } from "../components/linked-text"
+import { ImageGenerationTool } from "./image-generation"
 
 export function ShellSubmessage(props: { text: string; animate?: boolean }) {
   let widthRef: HTMLSpanElement | undefined
@@ -636,7 +638,7 @@ export function CurrentContextToolGroup(props: {
                 {(title) => (
                   <span data-slot="basic-tool-tool-title">
                     <Show when={thinking()} fallback={title()}>
-                      <TextShimmer text={title()} active />
+                      <ReasoningStatus text={title()} />
                     </Show>
                   </span>
                 )}
@@ -1183,6 +1185,8 @@ export const ToolRegistry = {
   register: registerTool,
   render: getTool,
 }
+
+ToolRegistry.register({ name: "experimental_image_generate", render: ImageGenerationTool })
 
 export function FileTool(props: ToolProps & { title: string; count: number; children?: JSX.Element }) {
   const i18n = useI18n()

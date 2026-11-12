@@ -10,9 +10,10 @@ import type { ServerConnection } from "@/runtime/server/registry"
 import { sessionHref } from "@/shell/routes/session"
 import { useData } from "@/runtime/server/current"
 import { useServerSDK } from "@/runtime/server/client"
+import { usePlatform } from "@/runtime/platform/platform"
 import { formatServerError, isSessionNotFoundError } from "@/runtime/server/errors"
 import { findSessionTab, useTabs } from "@/shell/tabs/tabs"
-import { readLocalImage } from "@/runtime/server/image"
+import { readLocalImage, readLocalPreview } from "@/runtime/server/image"
 import { useLanguage } from "@/runtime/i18n/language"
 import { showToast } from "@/shell/notifications/toast"
 import { SessionExportProvider } from "@/session/commands/export-session"
@@ -43,6 +44,7 @@ export function SessionUIProvider(
   const params = useSessionTargetParams()
   const data = useData()
   const serverSDK = useServerSDK()
+  const platform = usePlatform()
   const tabs = useTabs()
   const language = useLanguage()
   const settings = useSettings()
@@ -266,6 +268,17 @@ export function SessionUIProvider(
         shellOutput={(input) => serverSDK.api.shell.output(input)}
         readMedia={(uri, mime, signal) => serverSDK.media.load(uri, mime, signal)}
         peekMedia={(uri, mime) => serverSDK.media.peek(uri, mime)}
+        imageJob={async (sessionID, jobID) => {
+          const result = await serverSDK.api.experimental.job.list({ sessionID, kind: "image" })
+          return result.find((job) => job.id === jobID)?.status
+        }}
+        imageJobStatus={(sessionID, jobID) => {
+          const notice = data.session.message.list(sessionID).findLast(
+            (message) => message.type === "synthetic" && message.metadata?.source === "experimental_image_generate" && message.metadata.jobID === jobID,
+          )
+          const state = notice?.metadata?.state
+          return state === "completed" || state === "error" || state === "cancelled" ? state : undefined
+        }}
         turnDiff={turnDiff()}
         onNavigateToSession={navigateToSession}
         onSessionHref={href}
@@ -273,6 +286,7 @@ export function SessionUIProvider(
       >
         <MarkdownProvider
           readImage={readImage()}
+          readPreview={(path, signal) => readLocalPreview(serverSDK.api, directory(), path, signal, { server: serverSDK.http, fetch: platform.fetch })}
           openSession={openReferencedSession}
           sessionTitle={sessionTitle}
           sessionMenu={(target) => setReferenceMenu({ ...target })}

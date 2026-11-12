@@ -20,6 +20,7 @@ import { useData } from "../context"
 import { useDialog } from "@opencode/ui/context/dialog"
 import { useI18n } from "@opencode/ui/context/i18n"
 import { Markdown } from "../components/markdown"
+import { markdownPreviewAnnotation } from "../components/markdown-preview-annotation"
 import { linkSegments } from "../components/link-segments"
 import { LinkedText } from "../components/linked-text"
 import {
@@ -42,7 +43,7 @@ import { Menu } from "@opencode/ui/menu"
 import { Icon } from "@opencode/ui/icon"
 import { Button } from "@opencode/ui/button"
 import { TextReveal } from "@opencode/ui/text-reveal"
-import { TextShimmer } from "@opencode/ui/text-shimmer"
+import { ReasoningStatus } from "@opencode/ui/reasoning-status"
 import { BasicTool } from "../components/basic-tool"
 import { createDisclosure } from "../components/disclosure"
 import { reasoningHeading } from "../timeline/projection"
@@ -250,6 +251,40 @@ function UserMessageComments(props: { comments: SessionUserComment[]; bounded: b
           {i18n.t("ui.common.showMore")}
         </Button>
       </Show>
+    </div>
+  )
+}
+
+function AttachmentVideo(props: { file: PromptAttachment; src: string; sessionID: string; save?: () => void }) {
+  const markdown = useMarkdown()
+  const reference = props.file.source?.type === "uri" ? props.file.source.uri : "uri" in props.file ? props.file.uri : props.file.name
+  const source = reference || props.file.name || "vídeo anexado"
+  const remote = /^https?:\/\//i.test(source)
+  const local = /^(?:[a-z]:[\\/]|\/)/i.test(source)
+  let viewer!: HTMLDivElement
+  let controls!: HTMLDivElement
+  onMount(() => controls.append(markdownPreviewAnnotation(viewer, source, props.sessionID)))
+  return (
+    <div data-slot="user-message-video-card">
+      <div ref={viewer} data-slot="user-message-video-viewer">
+        <video data-slot="user-message-attachment-video" src={props.src} controls preload="metadata" />
+      </div>
+      <div ref={controls} data-slot="user-message-video-actions">
+        <Menu placement="top-end">
+          <Menu.Trigger as={IconButton} icon={<Icon name="outline-dots" />} size="small" variant="ghost-muted" aria-label="Opções do vídeo" />
+          <Menu.Portal>
+            <Menu.Content>
+              <Show when={markdown?.openPreview && (remote || local)}>
+                <Menu.Item onSelect={() => markdown?.openPreview?.(source, local, "panel")}>Abrir no painel direito</Menu.Item>
+                <Menu.Item onSelect={() => markdown?.openPreview?.(source, local, "system")}>Abrir no aplicativo padrão</Menu.Item>
+              </Show>
+              <Show when={props.save}>
+                <Menu.Item onSelect={() => props.save?.()}>Salvar vídeo</Menu.Item>
+              </Show>
+            </Menu.Content>
+          </Menu.Portal>
+        </Menu>
+      </div>
     </div>
   )
 }
@@ -587,6 +622,14 @@ export function CurrentUserMessageDisplay(props: {
                 loaded: mediaView().status === "ready",
               })
 
+            const openImage = (origin: HTMLElement) => {
+              const src = mediaView().src
+              const attachment = file()
+              const reference = attachment.source.type === "uri" ? attachment.source.uri : "uri" in attachment ? attachment.uri : attachment.name
+              if (src) return dialog.show(() => <ImagePreview src={src} alt={name()} origin={origin} sessionID={data.sessionID} reference={reference} />)
+              if (mediaView().canRetry) dispatchMedia({ type: "retry.requested", target: mediaTarget() })
+            }
+
             return (
               <Show
                 when={!image()}
@@ -599,13 +642,14 @@ export function CurrentUserMessageDisplay(props: {
                     data-width={width()}
                     data-height={height()}
                     style={placeholderStyle()}
-                    onClick={(event) => {
-                      const src = mediaView().src
-                      const origin = event.currentTarget
-
-                      if (src) return dialog.show(() => <ImagePreview src={src} alt={name()} origin={origin} />)
-
-                      if (mediaView().canRetry) dispatchMedia({ type: "retry.requested", target: mediaTarget() })
+                    role={mediaView().clickable ? "button" : undefined}
+                    tabIndex={mediaView().clickable ? 0 : undefined}
+                    aria-label={name()}
+                    onClick={(event) => openImage(event.currentTarget)}
+                    onKeyDown={(event) => {
+                      if (!mediaView().clickable || (event.key !== "Enter" && event.key !== " ")) return
+                      event.preventDefault()
+                      openImage(event.currentTarget)
                     }}
                   >
                     <Switch>
@@ -635,14 +679,21 @@ export function CurrentUserMessageDisplay(props: {
                   </div>
                 }
               >
-                <AttachmentCard
-                  title={getFilename(name())}
-                  hover={name()}
-                  clickable={!!props.actions?.openAttachment}
-                  onClick={() => props.actions?.openAttachment?.(file())}
+                <Show
+                  when={file().mime.startsWith("video/") && mediaView().src}
+                  fallback={
+                    <AttachmentCard
+                      title={getFilename(name())}
+                      hover={name()}
+                      clickable={!!props.actions?.openAttachment}
+                      onClick={() => props.actions?.openAttachment?.(file())}
+                    >
+                      {typeLabel(name(), file().mime, i18n.t("ui.common.file"))}
+                    </AttachmentCard>
+                  }
                 >
-                  {typeLabel(name(), file().mime, i18n.t("ui.common.file"))}
-                </AttachmentCard>
+                  {(src) => <AttachmentVideo file={file()} src={src()} sessionID={props.sessionID} save={props.actions?.openAttachment ? () => props.actions?.openAttachment?.(file()) : undefined} />}
+                </Show>
               </Show>
             )
           }}
@@ -1319,10 +1370,9 @@ export function AssistantReasoningContent(props: {
           <div data-slot="basic-tool-tool-info-structured">
             <div data-slot="basic-tool-tool-info-main">
               <span data-slot="basic-tool-tool-title">
-                <TextShimmer
-                  text={i18n.t(props.streaming ? "ui.sessionTurn.status.thinking" : "ui.message.thought")}
-                  active={props.streaming}
-                />
+                <Show when={props.streaming} fallback={i18n.t("ui.message.thought")}>
+                  <ReasoningStatus text={i18n.t("ui.sessionTurn.status.thinking")} />
+                </Show>
               </span>
               <Show
                 when={props.streaming && !open()}

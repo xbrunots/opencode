@@ -120,6 +120,7 @@ export const DialogSelectModelUnpaid: Component<{ model?: ModelState }> = (props
                       class="flex w-full scroll-my-3.5 flex-row items-center gap-1.5 rounded-md px-3 py-2 text-left text-[13px] font-[530] leading-5 tracking-[-0.04px] text-v2-text-text-base [font-family:var(--v2-font-family-sans)] [font-variation-settings:'slnt'_0] hover:bg-v2-overlay-simple-overlay-hover focus:bg-v2-overlay-simple-overlay-hover focus:outline-none"
                       onClick={() => selectModel(item)}
                     >
+                      <ProviderModelIcon provider={item.provider} model={item} class="shrink-0" />
                       <span class="min-w-0 truncate">{displayModelName(item.name)}</span>
                       <Badge class="shrink-0">{language.t("model.tag.free")}</Badge>
                       <Show when={item.latest}>

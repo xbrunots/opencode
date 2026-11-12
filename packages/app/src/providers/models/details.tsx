@@ -49,7 +49,7 @@ export function ModelDetails(props: {
         <div class="w-[188px] max-w-[calc(100vw-24px)] font-[440] text-v2-text-text-muted">
           <div class="border-b-[0.5px] border-v2-border-border-base py-0.5">
             <div class="flex h-6 min-w-0 items-center gap-1.5 px-2">
-              <ProviderModelIcon provider={props.model.provider} class="!size-3.5 shrink-0" />
+              <ProviderModelIcon provider={props.model.provider} model={props.model} class="!size-3.5 shrink-0" />
               <bdi class="min-w-0 truncate font-[530]">{props.model.name}</bdi>
             </div>
           </div>

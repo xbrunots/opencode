@@ -3,6 +3,7 @@ export * as AgentPlugin from "./agent.js"
 import { define } from "@opencode/plugin/effect/plugin"
 import { Effect } from "effect"
 import { Agent } from "../agent.js"
+import { MotionSkills } from "../session/motion/index.js"
 
 const PROMPT_EXPLORE = `You are a file search specialist. You excel at thoroughly navigating and exploring codebases.
 
@@ -112,6 +113,14 @@ export const Plugin = define({
         item.mode = "primary"
         item.hidden = true
         item.system = PROMPT_SUMMARY
+        item.permissions.push({ action: "*", resource: "*", effect: "deny" })
+      })
+
+      editor.update(Agent.ID.make(MotionSkills.agentID), (item) => {
+        item.name = Agent.Name.make("OpenCodex Motion")
+        item.mode = "primary"
+        item.hidden = true
+        item.system = MotionSkills.agentPrompt
         item.permissions.push({ action: "*", resource: "*", effect: "deny" })
       })
     })

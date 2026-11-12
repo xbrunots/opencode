@@ -79,6 +79,8 @@ export const {
     turnDiff?: TurnDiffSource
     readMedia?: ReadMediaUrlFn
     peekMedia?: PeekMediaUrlFn
+    imageJob?: (sessionID: string, jobID: string) => Promise<"running" | "completed" | "error" | "cancelled" | undefined>
+    imageJobStatus?: (sessionID: string, jobID: string) => "completed" | "error" | "cancelled" | undefined
     onNavigateToSession?: NavigateToSessionFn
     onSessionHref?: SessionHrefFn
     /** Whether `experimental.background_compaction` is on for this location; automatic compactions then show quietly. */
@@ -112,6 +114,8 @@ export const {
       },
       readMedia: props.readMedia,
       peekMedia: props.peekMedia,
+      imageJob: props.imageJob,
+      imageJobStatus: props.imageJobStatus,
     }
   },
 })

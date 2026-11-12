@@ -29,6 +29,7 @@ import { Project } from "@opencode/schema/project"
 import { AbsolutePath, RelativePath } from "../schema.js"
 import type { SessionSchema } from "./schema.js"
 import { SessionHistory } from "./history.js"
+import { MotionForkDelivery } from "./motion/fork-delivery.js"
 import { ProjectTable } from "../project/sql.js"
 
 type DatabaseService = Database.Interface["db"]
@@ -220,6 +221,8 @@ const projectFork = Effect.fn("SessionProjector.projectFork")(function* (
       .pipe(Effect.orDie)
     if (rows.length === 0) break
 
+    const delivery = yield* MotionForkDelivery.resolve(db, event.data.parentID, rows.filter((row) => row.type === "user"))
+
     const values = yield* Effect.forEach(rows, (row) =>
       Effect.gen(function* () {
         const copy = {
@@ -231,6 +234,31 @@ const projectFork = Effect.fn("SessionProjector.projectFork")(function* (
           time_updated: row.time_updated,
           // Split parents' envelopes carry no content, so only unsplit parents' inline media moves here.
           data: media ? yield* SessionBlob.externalizeRow(db, row.data) : row.data,
+        }
+        const mode = row.type === "user" ? delivery.get(row.id) : undefined
+        // Keep a confirmed mode with the fork when its parent or boundary later disappears.
+        const prior = Object.getOwnPropertyDescriptor(copy.data, MotionForkDelivery.field)
+        if (mode && (!prior || MotionForkDelivery.isMarker(prior.value, row.id)))
+          return { ...copy, data: { ...copy.data, [MotionForkDelivery.field]: MotionForkDelivery.marker(copy.id, mode) } }
+        // Automatic motion skills are tied to the originating user message, whose ID changes in a fork.
+        const motionPrefix = "opencodex-motion:"
+        const skill = row.type === "skill" && "skill" in copy.data ? copy.data.skill : undefined
+        const sourceID = typeof skill === "string" && skill.startsWith(motionPrefix) ? skill.slice(motionPrefix.length) : undefined
+        if (Schema.is(SessionMessage.ID)(sourceID)) {
+          const source = yield* db
+            .select({ seq: SessionMessageTable.seq })
+            .from(SessionMessageTable)
+            .where(
+              and(
+                eq(SessionMessageTable.session_id, event.data.parentID),
+                eq(SessionMessageTable.id, sourceID),
+                eq(SessionMessageTable.type, "user"),
+                lt(SessionMessageTable.seq, row.seq),
+              ),
+            )
+            .get()
+            .pipe(Effect.orDie)
+          if (source) return { ...copy, data: { ...copy.data, skill: `${motionPrefix}${forkedID(source.seq)}` } }
         }
         // A summary references the first message it kept, which the fork copied under a new ID.
         const keepID = row.type === "compaction" ? row.data.metadata?.keepID : undefined

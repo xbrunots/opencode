@@ -1,4 +1,4 @@
-import { TextShimmer } from "@opencode/ui/text-shimmer"
+import { ReasoningStatus } from "@opencode/ui/reasoning-status"
 import { Show, type JSX } from "solid-js"
 import type { TimelineGap } from "./spacing"
 
@@ -27,7 +27,7 @@ export function StatusLane(props: {
         {(label) => (
           <div data-component="session-working" role="status" aria-label={label()}>
             <span data-slot="timeline-status-label">
-              <TextShimmer text={label()} active />
+              <ReasoningStatus text={label()} />
             </span>
           </div>
         )}

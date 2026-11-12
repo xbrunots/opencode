@@ -3,6 +3,32 @@ import { fileURLToPath } from "node:url"
 import { NO_PROVIDER, SERVER, T0, expectPath, holdRoute, pageMessagesFrom, provider, sessionHref } from "../utils/app"
 import { mockWorkspace, openDraft, openSession } from "../utils/workspace"
 import { mockPluginsActivating, type MockServerConfig } from "../utils/mock-server"
+import { textPart, userMessage } from "../utils/timeline"
+
+test("adds an image comment to the existing draft", async ({ page }) => {
+  const image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lWQAAAAASUVORK5CYII="
+  const message = userMessage([
+    textPart("prt_annotation_text", "Review this image"),
+    { id: "prt_annotation_image", type: "file", mime: "image/png", filename: "reference.png", url: `data:image/png;base64,${image}` },
+  ])
+  const view = await openSession(page, {
+    name: "ImageAnnotation",
+    pageMessages: () => ({ items: [message] }),
+  })
+  await view.editor.fill("Keep this draft")
+  const context = page.getByRole("button", { name: "Conversation context", exact: true })
+  if ((await context.getAttribute("aria-expanded")) === "true") await context.click()
+  await page.getByRole("button", { name: "reference.png", exact: true }).and(page.locator('[data-slot="user-message-attachment"]')).click()
+  const preview = page.locator('[data-component="image-preview"]')
+  await expect(preview).toHaveAttribute("data-stage", "rest")
+  await preview.getByRole("button", { name: "Add a comment to the image" }).click()
+  await preview.getByLabel("Comment on this point").fill("Make this brighter")
+  await preview.getByRole("button", { name: "Add to message" }).click()
+  await expect(view.editor).toContainText("Keep this draft")
+  await expect(view.editor).toContainText("reference.png")
+  await expect(view.editor).toContainText("x: 50.0%, y: 50.0%")
+  await expect(view.editor).toContainText("Make this brighter")
+})
 
 test.use({
   permissions: ["clipboard-read", "clipboard-write"],

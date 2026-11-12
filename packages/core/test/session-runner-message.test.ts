@@ -20,6 +20,19 @@ const model = Model.Ref.make({ id: Model.ID.make("model"), providerID: Provider.
 const build = Agent.defaultID
 
 describe("toLLMMessages", () => {
+  test("keeps automatic motion selections out of the visible user transcript", () => {
+    const selection = SessionMessage.Skill.make({
+      id: id("motion-selection"),
+      type: "skill",
+      skill: Skill.ID.make("opencodex-motion:msg_request"),
+      name: Skill.Name.make("OpenCodex Motion Aura"),
+      text: "Private motion guidance",
+      time: { created },
+    })
+    expect(toLLMMessages([selection], model)).toEqual([])
+    const ordinary = SessionMessage.Skill.make({ ...selection, skill: Skill.ID.make("ordinary"), name: Skill.Name.make("Ordinary") })
+    expect(toLLMMessages([ordinary], model)).toEqual([Message.make({ id: ordinary.id, role: "user", content: ordinary.text })])
+  })
   test("background user shells enter model context only through their completion notification", () => {
     const shell = SessionMessage.Shell.make({
       id: id("background-shell"),

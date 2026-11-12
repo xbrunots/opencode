@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+import { Popover } from "@kobalte/core/popover"
 import {
   createEffect,
   createMemo,
@@ -11,7 +12,7 @@ import {
   type JSX,
 } from "solid-js"
 import { Key } from "@solid-primitives/keyed"
-import { createStore } from "solid-js/store"
+import { createStore, produce } from "solid-js/store"
 import { useQuery } from "@tanstack/solid-query"
 import { DragDropProvider, PointerSensor, useDroppable } from "@dnd-kit/solid"
 import { isSortable, useSortable } from "@dnd-kit/solid/sortable"
@@ -19,6 +20,7 @@ import { Accessibility, Feedback, PointerActivationConstraints } from "@dnd-kit/
 import { RestrictToVerticalAxis } from "@dnd-kit/abstract/modifiers"
 
 import { Icon } from "@opencode/ui/icon"
+import { uuid } from "@opencode/util/uuid"
 import { IconButton } from "@opencode/ui/icon-button"
 import { ProjectIcon } from "@/shell/layout/project-icon"
 import { Menu } from "@opencode/ui/menu"
@@ -56,6 +58,7 @@ const SidebarState = Persistence.struct({
   expanded: Persistence.record(Schema.Boolean),
   order: Persistence.record(Schema.mutable(Schema.Array(Schema.String))),
   groups: Persistence.record(Persistence.record(Schema.String)),
+  archived: Persistence.record(Persistence.record(Schema.Boolean)),
   members: Persistence.record(Schema.String),
 })
 
@@ -101,12 +104,17 @@ export function SidebarOrganized(props: {
   const global = useGlobal()
   const layout = useLayout()
   const pickDirectory = useDirectoryPicker()
+  const [groupAction, setGroupAction] = createStore<{ open: boolean; view: "menu" | "create"; name: string }>({
+    open: false,
+    view: "menu",
+    name: "",
+  })
+  const activeServer = () =>
+    servers.visible.find(
+      (connection) => ServerConnection.key(connection) === (props.currentTab?.server ?? layout.home.selection().server),
+    ) ?? servers.visible[0]
   const addProject = () => {
-    const server =
-      servers.visible.find(
-        (connection) =>
-          ServerConnection.key(connection) === (props.currentTab?.server ?? layout.home.selection().server),
-      ) ?? servers.visible[0]
+    const server = activeServer()
     if (!server) return
     const context = global.serverCtx(ServerConnection.key(server))
     if (!context) return
@@ -150,6 +158,7 @@ export function SidebarOrganized(props: {
     expanded: {},
     order: {},
     groups: {},
+    archived: {},
     members: {},
   })
 
@@ -186,13 +195,122 @@ export function SidebarOrganized(props: {
                   classList={{ "-rotate-90 rtl:rotate-90": state.projectsCollapsed }}
                 />
               </button>
-              <IconButton
-                icon={<Icon name="plus" />}
-                variant="ghost-muted"
-                size="small"
-                aria-label={language.t("command.project.open")}
-                onClick={addProject}
-              />
+              <Popover
+                open={groupAction.open}
+                onOpenChange={(open) => setGroupAction({ open, view: "menu", name: "" })}
+                placement="bottom-end"
+                gutter={6}
+              >
+                <Popover.Trigger
+                  as={IconButton}
+                  icon={<Icon name="plus" />}
+                  variant="ghost-muted"
+                  size="small"
+                  aria-label={language.t("sidebar.project.add")}
+                />
+                <Popover.Portal>
+                  <Popover.Content
+                    aria-label={language.t("home.projects")}
+                    dir={language.direction()}
+                    class="z-50 w-[min(288px,calc(100vw-24px))] rounded-[10px] bg-v2-background-bg-base p-3 shadow-[var(--v2-elevation-floating)] outline-none"
+                  >
+                    <Show
+                      when={groupAction.view === "create"}
+                      fallback={
+                        <div class="flex flex-col gap-1">
+                          <button
+                            type="button"
+                            class="rounded-md px-2 py-2 text-start text-12-regular text-v2-text-text-base hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover"
+                            onClick={() => setGroupAction({ view: "create", name: "" })}
+                          >
+                            {language.t("sidebar.group.create")}
+                          </button>
+                          <button
+                            type="button"
+                            class="rounded-md px-2 py-2 text-start text-12-regular text-v2-text-text-base hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover"
+                            onClick={() => {
+                              setGroupAction("open", false)
+                              addProject()
+                            }}
+                          >
+                            {language.t("sidebar.project.create")}
+                          </button>
+                          <Show
+                            when={
+                              activeServer() &&
+                              Object.entries(state.archived[ServerConnection.key(activeServer()!)] ?? {}).some(
+                                ([, archived]) => archived,
+                              )
+                            }
+                          >
+                            <div class="mt-1 border-t border-v2-border-border-muted pt-2 text-12-regular text-v2-text-text-muted">
+                              {language.t("sidebar.group.archived")}
+                            </div>
+                            <For
+                              each={Object.entries(state.archived[ServerConnection.key(activeServer()!)] ?? {}).filter(
+                                ([, archived]) => archived,
+                              )}
+                            >
+                              {([id]) => (
+                                <button
+                                  type="button"
+                                  class="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-start text-12-regular text-v2-text-text-base hover:bg-v2-overlay-simple-overlay-hover"
+                                  onClick={() => {
+                                    const conn = activeServer()
+                                    if (conn) setState("archived", ServerConnection.key(conn), id, false)
+                                    setGroupAction("open", false)
+                                  }}
+                                >
+                                  <span class="truncate">
+                                    {state.groups[ServerConnection.key(activeServer()!)]?.[id]}
+                                  </span>
+                                  <span class="text-v2-text-text-muted">{language.t("sidebar.group.restore")}</span>
+                                </button>
+                              )}
+                            </For>
+                          </Show>
+                        </div>
+                      }
+                    >
+                      <form
+                        class="flex flex-col gap-3 p-1"
+                        onSubmit={(event) => {
+                          event.preventDefault()
+                          const conn = activeServer()
+                          const name = groupAction.name.trim()
+                          if (!conn || !name) return
+                          setState("groups", ServerConnection.key(conn), (groups) => ({ ...groups, [uuid()]: name }))
+                          setGroupAction({ open: false, view: "menu", name: "" })
+                          setState("projectsCollapsed", false)
+                        }}
+                      >
+                        <div class="text-14-medium text-v2-text-text-base">{language.t("sidebar.group.create")}</div>
+                        <label class="flex flex-col gap-1.5 text-12-regular text-v2-text-text-muted">
+                          {language.t("sidebar.group.name")}
+                          <TextInput
+                            autofocus
+                            class="w-full"
+                            value={groupAction.name}
+                            onInput={(event) => setGroupAction("name", event.currentTarget.value)}
+                          />
+                        </label>
+                        <div class="flex justify-end gap-2 pt-1">
+                          <Button
+                            type="button"
+                            variant="neutral"
+                            onClick={() => setGroupAction({ open: false, view: "menu", name: "" })}
+                          >
+                            {language.t("common.cancel")}
+                          </Button>
+                          <Button type="submit" variant="contrast" disabled={!groupAction.name.trim()}>
+                            {language.t("common.save")}
+                          </Button>
+                        </div>
+                      </form>
+                    </Show>
+                  </Popover.Content>
+                </Popover.Portal>
+              </Popover>
             </div>
             <Show when={!state.projectsCollapsed}>
               <div class="flex min-w-0 flex-col gap-1">
@@ -205,10 +323,42 @@ export function SidebarOrganized(props: {
                   ready={ready()}
                   onExpand={(key) => setState("expanded", key, (value) => value === false)}
                   onReorder={(server, ids) => setState("order", server, ids)}
-                  onCreateGroup={(server, name) =>
-                    setState("groups", server, (groups) => ({ ...groups, [crypto.randomUUID()]: name }))
-                  }
+                  onCreateGroup={() => setGroupAction({ open: true, view: "create", name: "" })}
                   onMoveGroup={(server, id, group) => setState("members", `${server}:${id}`, group)}
+                  onRenameGroup={(server, id, name) => setState("groups", server, id, name)}
+                  onArchiveGroup={(server, id) => setState("archived", server, (groups) => ({ ...groups, [id]: true }))}
+                  onDeleteGroup={(server, id) => {
+                    const context = global.serverCtx(server)
+                    const members = Object.entries(state.members).flatMap(([key, group]) =>
+                      key.startsWith(`${server}:`) && group === id ? [key.slice(server.length + 1)] : [],
+                    )
+                    context?.projects
+                      .used()
+                      .filter((project) => members.includes(project.id))
+                      .forEach((project) => context.projects.hide(project))
+                    setState("order", server, (order) => (order ?? []).filter((project) => !members.includes(project)))
+                    setState(
+                      "groups",
+                      server,
+                      produce((groups) => {
+                        delete groups[id]
+                      }),
+                    )
+                    setState(
+                      "members",
+                      produce((groups) => {
+                        members.forEach((project) => delete groups[`${server}:${project}`])
+                      }),
+                    )
+                    if (state.archived[server])
+                      setState(
+                        "archived",
+                        server,
+                        produce((groups) => {
+                          delete groups[id]
+                        }),
+                      )
+                  }}
                 />
               </div>
             </Show>
@@ -235,8 +385,11 @@ function ProjectList(props: {
   ready: boolean
   onExpand: (key: string) => void
   onReorder: (server: string, ids: string[]) => void
-  onCreateGroup: (server: string, name: string) => void
+  onCreateGroup: () => void
   onMoveGroup: (server: string, id: string, group: string) => void
+  onRenameGroup: (server: string, id: string, name: string) => void
+  onArchiveGroup: (server: string, id: string) => void
+  onDeleteGroup: (server: ServerConnection.Key, id: string) => void
 }) {
   const servers = useServers()
 
@@ -246,17 +399,6 @@ function ProjectList(props: {
   const dialog = useDialog()
   const language = useLanguage()
   const global = useGlobal()
-  const createGroup = () => {
-    const key = server()
-    if (!key) return
-    void dialog.show(() => (
-      <ProjectNameDialog
-        title={language.t("sidebar.group.create")}
-        initial=""
-        save={(name) => props.onCreateGroup(key, name)}
-      />
-    ))
-  }
   const rename = (project: Project) => {
     const key = server()
     const context = key && global.serverCtx(key)
@@ -351,8 +493,12 @@ function ProjectList(props: {
             index={projects().findIndex((item) => item.id === project().id)}
             expanded={props.state.expanded[key()] !== false}
             onRename={() => rename(project())}
-            onCreateGroup={createGroup}
-            groups={props.state.groups[server() ?? ""] ?? {}}
+            onCreateGroup={props.onCreateGroup}
+            groups={Object.fromEntries(
+              Object.entries(props.state.groups[server() ?? ""] ?? {}).filter(
+                ([id]) => !props.state.archived[server() ?? ""]?.[id],
+              ),
+            )}
             group={props.state.members[key()]}
             onMoveGroup={(group) => props.onMoveGroup(ServerConnection.key(conn), project().id, group)}
             onToggle={() => {
@@ -422,16 +568,19 @@ function ProjectList(props: {
               )
             }}
           >
-            <button
-              type="button"
-              class="mx-2 mb-1 text-left text-12-regular text-v2-text-text-muted hover:text-v2-text-text-base"
-              onClick={createGroup}
+            <For
+              each={Object.keys(props.state.groups[server() ?? ""] ?? {}).filter(
+                (id) => !props.state.archived[server() ?? ""]?.[id],
+              )}
             >
-              + {language.t("sidebar.group.create")}
-            </button>
-            <For each={Object.keys(props.state.groups[server() ?? ""] ?? {})}>
               {(id) => (
-                <ProjectGroup id={id} name={props.state.groups[server() ?? ""]?.[id] ?? ""}>
+                <ProjectGroup
+                  id={id}
+                  name={props.state.groups[server() ?? ""]?.[id] ?? ""}
+                  onRename={(name) => props.onRenameGroup(ServerConnection.key(conn()), id, name)}
+                  onArchive={() => props.onArchiveGroup(ServerConnection.key(conn()), id)}
+                  onDelete={() => props.onDeleteGroup(ServerConnection.key(conn()), id)}
+                >
                   {renderProjects(
                     () => visible().filter((project) => props.state.members[`${server()}:${project.id}`] === id),
                     conn(),
@@ -586,7 +735,17 @@ function ProjectRow(props: {
   )
 }
 
-function ProjectGroup(props: { id: string; name: string; children: JSX.Element }) {
+function ProjectGroup(props: {
+  id: string
+  name: string
+  children: JSX.Element
+  onRename: (name: string) => void
+  onArchive: () => void
+  onDelete: () => void
+}) {
+  const language = useLanguage()
+  const dialog = useDialog()
+  const [group, setGroup] = createStore({ menu: false, rename: false, name: "" })
   const drop = useDroppable({
     collisionPriority: 4,
     get id() {
@@ -600,12 +759,145 @@ function ProjectGroup(props: { id: string; name: string; children: JSX.Element }
       class="min-w-0"
       classList={{ "bg-v2-overlay-simple-overlay-hover": drop.isDropTarget() }}
     >
-      <summary class="flex h-7 cursor-pointer items-center gap-2 px-2 text-12-regular text-v2-text-text-muted">
-        <Icon name="chevron-down" size="small" />
-        {props.name}
+      <summary
+        class="flex h-7 cursor-pointer items-center px-2 text-12-regular text-v2-text-text-muted"
+        onContextMenu={(event) => {
+          event.preventDefault()
+          setGroup("menu", true)
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "ContextMenu" && (event.key !== "F10" || !event.shiftKey)) return
+          event.preventDefault()
+          setGroup("menu", true)
+        }}
+      >
+        <Popover
+          open={group.rename}
+          onOpenChange={(open) => setGroup("rename", open)}
+          placement="bottom-start"
+          gutter={6}
+        >
+          <Popover.Anchor class="flex min-w-0 flex-1 items-center gap-2">
+            <Icon name="chevron-down" size="small" />
+            <span class="min-w-0 flex-1 truncate">{props.name}</span>
+            <Menu
+              open={group.menu}
+              onOpenChange={(open) => setGroup("menu", open)}
+              placement="bottom-end"
+              gutter={6}
+              modal={false}
+            >
+              <Menu.Trigger
+                as={IconButton}
+                icon={<Icon name="outline-dots" />}
+                variant="ghost-muted"
+                size="small"
+                aria-label={language.t("common.moreOptions")}
+                onClick={(event) => event.stopPropagation()}
+              />
+              <Menu.Portal>
+                <Menu.Content>
+                  <Menu.Item onSelect={() => setGroup({ rename: true, name: props.name })}>
+                    {language.t("common.rename")}
+                  </Menu.Item>
+                  <Menu.Item
+                    onSelect={() =>
+                      void dialog.show(() => (
+                        <GroupConfirmDialog name={props.name} action="archive" confirm={props.onArchive} />
+                      ))
+                    }
+                  >
+                    {language.t("common.archive")}
+                  </Menu.Item>
+                  <Menu.Item
+                    onSelect={() =>
+                      void dialog.show(() => (
+                        <GroupConfirmDialog name={props.name} action="delete" confirm={props.onDelete} />
+                      ))
+                    }
+                  >
+                    {language.t("common.delete")}
+                  </Menu.Item>
+                </Menu.Content>
+              </Menu.Portal>
+            </Menu>
+          </Popover.Anchor>
+          <Popover.Portal>
+            <Popover.Content
+              aria-label={language.t("sidebar.group.rename")}
+              dir={language.direction()}
+              class="z-50 w-[min(288px,calc(100vw-24px))] rounded-[10px] bg-v2-background-bg-base p-4 shadow-[var(--v2-elevation-floating)] outline-none"
+            >
+              <form
+                class="flex flex-col gap-3"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  const name = group.name.trim()
+                  if (!name) return
+                  props.onRename(name)
+                  setGroup("rename", false)
+                }}
+              >
+                <div class="text-14-medium text-v2-text-text-base">{language.t("sidebar.group.rename")}</div>
+                <label class="flex flex-col gap-1.5 text-12-regular text-v2-text-text-muted">
+                  {language.t("sidebar.group.name")}
+                  <TextInput
+                    autofocus
+                    class="w-full"
+                    value={group.name}
+                    onInput={(event) => setGroup("name", event.currentTarget.value)}
+                  />
+                </label>
+                <div class="flex justify-end gap-2 pt-1">
+                  <Button type="button" variant="neutral" onClick={() => setGroup("rename", false)}>
+                    {language.t("common.cancel")}
+                  </Button>
+                  <Button type="submit" variant="contrast" disabled={!group.name.trim()}>
+                    {language.t("common.save")}
+                  </Button>
+                </div>
+              </form>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover>
       </summary>
       <div class="ms-3">{props.children}</div>
     </details>
+  )
+}
+
+function GroupConfirmDialog(props: { name: string; action: "archive" | "delete"; confirm: () => void }) {
+  const language = useLanguage()
+  const dialog = useDialog()
+  return (
+    <Dialog fit>
+      <DialogHeader>
+        <DialogTitle>
+          {language.t(props.action === "archive" ? "sidebar.group.archive" : "sidebar.group.delete")}
+        </DialogTitle>
+      </DialogHeader>
+      <DialogBody>
+        <p class="text-14-regular text-v2-text-text-muted">
+          {language.t(props.action === "archive" ? "sidebar.group.archive.confirm" : "sidebar.group.delete.confirm", {
+            name: props.name,
+          })}
+        </p>
+      </DialogBody>
+      <DialogFooter>
+        <Button variant="neutral" autofocus onClick={() => dialog.close()}>
+          {language.t("common.cancel")}
+        </Button>
+        <Button
+          variant={props.action === "delete" ? "danger" : "contrast"}
+          onClick={() => {
+            dialog.close()
+            props.confirm()
+          }}
+        >
+          {language.t(props.action === "archive" ? "common.archive" : "common.delete")}
+        </Button>
+      </DialogFooter>
+    </Dialog>
   )
 }
 
