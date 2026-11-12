@@ -232,6 +232,97 @@ test("reads local video and HTML previews through the authenticated file API", a
   expect(new Headers(requests[0].init?.headers).get("range")).toBe(`bytes=0-${MAX_PREVIEW_BYTES}`)
 })
 
+function artifactSetup(sessionID = "ses_owner", provider = "local") {
+  const id = "art_1d19dc7fd001M70eVATBxuLPkT"
+  return setup(() => new Response(JSON.stringify({ data: [{
+    id, provider, sessionID, title: "Published", entry: "index.html",
+    url: `/api/experimental/artifacts/${id}/view/`, time: { created: 1, updated: 1 },
+  }] }), { headers: { "content-type": "application/json" } }))
+}
+
+test("reads published HTML artifacts from the owning server with authentication", async () => {
+  const { api, requests: metadata } = artifactSetup()
+  const requests: Array<{ url: URL; init?: RequestInit }> = []
+  const transport = {
+    server: { url: "https://server.example:4096", password: "secret" }, sessionID: "ses_owner",
+    fetch: (async (url: string | URL | Request, init?: RequestInit) => {
+      requests.push({ url: new URL(String(url)), init })
+      return new Response("<h1>Published</h1>", { headers: { "content-type": "text/html" } })
+    }) as typeof fetch,
+  }
+  const preview = await readLocalPreview(api, "/repo", "/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/", new AbortController().signal, transport)
+  expect(await preview?.text()).toBe("<h1>Published</h1>")
+  expect(metadata[0].url.pathname).toBe("/api/experimental/artifacts")
+  expect(metadata[0].url.searchParams.get("location[directory]")).toBe("/repo")
+  expect(metadata[0].url.searchParams.get("sessionID")).toBe("ses_owner")
+  expect(requests[0].url.origin).toBe("https://server.example:4096")
+  expect(requests[0].url.pathname).toBe("/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/")
+  expect(requests[0].url.searchParams.get("location[directory]")).toBe("/repo")
+  expect(new Headers(requests[0].init?.headers).get("authorization")).toBe(`Basic ${btoa("opencode:secret")}`)
+  expect(requests[0].init?.redirect).toBe("error")
+})
+
+test("only reads absolute artifact URLs from the owning server", async () => {
+  const { api, requests: metadata } = artifactSetup()
+  const requests: string[] = []
+  const transport = {
+    server: { url: "https://server.example:4096", password: "secret" }, sessionID: "ses_owner",
+    fetch: Object.assign(async (input: RequestInfo | URL) => {
+      requests.push(String(input))
+      return new Response("<h1>Published</h1>", { headers: { "content-type": "text/html" } })
+    }, { preconnect() {} }),
+  }
+  const path = "/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/"
+  const signal = new AbortController().signal
+  expect(await readLocalPreview(api, "/repo", `https://other.example${path}`, signal, transport)).toBeUndefined()
+  expect(metadata).toHaveLength(0)
+  expect(requests).toHaveLength(0)
+  const result = await readLocalPreview(api, "/repo", `https://server.example:4096${path}`, signal, transport)
+  expect(await result?.text()).toBe("<h1>Published</h1>")
+  expect(requests).toHaveLength(1)
+})
+
+test.each(["image/png", "video/mp4", "application/pdf"])("preserves a published artifact's %s content type", async (mime) => {
+  const { api } = artifactSetup()
+  const transport = {
+    server: { url: "https://server.example:4096" }, sessionID: "ses_owner",
+    fetch: Object.assign(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(new Uint8Array([0, 127, 255]), { headers: { "content-type": mime } }), { preconnect() {} }),
+  }
+  const preview = await readLocalPreview(api, "/repo", "/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/", new AbortController().signal, transport)
+  expect(preview?.type).toBe(mime)
+})
+
+test("does not request an artifact belonging to another conversation", async () => {
+  const { api } = artifactSetup("ses_other")
+  let requested = false
+  const transport = {
+    server: { url: "https://server.example:4096" }, sessionID: "ses_owner",
+    fetch: Object.assign(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      requested = true
+      return new Response("unexpected")
+    }, { preconnect() {} }),
+  }
+  const preview = await readLocalPreview(api, "/repo", "/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/", new AbortController().signal, transport)
+  expect(preview).toBeUndefined()
+  expect(requested).toBe(false)
+})
+
+test("does not fetch a plugin-backed artifact as a local preview", async () => {
+  const { api } = artifactSetup("ses_owner", "external")
+  let requested = false
+  const transport = {
+    server: { url: "https://server.example:4096" }, sessionID: "ses_owner",
+    fetch: Object.assign(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      requested = true
+      return new Response("unexpected")
+    }, { preconnect() {} }),
+  }
+  const preview = await readLocalPreview(api, "/repo", "/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/", new AbortController().signal, transport)
+  expect(preview).toBeUndefined()
+  expect(requested).toBe(false)
+})
+
 test("rejects oversized previews before reading the response body", async () => {
   const { api } = setup()
   const options = {

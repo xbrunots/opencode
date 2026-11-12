@@ -33,7 +33,12 @@ const make: Effect.Effect<Interface, never, Session.Service | Job.Service | Scop
     notifications.add(key)
     yield* Effect.gen(function* () {
       const info = (yield* jobs.wait({ id: recovery.childSessionID })).info
-      if (info) yield* SubagentCompletion.deliver(sessions, jobs, { ...info, recovery })
+      if (!info) return
+      if (recovery.notifyParent === false) {
+        if (info.notificationID) yield* jobs.completeBackground(info.notificationID)
+        return
+      }
+      yield* SubagentCompletion.deliver(sessions, jobs, { ...info, recovery })
     }).pipe(
       Effect.ensuring(Effect.sync(() => notifications.delete(key))),
       // The global context drops the caller's span annotations; delivery is the parent session's work.

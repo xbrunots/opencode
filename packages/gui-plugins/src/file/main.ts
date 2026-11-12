@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs"
-import { realpath, stat } from "node:fs/promises"
+import { readFile, realpath, stat } from "node:fs/promises"
 import { createServer } from "node:net"
 import path from "node:path"
 import { NodeHttpClient } from "@effect/platform-node"
@@ -11,19 +11,23 @@ import { HttpClient, HttpClientRequest } from "effect/http"
 import type { Plugin } from "@opencode/plugin/gui/main"
 import { HtmlPreview } from "./preview-ipc"
 import { previewAssets, previewFile } from "./preview-files"
+import { inspectPreview } from "./preview-inspect"
+import { artifactReference, previewArtifact } from "./preview-artifact"
 
 const scheme = "oc-preview"
 
 const setup: Plugin.MainSetup = (ctx) => {
   const runtime = ManagedRuntime.make(NodeHttpClient.layerNodeHttp)
-  const views = new Map<string, { window: number; close: () => void }>()
+  const views = new Map<string, { window: number; close: () => void; view: Electron.WebContentsView; source: (url: URL) => Promise<{ path: string; content: string } | undefined> }>()
 
   ctx.provide(HtmlPreview, {
     open: async (input, caller) => {
       const server = ctx.serverEndpoints.get(input.server)
       const win = ctx.windows.get(caller.window)
 
-      if (!server?.sameMachine || !win || win.isDestroyed()) throw new Error("file.preview.unavailable")
+      if (!server || !win || win.isDestroyed()) throw new Error("file.preview.unavailable")
+
+      if (input.inline !== undefined && Buffer.byteLength(input.inline, "utf8") > 4 * 1024 * 1024) throw new Error("file.preview.tooLarge")
 
       const location = await runtime.runPromise(
         Effect.gen(function* () {
@@ -42,11 +46,47 @@ const setup: Plugin.MainSetup = (ctx) => {
         }),
       )
 
-      const root = await realpath(location)
-      const target = await previewFile(root, input.path)
+      const artifact = input.inline === undefined && artifactReference(input.path, server.url)
+        ? await previewArtifact({ server, session: input.session, directory: location, path: input.path })
+        : undefined
 
-      if (!target || !/\.html?$/i.test(target)) throw new Error("file.preview.invalid")
-      const assets = await previewAssets(root, target)
+      if (input.inline === undefined && artifactReference(input.path, server.url) && !artifact) throw new Error("file.preview.invalid")
+
+      if (input.inline === undefined && !artifact && !server.sameMachine) throw new Error("file.preview.unavailable")
+      const root = artifact || input.inline !== undefined ? undefined : await realpath(location)
+      const target = root ? await previewFile(root, input.path) : undefined
+
+      if (!artifact && input.inline === undefined && (!target || !/\.html?$/i.test(target))) throw new Error("file.preview.invalid")
+      const assets = root && target ? await previewAssets(root, target) : undefined
+      const relative = input.inline !== undefined ? "index.html" : artifact ? artifact.entry : path.relative(root!, target!).split(path.sep).join("/")
+
+      if (!/\.html?$/i.test(relative)) throw new Error("file.preview.invalid")
+
+      const source = async (url: URL) => {
+        const relative = decodeURIComponent(url.pathname.slice(1))
+
+        if (input.inline !== undefined) return relative === "index.html" ? { path: "HTML inline", content: input.inline } : undefined
+
+        if (artifact) {
+          const response = await artifact.read(relative, "GET")
+
+          if (!response) return
+          const content = await response.text()
+
+          if (content.length > 4 * 1024 * 1024) return
+
+          return { path: artifact.sourcePath(relative), content }
+        }
+
+        if (!root || !assets) return
+        const file = await previewFile(root, relative).catch(() => undefined)
+
+        if (!file || !assets.has(file)) return
+
+        if ((await stat(file)).size > 4 * 1024 * 1024) return
+
+        return { path: path.relative(root, file), content: await readFile(file, "utf8") }
+      }
 
       if (win.isDestroyed()) throw new Error("file.preview.unavailable")
 
@@ -86,6 +126,32 @@ const setup: Plugin.MainSetup = (ctx) => {
           const url = new URL(request.url)
 
           if (url.hostname !== "workspace") return new Response(null, { status: 403 })
+
+          if (input.inline !== undefined) {
+            if (url.pathname !== "/index.html") return new Response(null, { status: 404 })
+
+            return new Response(request.method === "HEAD" ? null : input.inline, { headers: {
+              "Content-Type": "text/html; charset=utf-8",
+              "Content-Security-Policy": "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src 'none'; form-action 'none'; base-uri 'self'; object-src 'none'",
+              "X-DNS-Prefetch-Control": "off",
+            } })
+          }
+
+          if (artifact) {
+            const response = await artifact.read(decodeURIComponent(url.pathname.slice(1)), request.method)
+
+            if (!response) return new Response(null, { status: 404 })
+            const headers = new Headers(response.headers)
+
+            if (/\.html?$/i.test(url.pathname)) {
+              headers.set("Content-Security-Policy", "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src 'none'; form-action 'none'; base-uri 'self'; object-src 'none'")
+              headers.set("X-DNS-Prefetch-Control", "off")
+            }
+
+            return new Response(response.body, { status: response.status, headers })
+          }
+
+          if (!root || !assets) return new Response(null, { status: 404 })
           const file = await previewFile(root, decodeURIComponent(url.pathname.slice(1))).catch(() => undefined)
 
           if (!file || !assets.has(file)) return new Response(null, { status: 404 })
@@ -177,13 +243,13 @@ const setup: Plugin.MainSetup = (ctx) => {
           deny.close()
         }
 
-        views.set(embed.id, { window: caller.window, close })
+        views.set(embed.id, { window: caller.window, close, view, source })
         registered = true
         win.once("closed", close)
         contents.once("destroyed", close)
         embed.show(true)
-        const relative = path.relative(root, target).split(path.sep).map(encodeURIComponent).join("/")
-        await contents.loadURL(`${scheme}://workspace/${relative}`).catch(() => {
+        const location = relative.split("/").map(encodeURIComponent).join("/")
+        await contents.loadURL(`${scheme}://workspace/${location}`).catch(() => {
           close()
           throw new Error("file.preview.load")
         })
@@ -192,6 +258,35 @@ const setup: Plugin.MainSetup = (ctx) => {
       } finally {
         if (!registered) deny.close()
       }
+    },
+    freeze: async (input, caller) => {
+      const entry = views.get(input.id)
+
+      if (!entry || entry.window !== caller.window || entry.view.webContents.isDestroyed()) return
+      const debugger_ = entry.view.webContents.debugger
+
+      if (!debugger_.isAttached()) debugger_.attach("1.3")
+      await debugger_.sendCommand("Animation.enable")
+
+      if (input.active) {
+        await debugger_.sendCommand("Animation.setPlaybackRate", { playbackRate: 0 })
+        await debugger_.sendCommand("Page.setWebLifecycleState", { state: "frozen" }).catch(async (error) => {
+          await debugger_.sendCommand("Animation.setPlaybackRate", { playbackRate: 1 })
+          throw error
+        })
+
+        return
+      }
+
+      await debugger_.sendCommand("Page.setWebLifecycleState", { state: "active" })
+      await debugger_.sendCommand("Animation.setPlaybackRate", { playbackRate: 1 })
+    },
+    inspect: async (input, caller) => {
+      const entry = views.get(input.id)
+
+      if (!entry || entry.window !== caller.window) return null
+
+      return inspectPreview({ ...input, view: entry.view, source: entry.source }).catch(() => null)
     },
     close: async (input, caller) => {
       const view = views.get(input.id)

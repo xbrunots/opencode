@@ -1618,6 +1618,7 @@ export function currentSession(session: MockSession, fallbackDirectory?: string)
   return {
     id: session.id,
     parentID: session.parentID,
+    metadata: session.metadata,
     projectID: session.projectID ?? "project",
     agent: session.agent ?? "build",
     model: session.model,

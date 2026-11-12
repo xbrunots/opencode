@@ -20,7 +20,9 @@ import {
   type MarkdownCodeAction,
   type MarkdownCodeBlock,
   type MarkdownCodeBlocks,
+  type RenderMarkdownPreview,
 } from "@opencode/session-ui/context/markdown"
+import { ChatHtmlPreview } from "@opencode/gui-plugins/file/chat-preview"
 import { SourcesProvider } from "@opencode/session-ui/context/sources"
 import { sourcesExperiment } from "@opencode/session-ui/sources/experiment"
 import { useTheme } from "@opencode/ui/theme/context"
@@ -74,13 +76,15 @@ export function PluginSlot<At extends keyof BuiltinSlotMap>(props: {
   at: At
   input: BuiltinSlotMap[At]
   fallback?: JSX.Element
+  before?: number
+  from?: number
 }) {
   const host = usePluginHost()
 
   const items = createMemo(() =>
     host
       .items(BuiltinSlot)
-      .filter((item) => item.value.at === props.at)
+      .filter((item) => item.value.at === props.at && (props.before === undefined || (item.value.order ?? 0) < props.before) && (props.from === undefined || (item.value.order ?? 0) >= props.from))
       .toSorted((a, b) => (a.value.order ?? 0) - (b.value.order ?? 0)),
   )
 
@@ -157,6 +161,20 @@ export function PluginLinks(props: ParentProps<{ session: MountedSession; active
   const host = usePluginHost()
   const markdown = useMarkdown()
   const platform = usePlatform()
+  const owner = getOwner()
+  const renderPreview: RenderMarkdownPreview = (target, source, fallback, inline) => {
+    if (props.active === false || host.context("file")?.app.platform !== "desktop") return
+    return runWithOwner(owner, () =>
+      render(
+        () => (
+          <Contribution plugin="file" failed={fallback}>
+            {() => <ChatHtmlPreview session={props.session} path={source} inline={inline} fallback={fallback} />}
+          </Contribution>
+        ),
+        target,
+      ),
+    )
+  }
 
   // Checks untracked: markdown calls this inside its render effect, which must not follow the routed session.
   const localFileExists = createLinkCheck(
@@ -171,6 +189,7 @@ export function PluginLinks(props: ParentProps<{ session: MountedSession; active
       localFileExists={localFileExists}
       previewSession={props.session.id}
       previewServer={props.session.server.id}
+      renderPreview={renderPreview}
       openPreview={(source, local, destination) => {
         if (destination === "panel") {
           host.links.open({ href: source, origin: local ? "file" : "browser", session: props.session })

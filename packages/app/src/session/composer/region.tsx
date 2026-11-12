@@ -54,7 +54,8 @@ import { SessionLocationMissing } from "./location-missing"
 import { SessionPluginPills } from "./plugin-pills"
 import { createTimelineActions, type TimelineActionsView, type TimelinePendingActions } from "./timeline-actions"
 import type { MountedSession, SessionScreen } from "@opencode/plugin/gui"
-import { matchesAnnotationTarget } from "./annotation-target"
+import { formatPreviewAnnotation, matchesAnnotationTarget, type PreviewElement } from "./annotation-target"
+import { interactiveExtensionChild } from "./session-composer-region-controller"
 
 export function createActiveSessionRegion(input: {
   session: SessionModel
@@ -76,20 +77,42 @@ export function createActiveSessionRegion(input: {
   const prompt = useComposerState()
   const state = createSessionRequestModel()
   const controls = createComposerControls()
+  const readOnlyChild = () => input.session.data.isChild() && !interactiveExtensionChild(input.session.data.info())
   let promptRef: HTMLDivElement | undefined
 
   makeEventListener(window, "opencode:image-annotation", (event: Event) => {
     if (!(event instanceof CustomEvent) || !input.visible()) return
-    const note = event.detail as { serverID: string; sessionID: string; src: string; alt?: string; element?: string; time?: number; x: number; y: number; comment: string }
+    const note = event.detail as { serverID: string; sessionID: string; src: string; alt?: string; element?: string | PreviewElement; time?: number; x: number; y: number; comment: string; file?: File; completion?: Promise<boolean> }
     if (!matchesAnnotationTarget(note, { serverID, sessionID: input.session.identity.sessionID() })) return
+    const composer = active()?.composer
+    if (note.file && (!composer || !promptRef || !(note.file instanceof File))) return
     event.preventDefault()
     event.stopImmediatePropagation()
-    const source = note.src.startsWith("blob:") || note.src.startsWith("data:") ? note.alt || "attached image" : note.src
-    const content = `[Preview: ${source}; x: ${note.x.toFixed(1)}%, y: ${note.y.toFixed(1)}%${note.element ? `; element: ${note.element}` : ""}${note.time === undefined ? "" : `; time: ${note.time.toFixed(1)}s`}] ${note.comment}`
-    const current = prompt.current()
-    const next = appendPrompt(current, [{ type: "text", content, start: 0, end: content.length }])
-    prompt.set(next, promptLength(next))
-    requestAnimationFrame(() => promptRef?.focus())
+    const content = formatPreviewAnnotation(note)
+    const draft = prompt.capture()
+    const append = () => {
+      const next = appendPrompt(draft.current(), [{ type: "text", content, start: 0, end: content.length }])
+      draft.set(next, promptLength(next))
+      if (!dialog.active && input.visible() && input.session.identity.sessionID() === note.sessionID)
+        requestAnimationFrame(() => promptRef?.focus())
+      return true
+    }
+    if (!note.file) {
+      append()
+      return
+    }
+    note.completion = composer!.addAttachments([note.file], { waitForUpload: true, focus: !dialog.active }).then((added) => added && append())
+  })
+
+  makeEventListener(window, "opencode:image-markup", (event: Event) => {
+    if (!(event instanceof CustomEvent) || !input.visible()) return
+    const note = event.detail as { serverID: string; sessionID: string; file: File; completion?: Promise<boolean> }
+    if (!matchesAnnotationTarget(note, { serverID, sessionID: input.session.identity.sessionID() })) return
+    const composer = active()?.composer
+    if (!composer || !promptRef || !(note.file instanceof File)) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    note.completion = composer.addAttachments([note.file], { waitForUpload: true, focus: !dialog.active })
   })
 
   createEffect(
@@ -159,7 +182,7 @@ export function createActiveSessionRegion(input: {
   }
 
   const focus = () => {
-    if (!input.session.data.isChild()) promptRef?.focus()
+    if (!readOnlyChild()) promptRef?.focus()
   }
 
   const openParent = () => {
@@ -217,7 +240,7 @@ export function createActiveSessionRegion(input: {
       return
     }
 
-    if (event.key === "Escape" && input.session.data.isChild()) {
+    if (event.key === "Escape" && readOnlyChild()) {
       event.preventDefault()
       openParent()
 
@@ -248,7 +271,7 @@ export function createActiveSessionRegion(input: {
 
     if (event.key.length !== 1 || event.key === "Unidentified" || ((event.ctrlKey || event.metaKey) && !paste)) return
 
-    if (state.blocked() || input.session.data.isChild() || !promptRef) return
+    if (state.blocked() || readOnlyChild() || !promptRef) return
     promptRef.focus()
     setCursorPosition(promptRef, prompt.cursor() ?? promptLength(prompt.current()))
   }
@@ -357,7 +380,7 @@ export function createActiveSessionRegion(input: {
 
   const dock = {
     state,
-    parentID: input.session.data.parentID,
+    parentID: () => readOnlyChild() ? input.session.data.parentID() : undefined,
     centered: input.screen.centered,
     // A reader far enough up to see the jump-to-latest button stays put; anyone closer is taken to the new prompt.
     onResponseSubmit: () => {

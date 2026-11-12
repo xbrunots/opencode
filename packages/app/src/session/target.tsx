@@ -7,6 +7,7 @@ export type SessionTarget = {
   sessionID: string
   focused: Accessor<boolean>
   floating?: boolean
+  close?: () => void
   root?: Accessor<HTMLElement | undefined>
 }
 const SessionTargetContext = createContext<SessionTarget>()
@@ -38,6 +39,10 @@ export function useSessionTargetFocused(): Accessor<boolean> {
 
 export function useSessionTargetFloating() {
   return useContext(SessionTargetContext)?.floating === true
+}
+
+export function useSessionTargetClose() {
+  return useContext(SessionTargetContext)?.close
 }
 
 export function useSessionTargetQuery() {

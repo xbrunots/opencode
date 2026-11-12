@@ -10,7 +10,8 @@
     "./main": "./src/main.ts",
     "./terminal": "./src/terminal/index.ts",
     "./debug/options": "./src/debug/options.ts",
-    "./details/config-file": "./src/details/config-file.ts"
+    "./details/config-file": "./src/details/config-file.ts",
+    "./file/chat-preview": "./src/file/chat-preview.tsx"
   },
   "scripts": {
     "typecheck": "bun check --no-script -b",
@@ -41,6 +42,7 @@
     "effect": "catalog:",
     "fuzzysort": "catalog:",
     "ghostty-web": "github:anomalyco/ghostty-web#e91e38a9ceb13c566ddfa15185a9393849f712a9",
+    "htmlparser2": "8.0.2",
     "knobs": "npm:@kitlangton/knobs@0.4.0-next.22",
     "solid-js": "catalog:"
   },

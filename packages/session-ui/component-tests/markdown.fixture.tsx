@@ -55,6 +55,7 @@ export async function mountMarkdown(options: {
   images?: boolean
   fixtureImages?: boolean
   previews?: boolean
+  nativePreviewFailure?: boolean
   synchronousFiles?: boolean
   localFileExists?: MarkdownLocalFileExists
 }) {
@@ -115,6 +116,11 @@ export async function mountMarkdown(options: {
               '<style>body{margin:0} #target{width:100%;height:180px;background:#ddd}</style><div id="target">Hello</div><script>parent.document.body.dataset.previewScript = "ran"</script>',
             ], { type: "text/html" }) : undefined}
             previewSession="fixture-session"
+            previewServer="fixture-server"
+            renderPreview={options.nativePreviewFailure ? (_target, _source, fallback) => {
+              queueMicrotask(fallback)
+              return () => { document.body.dataset.nativePreviewDisposed = "true" }
+            } : undefined}
             openPreview={(source, local, destination) => {
               document.body.dataset.previewOpen = `${source}:${local}:${destination}`
             }}

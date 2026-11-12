@@ -15,141 +15,123 @@
   overflow: hidden;
 }
 
-[data-slot="artifact-annotation-toolbar"] {
-  display: flex;
-  flex: none;
-  height: 40px;
-  align-items: center;
-  justify-content: flex-end;
-  padding-inline: 12px;
-  background: var(--v2-background-bg-base);
-}
-
-[data-slot="artifact-annotation-native-open"] {
-  border: 1px solid var(--v2-border-border-base);
-  border-radius: 8px;
-  padding: 5px 10px;
-  background: var(--v2-background-bg-layer-02);
-  color: var(--v2-text-text-base);
-  font-size: 12px;
-}
-
-[data-slot="artifact-annotation-stage"][data-native] [data-slot="artifact-annotation-target"] {
-  top: 40px;
-}
-
-[data-slot="artifact-annotation-open"] {
+[data-slot="artifact-annotation-dock-zone"] {
   position: absolute;
-  z-index: 5;
-  top: 12px;
-  right: 12px;
-  border: 1px solid var(--v2-border-border-base);
-  border-radius: 8px;
-  padding: 7px 10px;
-  background: var(--v2-background-bg-layer-02);
-  color: var(--v2-text-text-base);
-  font-size: 12px;
-  box-shadow: var(--v2-elevation-raised);
+  z-index: 10;
+  inset-inline: 12px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
 }
+
+/* A native WebContentsView is above the DOM, so keep its live surface clear of the dock. */
+[data-slot="artifact-annotation-stage"][data-native] [data-slot="artifact-annotation-dock-zone"] {
+  position: relative;
+  inset-inline: auto;
+  bottom: auto;
+  flex: none;
+  min-height: 52px;
+  justify-content: center;
+  padding: 4px 12px;
+}
+
+[data-slot="artifact-annotation-dock"] {
+  display: flex;
+  max-width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 11px;
+  padding: 4px 6px;
+  background: #2b2b2d;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 22%);
+  color: #d2d2d3;
+  font-size: 13px;
+  pointer-events: auto;
+}
+
+[data-slot="artifact-annotation-dock"] button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  border: 0;
+  border-radius: 7px;
+  padding: 0 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+[data-slot="artifact-annotation-dock"] button:hover { background: rgb(255 255 255 / 8%); }
+[data-slot="artifact-annotation-dock"] button:focus-visible,
+[data-slot="artifact-annotation-target"]:focus-visible,
+[data-slot="artifact-annotation-input"]:focus-visible { outline: 2px solid var(--v2-border-border-focus); outline-offset: 1px; }
+[data-slot="artifact-annotation-dock"] button:disabled { opacity: .45; cursor: default; }
+[data-slot="artifact-annotation-dock"] [data-slot="artifact-annotation-send"] { background: #e6e6e7; color: #171719; }
+[data-slot="artifact-annotation-dock"] [data-slot="artifact-annotation-send"]:hover:not(:disabled) { background: white; }
+[data-slot="artifact-annotation-grip"] { flex: none; padding: 0 4px; color: #929294; font-size: 15px; }
+[data-slot="artifact-annotation-grip"] svg { fill: currentColor; }
+[data-slot="artifact-annotation-instruction"] { min-width: 0; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #b0b0b3; }
+[data-slot="artifact-annotation-error"] { max-width: 100%; padding: 6px 10px; border-radius: 7px; background: #3d2424; color: #fff; font-size: 12px; pointer-events: auto; }
 
 [data-slot="artifact-annotation-target"] {
   position: absolute;
   z-index: 6;
   inset: 0;
-  cursor: crosshair;
-  background: rgb(0 0 0 / 12%);
   border: 0;
+  background: transparent;
+  cursor: crosshair;
+  touch-action: none;
 }
 
-[data-slot="artifact-annotation-target"]:focus-visible,
-[data-slot="artifact-annotation-open"]:focus-visible,
-[data-slot="artifact-annotation-native-open"]:focus-visible,
-[data-slot="artifact-annotation-form"] :focus-visible {
-  outline: 2px solid var(--v2-text-text-base);
-  outline-offset: -2px;
-}
-
-[data-slot="artifact-annotation-hint"] {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  border-radius: 8px;
-  padding: 7px 10px;
-  background: var(--v2-background-bg-layer-02);
-  color: var(--v2-text-text-base);
-  font-size: 12px;
-}
-
+[data-slot="artifact-annotation-stage"][data-native] [data-slot="artifact-annotation-target"] { bottom: 52px; }
+[data-slot="artifact-annotation-ink"] { position: absolute; z-index: 7; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+[data-slot="artifact-annotation-ink"] polyline { fill: none; stroke: #4389eb; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+[data-slot="artifact-annotation-highlight"] { position: absolute; z-index: 7; border: 2px solid #71a9f6; background: rgb(75 145 238 / 14%); pointer-events: none; }
+[data-slot="artifact-annotation-highlight"] small { position: absolute; bottom: 100%; left: -2px; padding: 2px 5px; background: #377fd6; color: white; font-size: 11px; }
 [data-slot="artifact-annotation-pin"] {
   position: absolute;
-  z-index: 7;
-  width: 14px;
-  height: 14px;
+  z-index: 8;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
   border: 2px solid white;
-  border-radius: 50%;
-  background: #555;
-  box-shadow: 0 1px 5px #0008;
+  border-radius: 50% 50% 50% 4px;
+  background: #3277dc;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
 
 [data-slot="artifact-annotation-form"] {
   position: absolute;
-  z-index: 8;
-  right: 12px;
-  bottom: 12px;
-  display: grid;
-  gap: 10px;
-  width: min(320px, calc(100% - 24px));
-  padding: 14px;
-  border: 1px solid var(--v2-border-border-base);
-  border-radius: 12px;
-  background: var(--v2-background-bg-layer-02);
-  box-shadow: var(--v2-elevation-raised);
-  color: var(--v2-text-text-base);
-  font-size: 12px;
+  z-index: 9;
+  width: min(280px, calc(100% - 24px));
+  transform: translate(16px, -50%);
 }
-
-[data-slot="artifact-annotation-form"] label {
-  display: grid;
-  gap: 8px;
+[data-slot="artifact-annotation-input"] {
+  width: 100%;
+  height: 40px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 22px;
+  padding: 0 16px;
+  background: #2b2b2d;
+  color: #f5f5f5;
+  font: inherit;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 22%);
 }
-
-[data-slot="artifact-annotation-form"] textarea {
-  min-height: 64px;
-  resize: vertical;
-  border: 1px solid var(--v2-border-border-base);
-  border-radius: 7px;
-  padding: 8px;
-  background: var(--v2-background-bg-layer-01);
-  color: inherit;
-}
-
-[data-slot="artifact-annotation-form"] p {
-  margin: 0;
-}
-
-[data-slot="artifact-annotation-actions"] {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-[data-slot="artifact-annotation-actions"] button {
-  border: 1px solid var(--v2-border-border-base);
-  border-radius: 7px;
-  padding: 7px 10px;
-  color: inherit;
-}
-
-[data-slot="artifact-annotation-actions"] button[type="submit"] {
-  background: var(--v2-text-text-base);
-  color: var(--v2-background-bg-layer-01);
-}
-
-[data-slot="artifact-annotation-actions"] button:disabled {
-  opacity: 0.45;
-}
+[data-slot="artifact-annotation-input"]::placeholder { color: #a7a7aa; }
 
 [data-slot="artifact-toolbar"] {
   display: flex;

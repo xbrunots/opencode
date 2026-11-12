@@ -295,7 +295,7 @@ export function SessionUIProvider(
         <MarkdownProvider
           previewServer={props.server}
           readImage={readImage()}
-          readPreview={(path, signal) => readLocalPreview(serverSDK.api, directory(), path, signal, { server: serverSDK.http, fetch: platform.fetch })}
+          readPreview={(path, signal, sessionID) => readLocalPreview(serverSDK.api, directory(), path, signal, { server: serverSDK.http, fetch: platform.fetch, sessionID })}
           openSession={openReferencedSession}
           sessionTitle={sessionTitle}
           sessionMenu={(target) => setReferenceMenu({ ...target })}

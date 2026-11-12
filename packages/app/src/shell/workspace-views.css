@@ -38,31 +38,23 @@
   z-index: 45;
   inset: auto 24px 24px auto;
   width: min(340px, calc(100vw - 16px));
-  min-width: 0;
+  min-width: min(280px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
   height: 75vh;
-  min-height: 0;
+  min-height: min(320px, calc(100vh - 16px));
+  max-height: calc(100vh - 16px);
+  resize: both;
   border: 1px solid var(--v2-border-border-base);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--v2-elevation-floating);
 }
-.workspace-floating-chat-handle {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  align-items: center;
-  height: 100%;
-  text-align: start;
+.workspace-floating-chat [data-slot="session-header-drag"] {
+  display: none;
+}
+.workspace-floating-chat [data-session-title] {
   cursor: grab;
   touch-action: none;
-}
-.workspace-floating-chat-handle:active {
-  cursor: grabbing;
-}
-.workspace-floating-chat-handle > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .workspace-session-pane-heading {
   display: flex;

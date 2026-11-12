@@ -306,7 +306,6 @@ function TargetServerRoute(props: ParentProps<{ serverKey?: ServerConnection.Key
 }
 
 function FloatingSession(props: { server: ServerConnection.Key; sessionID: string }) {
-  const language = useLanguage()
   const views = useWorkspaceViews()
   const tabs = useTabs()
   const key = tabKey({ type: "session", server: props.server, sessionId: props.sessionID })
@@ -326,6 +325,7 @@ function FloatingSession(props: { server: ServerConnection.Key; sessionID: strin
     serverKey: props.server,
     sessionID: props.sessionID,
     floating: true,
+    close: views.closeFloating,
     focused: views.floatingFocused,
     root: () => element,
   }
@@ -343,84 +343,52 @@ function FloatingSession(props: { server: ServerConnection.Key; sessionID: strin
         class="workspace-floating-chat workspace-session-pane"
         data-focused={views.floatingFocused() || undefined}
         aria-label={tabs.info[key]?.title || props.sessionID}
+        tabIndex={0}
+        aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown"
         style={{
           left: position.left === undefined ? undefined : `${position.left}px`,
           top: position.top === undefined ? undefined : `${position.top}px`,
         }}
         onFocusIn={() => views.setFloatingFocused(true)}
+        onPointerDown={(event) => {
+          views.setFloatingFocused(true)
+          const source = event.target
+          if (event.button !== 0 || !element || !(source instanceof Element)) return
+          if (!source.closest("[data-session-title]") || source.closest("button, a, input, textarea, [role=button]")) return
+          const bounds = element.getBoundingClientRect()
+          setGesture(transitionFloatingDrag(gesture(), {
+            type: "started", pointer: event.pointerId, x: event.clientX, y: event.clientY, left: bounds.left, top: bounds.top,
+          }))
+          event.currentTarget.setPointerCapture(event.pointerId)
+        }}
+        onPointerMove={(event) => {
+          const current = transitionFloatingDrag(gesture(), { type: "moved", pointer: event.pointerId, x: event.clientX, y: event.clientY })
+          if (current === gesture() || current.type !== "dragging") return
+          setGesture(current)
+          move(current.left + event.clientX - current.x, current.top + event.clientY - current.y)
+        }}
+        onPointerUp={(event) => {
+          setGesture(transitionFloatingDrag(gesture(), { type: "finished", pointer: event.pointerId }))
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+        }}
+        onPointerCancel={(event) => setGesture(transitionFloatingDrag(gesture(), { type: "cancelled", pointer: event.pointerId }))}
+        onLostPointerCapture={(event) => setGesture(transitionFloatingDrag(gesture(), { type: "cancelled", pointer: event.pointerId }))}
+        onKeyDown={(event) => {
+          if (!element || event.target !== event.currentTarget) return
+          const delta = event.ctrlKey ? 64 : 16
+          const x = event.key === "ArrowLeft" ? -delta : event.key === "ArrowRight" ? delta : 0
+          const y = event.key === "ArrowUp" ? -delta : event.key === "ArrowDown" ? delta : 0
+          if (!x && !y) return
+          event.preventDefault()
+          const bounds = element.getBoundingClientRect()
+          if (event.shiftKey) {
+            element.style.width = `${Math.max(280, Math.min(window.innerWidth - 16, bounds.width + x))}px`
+            element.style.height = `${Math.max(320, Math.min(window.innerHeight - 16, bounds.height + y))}px`
+            return
+          }
+          move(bounds.left + x, bounds.top + y)
+        }}
       >
-        <header class="workspace-session-pane-heading workspace-floating-chat-heading">
-          <button
-            type="button"
-            class="workspace-floating-chat-handle"
-            aria-label={language.t("workspace.pane.move")}
-            onPointerDown={(event) => {
-              if (event.button !== 0 || !element) return
-              const bounds = element.getBoundingClientRect()
-              setGesture(
-                transitionFloatingDrag(gesture(), {
-                  type: "started",
-                  pointer: event.pointerId,
-                  x: event.clientX,
-                  y: event.clientY,
-                  left: bounds.left,
-                  top: bounds.top,
-                }),
-              )
-              event.currentTarget.setPointerCapture(event.pointerId)
-            }}
-            onPointerMove={(event) => {
-              const current = transitionFloatingDrag(gesture(), {
-                type: "moved",
-                pointer: event.pointerId,
-                x: event.clientX,
-                y: event.clientY,
-              })
-              if (current === gesture() || current.type !== "dragging") return
-              setGesture(current)
-              move(current.left + event.clientX - current.x, current.top + event.clientY - current.y)
-            }}
-            onPointerUp={(event) => {
-              setGesture(transitionFloatingDrag(gesture(), { type: "finished", pointer: event.pointerId }))
-              if (event.currentTarget.hasPointerCapture(event.pointerId))
-                event.currentTarget.releasePointerCapture(event.pointerId)
-            }}
-            onPointerCancel={(event) =>
-              setGesture(transitionFloatingDrag(gesture(), { type: "cancelled", pointer: event.pointerId }))
-            }
-            onLostPointerCapture={(event) =>
-              setGesture(transitionFloatingDrag(gesture(), { type: "cancelled", pointer: event.pointerId }))
-            }
-            onKeyDown={(event) => {
-              if (!element) return
-              const delta = event.shiftKey ? 64 : 16
-              const x = event.key === "ArrowLeft" ? -delta : event.key === "ArrowRight" ? delta : 0
-              const y = event.key === "ArrowUp" ? -delta : event.key === "ArrowDown" ? delta : 0
-              if (!x && !y) return
-              event.preventDefault()
-              const bounds = element.getBoundingClientRect()
-              move(bounds.left + x, bounds.top + y)
-            }}
-          >
-            <span>{tabs.info[key]?.title || props.sessionID}</span>
-          </button>
-          <IconButton
-            aria-label={language.t("workspace.pane.focus")}
-            icon={<Icon name="arrow-top-right" />}
-            variant="ghost"
-            onClick={() => {
-              const tab = tabs.sessionTab(props.server, props.sessionID)
-              if (tab) tabs.select(tab)
-              views.closeFloating()
-            }}
-          />
-          <IconButton
-            aria-label={language.t("workspace.pane.close")}
-            icon={<Icon name="xmark-small" />}
-            variant="ghost"
-            onClick={views.closeFloating}
-          />
-        </header>
         <div class="workspace-session-pane-content">
           <SessionTargetProvider value={target}>
             <Suspense fallback={<SessionPanelFrame raised />}>

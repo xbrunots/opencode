@@ -152,7 +152,7 @@ const it = testEffect(
   AppNodeBuilder.build(nodes, [...replacements, PluginSupervisor.node.replace(subagentPluginSupervisor)]),
 )
 const completionIt = testEffect(
-  AppNodeBuilder.build(LayerNode.group([nodes, SessionRestart.node, KV.node]), [
+  AppNodeBuilder.build(LayerNode.group([nodes, SessionRestart.node, KV.node, SubagentJob.node]), [
     Global.node.replace(tempGlobalLayer),
     offlineModels,
     PluginSupervisor.node.replace(subagentPluginSupervisor),
@@ -215,6 +215,60 @@ const withSubagent = (location: Location.Ref) =>
   })
 
 describe("SubagentTool", () => {
+  completionIt.live("completes setup jobs without notifying the parent, including on restart", () =>
+    tmpdirScoped().pipe(
+      Effect.flatMap((dir) =>
+        Effect.gen(function* () {
+          const sessions = yield* Session.Service
+          const parent = yield* sessions.create({
+            location: Location.Ref.make({ directory: AbsolutePath.make(dir.path) }),
+            model: parentModel,
+          })
+          yield* withSubagent(parent.location)
+          const child = yield* sessions.create({ parentID: parent.id, agent: Agent.ID.make("reviewer"), model: childModel })
+          const recovery = {
+            kind: "subagent" as const,
+            parentSessionID: parent.id,
+            childSessionID: child.id,
+            agent: "reviewer",
+            description: "Configure MCP",
+            notifyParent: false,
+          }
+          const jobs = yield* Job.Service
+          const subagents = yield* SubagentJob.Service
+          yield* sessions.prompt({ sessionID: child.id, text: "Configure MCP", resume: false })
+          yield* subagents.start(recovery)
+          yield* jobs.wait({ id: child.id })
+          yield* subagents.background(recovery)
+          yield* jobs.pendingBackground.pipe(Effect.repeat({ until: (pending) => pending.length === 0 }))
+          expect(yield* sessions.inbox(parent.id)).toEqual([])
+          expect((yield* sessions.context(parent.id)).filter((message) => message.type === "synthetic")).toEqual([])
+          expect((yield* sessions.context(child.id)).some((message) => message.type === "user")).toBe(true)
+
+          const database = yield* Database.Service
+          const notificationID = SessionMessage.ID.create()
+          yield* database.db.insert(JobTable).values({
+            notification_id: notificationID,
+            id: child.id,
+            session_id: parent.id,
+            child_session_id: child.id,
+            kind: "subagent",
+            title: "Configure MCP",
+            status: "completed",
+            output: "done",
+            error: null,
+            recovery,
+          }).run()
+          const restart = yield* SessionRestart.Service
+          yield* restart.resumeSuspendedSessions
+          expect(yield* jobs.pendingBackground).toEqual([])
+          expect(yield* sessions.inbox(parent.id)).toEqual([])
+          expect((yield* sessions.context(parent.id)).filter((message) => message.type === "synthetic")).toEqual([])
+        }),
+      ),
+    ),
+  )
+
   completionIt.live("admits one durable completion across live delivery and restart replay", () =>
     tmpdirScoped().pipe(
       Effect.flatMap((dir) =>

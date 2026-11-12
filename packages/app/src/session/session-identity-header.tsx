@@ -1,6 +1,7 @@
 import type { SessionInfo } from "@opencode/client/promise"
 import type { MountedSession, SessionScreen } from "@opencode/plugin/gui"
 import { Icon } from "@opencode/ui/icon"
+import { IconButton } from "@opencode/ui/icon-button"
 import { Menu } from "@opencode/ui/menu"
 import { Tooltip } from "@opencode/ui/tooltip"
 import {
@@ -43,16 +44,30 @@ import { SessionHeaderSeparator } from "./header/separator"
 import { createSessionHeaderFit } from "./header/fit"
 import { SessionWorkingIndicator } from "./header/session-working-indicator"
 import { CollapsedSidebarToggleSpace } from "@/shell/sidebar-toggle"
+import { useSessionTargetClose } from "@/session/target"
 import "./session-identity-header.css"
 
 const SessionHeaderCollapse = createContext<() => number>(() => 0)
 
 export function SessionTitleHeader(props: ParentProps) {
+  const close = useSessionTargetClose()
+  const language = useLanguage()
+
   return (
     <>
       {/* The bottom inset reserves room for the fade without covering rows stuck below the bar. */}
       <div data-session-title class="pointer-events-none sticky top-0 z-30 w-full pb-4">
         <div class="pointer-events-auto flex items-center bg-v2-background-bg-base pe-[var(--session-header-inset-end,12px)] ps-2.5">
+          <Show when={close}>
+            {(action) => (
+              <IconButton
+                aria-label={language.t("workspace.pane.close")}
+                icon={<Icon name="xmark-small" />}
+                variant="ghost"
+                onClick={action()}
+              />
+            )}
+          </Show>
           <CollapsedSidebarToggleSpace />
           <div class="min-w-0 flex-1">{props.children}</div>
         </div>

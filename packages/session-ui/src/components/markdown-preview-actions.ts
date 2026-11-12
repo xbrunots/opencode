@@ -17,6 +17,44 @@ export function markdownPreviewActions(source: string, local: boolean, open: Ope
   }
   trigger.append(icon)
   const list = document.createElement("div")
+  // A gallery scrolls horizontally and clips descendants. A popover enters the browser's top layer
+  // while remaining next to the trigger in the accessibility tree.
+  list.setAttribute("popover", "auto")
+  let removal: MutationObserver | undefined
+  const place = () => {
+    const anchor = trigger.getBoundingClientRect()
+    const box = list.getBoundingClientRect()
+    const margin = 8
+    const left = Math.max(margin, Math.min(anchor.right - box.width, window.innerWidth - box.width - margin))
+    const below = anchor.bottom + 4
+    const top = below + box.height <= window.innerHeight - margin ? below : Math.max(margin, anchor.top - box.height - 4)
+    Object.assign(list.style, { position: "fixed", left: `${left}px`, top: `${top}px`, right: "auto", bottom: "auto", margin: "0" })
+  }
+  const stopPositioning = () => {
+    window.removeEventListener("resize", place)
+    window.removeEventListener("scroll", place, true)
+    removal?.disconnect()
+    removal = undefined
+  }
+  menu.addEventListener("toggle", () => {
+    if (!menu.open) {
+      stopPositioning()
+      if (typeof list.hidePopover === "function" && list.matches(":popover-open")) list.hidePopover()
+      return
+    }
+    if (typeof list.showPopover !== "function" || !menu.isConnected) return
+    if (!list.matches(":popover-open")) list.showPopover()
+    place()
+    window.addEventListener("resize", place)
+    window.addEventListener("scroll", place, true)
+    removal = new MutationObserver(() => { if (!menu.isConnected) stopPositioning() })
+    removal.observe(document.documentElement, { childList: true, subtree: true })
+  })
+  list.addEventListener("toggle", (event) => {
+    if ((event as ToggleEvent).newState !== "closed") return
+    stopPositioning()
+    menu.open = false
+  })
   ;(
     [
       ["panel", "Abrir no painel direito"],

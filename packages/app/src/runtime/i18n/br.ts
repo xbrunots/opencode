@@ -21,6 +21,7 @@ export const dict = {
     "Ajude-me a criar uma skill na configuração global do OpenCode. Pergunte o que ela deve ensinar e escreva seu SKILL.md.",
   "context.workspaceDiffError": "Não foi possível carregar todas as alterações.",
   "sidebar.group.create": "Criar grupo",
+  "sidebar.project.create": "Criar projeto",
   "sidebar.group.name": "Nome do grupo",
   "sidebar.group.move": "Mover para grupo",
   "sidebar.group.ungroup": "Remover do grupo",

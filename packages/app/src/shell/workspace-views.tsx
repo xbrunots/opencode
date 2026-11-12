@@ -14,6 +14,12 @@ function createWorkspaceViews() {
   const route = useCurrentRoute()
   const [floating, setFloating] = createSignal<{ server: ServerConnection.Key; sessionID: string }>()
   const [floatingFocused, setFloatingFocused] = createSignal(false)
+  const [sideChats, setSideChats, , sideChatsReady] = persisted(Persist.window("workspace.side-chats"), Persistence.record(Schema.String), {})
+  const [extensionRoots, setExtensionRoots, , extensionRootsReady] = persisted(
+    Persist.window("workspace.extension-roots"),
+    Persistence.record(Persistence.array(Schema.String)),
+    {},
+  )
   const [state, setState] = persisted(
     Persist.window("workspace.views"),
     Persistence.struct({ mode: Schema.Literals(["focus", "grid", "islands"]), minimum: Schema.Finite }),
@@ -38,12 +44,32 @@ function createWorkspaceViews() {
   })
   return {
     floating,
+    sideChatsReady,
+    extensionRootsReady,
+    extensionRoots: (server: ServerConnection.Key, owner: string) => extensionRoots[`${server}\n${owner}`] ?? [],
+    addExtensionRoot: (server: ServerConnection.Key, owner: string, root: string) => {
+      const key = `${server}\n${owner}`
+      const current = extensionRoots[key] ?? []
+      if (!current.includes(root)) setExtensionRoots(key, [...current, root])
+    },
     floatingFocused,
     setFloatingFocused,
-    openFloating: (server: ServerConnection.Key, sessionID: string) => {
+    openFloating: (server: ServerConnection.Key, sessionID: string, owner?: string) => {
+      if (owner) setSideChats(`${server}\n${owner}`, sessionID)
       setFloatingFocused(false)
       setFloating({ server, sessionID })
     },
+    reopenFloating: (server: ServerConnection.Key, owner: string) => {
+      const sessionID = sideChats[`${server}\n${owner}`]
+      if (!sessionID) return false
+      const open = floating()
+      if (open?.server === server && open.sessionID === sessionID) return true
+      if (!tabs.sessionTab(server, sessionID)) tabs.addSessionTab({ server, sessionId: sessionID })
+      setFloatingFocused(false)
+      setFloating({ server, sessionID })
+      return true
+    },
+    sideChat: (server: ServerConnection.Key, owner: string) => sideChats[`${server}\n${owner}`],
     closeFloating: () => {
       setFloatingFocused(false)
       setFloating(undefined)

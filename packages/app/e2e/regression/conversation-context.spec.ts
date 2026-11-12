@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 import type { SessionMessageInfo } from "@opencode/client/promise"
-import { pageMessagesFrom } from "../utils/app"
+import { pageMessagesFrom, SERVER } from "../utils/app"
 import { openSession } from "../utils/workspace"
 
 test("conversation context leaves 8 pixels beside the timeline scrollbar", async ({ page }) => {
@@ -245,6 +245,7 @@ test("context refreshes working changes after a filesystem event", async ({ page
 test("conversation context contains searchable skills and extension setup actions", async ({ page }) => {
   await openSession(page, {
     name: "ContextExtensions",
+    commands: [{ name: "opencodex-mcp", description: "Configure MCP" }],
     skills: [
       {
         id: "skill_one",
@@ -277,9 +278,11 @@ test("conversation context contains searchable skills and extension setup action
   await expect(card.getByRole("button", { name: "Add plugin with OpenCodex", exact: true })).toBeVisible()
   await card.locator("summary").filter({ hasText: "MCP servers" }).click()
   await expect(card.getByRole("button", { name: "github", exact: true })).toBeVisible()
+  const route = page.url()
   await card.getByRole("button", { name: "Add MCP server with OpenCodex", exact: true }).click()
-  await expect(page).toHaveURL(/\/new-session\?draftId=/)
-  await expect(page.locator('[data-component="composer-editor"]')).toContainText("Help me add an MCP server")
+  await expect(page).toHaveURL(route)
+  const floating = page.locator(".workspace-floating-chat")
+  await expect(floating.locator('[data-component="composer-editor"]')).toContainText("/opencodex-mcp Help me add an MCP server")
 })
 test("context opens the configuration file for the selected extension", async ({ page }) => {
   const config = "C:/OpenCode/ConfigContext/opencode.jsonc"
@@ -303,15 +306,147 @@ test("context opens the configuration file for the selected extension", async ({
 })
 
 for (const extension of [
-  { section: "Plugins", action: "Add plugin with OpenCodex", prompt: "Help me add a plugin" },
-  { section: "Available skills", action: "Add skill with OpenCodex", prompt: "Help me write a new OpenCode skill" },
+  { section: "Plugins", action: "Add plugin with OpenCodex", prompt: "/opencodex-plugin Help me add a plugin" },
+  { section: "Available skills", action: "Add skill with OpenCodex", prompt: "/opencodex-skill Help me write a new OpenCode skill" },
 ]) {
-  test(`extension setup draft: ${extension.section}`, async ({ page }) => {
-    await openSession(page, { name: `Draft${extension.section.replaceAll(" ", "")}` })
+  test(`extension setup floats over the current session: ${extension.section}`, async ({ page }) => {
+    await openSession(page, {
+      name: `Draft${extension.section.replaceAll(" ", "")}`,
+      commands: [{ name: extension.prompt.split(" ")[0]!.slice(1), description: "Configure extension" }],
+    })
+    const route = page.url()
     const card = page.getByRole("region", { name: "Conversation context", exact: true })
     await card.locator("summary").filter({ hasText: extension.section }).click()
     await card.getByRole("button", { name: extension.action, exact: true }).click()
-    await expect(page).toHaveURL(/\/new-session\?draftId=/)
-    await expect(page.locator('[data-component="composer-editor"]')).toContainText(extension.prompt)
+    await expect(page).toHaveURL(route)
+    await expect(page.locator('.workspace-floating-chat [data-component="composer-editor"]')).toContainText(extension.prompt)
+  })
+}
+
+test("extension setup command opens the real child without leaving the original session", async ({ page }) => {
+  const calls: { sessionID: string; body: unknown }[] = []
+  const workspace = await openSession(page, {
+    name: "SetupChild",
+    commands: [{ name: "opencodex-mcp", description: "Configure MCP" }],
+    onCommand: (input) => calls.push(input),
+  })
+  const route = page.url()
+  const card = page.getByRole("region", { name: "Conversation context", exact: true })
+  await card.locator("summary").filter({ hasText: "MCP servers" }).click()
+  await card.getByRole("button", { name: "Add MCP server with OpenCodex", exact: true }).click()
+  const floating = page.locator(".workspace-floating-chat")
+  const editor = floating.locator('[data-component="composer-editor"]')
+  await expect(editor).toContainText("/opencodex-mcp")
+  await editor.press("Enter")
+  await expect.poll(() => calls.length).toBe(1)
+  const root = calls[0]!.sessionID
+  const child = `ses_opencodex_ext_${root.slice(4)}`
+  const metadata = { opencodexExtensionFlow: "mcp", opencodexExtensionRoot: root, opencodexExtensionOwner: workspace.session.id }
+  const response = await page.evaluate(async ({ server, root, child, metadata }) => {
+    const result = await fetch(`${server}/api/session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: child, parentID: root, title: "Configure MCP", agent: "general", metadata, outcome: "succeeded" }),
+    })
+    return result.status
+  }, { server: SERVER, root, child, metadata })
+  expect(response).toBe(200)
+  await workspace.push([
+    {
+      id: "evt_setup_child_created",
+      created: 1,
+      type: "session.created",
+      location: { directory: workspace.directory },
+      durable: { aggregateID: child, seq: 1, version: 1 },
+      data: { sessionID: child, parentID: root, projectID: workspace.projectID, location: { directory: workspace.directory }, slug: child, title: "Configure MCP", agent: "general", metadata, version: "dev" },
+    },
+    {
+      id: "evt_setup_child_started",
+      created: 2,
+      type: "session.execution.started",
+      durable: { aggregateID: child, seq: 2, version: 1 },
+      data: { sessionID: child },
+    },
+  ])
+  await expect(page).toHaveURL(route)
+  await expect(floating).toHaveAttribute("aria-label", new RegExp(`Configure MCP|${child}`))
+  await expect(floating.locator('[data-component="composer-editor"]')).toBeEditable()
+  await floating.getByRole("button", { name: "Close conversation pane" }).click()
+  await expect(card).toContainText("Configure MCP")
+  await expect(card.getByRole("button", { name: /Configure MCP/ })).toBeVisible()
+  await card.getByRole("button", { name: /Configure MCP/ }).click()
+  await expect(page).toHaveURL(route)
+})
+
+test("a failed setup command keeps the draft in the floating chat", async ({ page }) => {
+  await openSession(page, {
+    name: "FailedSetup",
+    commands: [{ name: "opencodex-skill", description: "Configure skill" }],
+  })
+  const card = page.getByRole("region", { name: "Conversation context", exact: true })
+  await card.locator("summary").filter({ hasText: "Available skills" }).click()
+  await card.getByRole("button", { name: "Add skill with OpenCodex", exact: true }).click()
+  const floating = page.locator(".workspace-floating-chat")
+  const editor = floating.locator('[data-component="composer-editor"]')
+  await expect(editor).toContainText("/opencodex-skill")
+  await editor.press("Enter")
+  await expect(editor).toContainText("/opencodex-skill")
+  await expect(floating).toHaveAttribute("aria-label", "Add skill with OpenCodex")
+})
+
+for (const decision of ["once", "reject"] as const) {
+  test(`extension setup permission can be ${decision === "once" ? "allowed" : "rejected"} in the floating chat`, async ({ page }) => {
+    const replied = Promise.withResolvers<string>()
+    const requested = Promise.withResolvers<string>()
+    const workspace = await openSession(page, {
+      name: `SetupPermission${decision}`,
+      commands: [{ name: "opencodex-mcp", description: "Configure MCP" }],
+      onPermissionReply: (value) => replied.resolve((value.body as { decision: string }).decision),
+    })
+    await page.route("**/api/session/*/command", async (route) => {
+      requested.resolve(new URL(route.request().url()).pathname.split("/")[3]!)
+      const answer = await replied.promise
+      await route.fulfill(answer === "once" ? { status: 204, body: "" } : { status: 403, body: "Permission denied" })
+    })
+    const route = page.url()
+    const card = page.getByRole("region", { name: "Conversation context", exact: true })
+    await card.locator("summary").filter({ hasText: "MCP servers" }).click()
+    await card.getByRole("button", { name: "Add MCP server with OpenCodex", exact: true }).click()
+    const floating = page.locator(".workspace-floating-chat")
+    const editor = floating.locator('[data-component="composer-editor"]')
+    await expect(editor).toContainText("/opencodex-mcp")
+    await editor.press("Enter")
+    const root = await requested.promise
+    await workspace.push([{
+      id: `evt_setup_permission_${decision}`,
+      created: 1,
+      type: "permission.asked",
+      location: { directory: workspace.directory },
+      data: { id: `per_setup_${decision}`, sessionID: root, action: "subagent", resources: ["general"], metadata: {}, save: ["general"] },
+    }])
+    const permission = floating.locator('[data-component="dock-prompt"][data-kind="permission"]')
+    await expect(permission).toBeVisible()
+    await permission.getByRole("button", { name: decision === "once" ? "Allow once" : "Deny" }).click()
+    expect(await replied.promise).toBe(decision)
+    await expect(permission).toHaveCount(0)
+    await expect(page).toHaveURL(route)
+    if (decision === "reject") {
+      await expect(editor).toContainText("/opencodex-mcp")
+      return
+    }
+    const child = `ses_opencodex_ext_${root.slice(4)}`
+    const metadata = { opencodexExtensionFlow: "mcp", opencodexExtensionRoot: root, opencodexExtensionOwner: workspace.session.id }
+    await page.evaluate(async ({ server, root, child, metadata }) => {
+      await fetch(`${server}/api/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: child, parentID: root, title: "Configure MCP", agent: "general", metadata }),
+      })
+    }, { server: SERVER, root, child, metadata })
+    await workspace.push([
+      { id: "evt_setup_permission_child", created: 2, type: "session.created", location: { directory: workspace.directory }, durable: { aggregateID: child, seq: 1, version: 1 }, data: { sessionID: child, parentID: root, projectID: workspace.projectID, location: { directory: workspace.directory }, slug: child, title: "Configure MCP", agent: "general", metadata, version: "dev" } },
+      { id: "evt_setup_permission_run", created: 3, type: "session.execution.started", durable: { aggregateID: child, seq: 2, version: 1 }, data: { sessionID: child } },
+    ])
+    await expect(floating).toHaveAttribute("aria-label", new RegExp(`Configure MCP|${child}`))
   })
 }

@@ -93,6 +93,7 @@ export default function ArtifactView(props: {
   // The viewer state belongs to one loaded content: a reread file starts from the preview again.
   const [viewerState, setViewerState] = createSignal(createArtifactViewerState(props.content))
   const [annotating, setAnnotating] = createSignal(false)
+  const [previewID, setPreviewID] = createSignal<string>()
 
   const dispatchViewer = (event: ArtifactViewerEvent) => {
     const prev = untrack(viewerState)
@@ -186,6 +187,8 @@ export default function ArtifactView(props: {
           serverID={props.session.server.id}
           path={props.path}
           native={kind() === "html" && ctx.app.platform === "desktop"}
+          previewID={previewID()}
+          kind={kind()}
           onActiveChange={setAnnotating}
         >
         <Switch
@@ -213,6 +216,7 @@ export default function ArtifactView(props: {
               content={props.content}
               kind={kind() === "pdf" ? "pdf" : "html"}
               frozen={annotating}
+              onPreviewID={setPreviewID}
             />
           </Match>
           <Match when={kind() === "font"}>
@@ -733,7 +737,7 @@ function ArtifactAudio(props: MediaProps) {
   )
 }
 
-function ArtifactFrame(props: { session: MountedSession; path: string; content: FileContent; kind: "pdf" | "html"; frozen: () => boolean }) {
+function ArtifactFrame(props: { session: MountedSession; path: string; content: FileContent; kind: "pdf" | "html"; frozen: () => boolean; onPreviewID: (id: string | undefined) => void }) {
   const ctx = usePlugin()
   const embeds = ctx.embeds
   const ipc = ctx.main(HtmlPreview)
@@ -759,6 +763,7 @@ function ArtifactFrame(props: { session: MountedSession; path: string; content: 
           if (!alive) return void ipc.close({ id: result.id }).catch(() => undefined)
           opened = result.id
           setID(result.id)
+          props.onPreviewID(result.id)
         },
         () => undefined,
       )
@@ -766,6 +771,7 @@ function ArtifactFrame(props: { session: MountedSession; path: string; content: 
       onCleanup(() => {
         alive = false
         setID(undefined)
+        props.onPreviewID(undefined)
 
         if (opened) void ipc.close({ id: opened }).catch(() => undefined)
       })

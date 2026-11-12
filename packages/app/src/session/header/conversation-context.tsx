@@ -12,6 +12,7 @@ import {
 } from "solid-js"
 import { Option, Schema } from "effect"
 import type { McpServer, SessionMessageInfo } from "@opencode/client/promise"
+import { SessionID } from "@opencode/schema/session-id"
 import { turnSources } from "@opencode/session-ui/sources"
 import { htmlGenerationActivity } from "@opencode/session-ui/html-activity"
 import { Icon } from "@opencode/ui/icon"
@@ -23,6 +24,7 @@ import { ImagePreview } from "@opencode/ui/image-preview"
 import { useDialog } from "@opencode/ui/context/dialog"
 import { Dialog, DialogBody, DialogHeader, DialogTitleGroup } from "@opencode/ui/dialog"
 import { getFilename } from "@opencode/util/path"
+import { base64Encode } from "@opencode/util/encode"
 import { useLanguage } from "@/runtime/i18n/language"
 import { usePlatform } from "@/runtime/platform/platform"
 import { useData, useServer } from "@/runtime/server/current"
@@ -37,6 +39,7 @@ import { ProviderModelIcon } from "@/providers/models/provider-group"
 import { DialogMcp } from "@/providers/connect/mcp-dialog"
 import { globalConfigDirectory, serviceConfigFile } from "@opencode/gui-plugins/details/config-file"
 import { useTabs } from "@/shell/tabs/tabs"
+import { createTabComposerState } from "@/composer/persistence"
 import { useRoutedSessionTargetParams, useSessionTargetFocused, useSessionTargetFloating } from "@/session/target"
 import { useOpenSessionRoute } from "@/session/session-identity-header"
 import "./conversation-context.css"
@@ -222,13 +225,42 @@ export function ConversationContext() {
     try {
       const entries = await sdk.api.config.get({ location: { directory: dir } })
       if (action === "setup") {
+        const current = info()
+        if (!current) return
         const prompt =
           service === "mcp"
             ? language.t("context.setupMcpPrompt")
             : service === "plugins"
               ? language.t("context.setupPluginPrompt")
               : language.t("context.setupSkillPrompt")
-        await tabs.newDraft({ server: server.key, directory: globalConfigDirectory(entries, dir) }, prompt)
+        const flow = service === "plugins" ? "plugin" : service === "skills" ? "skill" : "mcp"
+        const text = `/opencodex-${flow} ${prompt}`
+        const directory = globalConfigDirectory(entries, dir)
+        const location = { directory }
+        for (let attempt = 0; attempt < 40; attempt++) {
+          data.location.command.invalidate(location)
+          await data.location.command.sync(location)
+          if (data.location.command.list(location)?.some((command) => command.name === `opencodex-${flow}`)) break
+          if (attempt === 39) throw new Error("Extension setup is still loading. Try again.")
+          await new Promise((resolve) => setTimeout(resolve, 250))
+        }
+        const id = SessionID.create()
+        const created = await sdk.api.session.create({
+          id,
+          location: { directory },
+          model: current.model,
+          agent: current.agent,
+          title: language.t(service === "mcp" ? "context.addMcp" : service === "plugins" ? "context.addPlugin" : "context.addSkill"),
+          metadata: { opencodexExtensionFlow: flow, opencodexExtensionOwner: current.id, opencodexExtensionRoot: id },
+        })
+        data.session.remember(created)
+        const tab = tabs.addSessionTab({ server: server.key, sessionId: id })
+        const draft = createTabComposerState(tabs, tab, sdk.scope, { dir: base64Encode(directory), id })
+        await draft.ready.promise
+        draft.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
+        await views.extensionRootsReady.promise
+        views.addExtensionRoot(server.key, current.id, id)
+        views.openFloating(server.key, id, current.id)
         return
       }
       const path = serviceConfigFile(entries, service)
@@ -254,8 +286,56 @@ export function ConversationContext() {
   const facts = createMemo(() =>
     conversationContextFacts(visible() ? messages() : [], visible() ? (servers() ?? []) : []),
   )
-  const children = () =>
-    data.session.list().filter((session) => session.parentID === params.id && !session.time.archived)
+  const sideChat = () => views.sideChat(server.key, params.id)
+  const linkedRoots = () => {
+    const roots = data.session.list().flatMap((session) =>
+      session.metadata?.opencodexExtensionOwner === params.id &&
+      session.metadata?.opencodexExtensionRoot === session.id &&
+      !session.time.archived
+        ? [session.id]
+        : [],
+    )
+    const side = sideChat()
+    return side && !roots.includes(side) ? [...roots, side] : roots
+  }
+  const children = () => {
+    const roots = linkedRoots()
+    return data.session.list().filter((session) =>
+      !session.time.archived && (session.parentID === params.id || (!!session.parentID && roots.includes(session.parentID))),
+    )
+  }
+
+  createEffect(
+    on(
+      () => opened() && views.extensionRootsReady()
+        ? [...new Set([...linkedRoots(), ...views.extensionRoots(server.key, params.id)])].join("\n")
+        : "",
+      (roots) => {
+        if (!roots) return
+        void (async () => {
+          const ids = roots.split("\n")
+          let failed = false
+          for (let offset = 0; offset < ids.length; offset += 4) {
+            const result = await Promise.allSettled(ids.slice(offset, offset + 4).map((id) => data.session.sync(id, { children: true })))
+            failed ||= result.some((item) => item.status === "rejected")
+          }
+          if (failed) showToast({ variant: "error", title: language.t("context.partialError") })
+        })()
+      },
+    ),
+  )
+  createEffect(() => {
+    const root = sideChat()
+    const floating = views.floating()
+    if (!root || floating?.server !== server.key || floating.sessionID !== root) return
+    const setup = data.session.get(root)
+    if (setup?.metadata?.opencodexExtensionRoot !== root || setup.metadata.opencodexExtensionOwner !== params.id) return
+    const id = `ses_opencodex_ext_${root.slice(4)}`
+    const child = data.session.get(id)
+    if (!child || child.parentID !== root || child.metadata?.opencodexExtensionRoot !== root) return
+    if (data.session.status(id) !== "running" && child.outcome === undefined) return
+    views.openFloating(server.key, id)
+  })
 
   createEffect(
     on(
@@ -515,7 +595,13 @@ export function ConversationContext() {
                     <button
                       type="button"
                       class="conversation-context-item"
-                      onClick={() => openSession(params.id, child.id)}
+                      onClick={() => {
+                        if (child.parentID && child.parentID !== params.id && linkedRoots().includes(child.parentID)) {
+                          views.openFloating(server.key, child.id)
+                          return
+                        }
+                        openSession(child.parentID ?? params.id, child.id)
+                      }}
                     >
                       <Show when={child.model} fallback={<Icon name="brain" />}>
                         {(model) => (

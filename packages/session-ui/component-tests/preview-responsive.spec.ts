@@ -33,6 +33,31 @@ story("image thumbnails crop wide images to one quarter of the chat width", asyn
   await expect(page.getByRole("dialog")).toBeVisible()
 })
 
+story("thumbnail actions escape the scrolling gallery and remain clickable", async ({ page, mount }) => {
+  await mount("components-markdown--complete-response")
+  await page.evaluate(async (fixture) => {
+    const { mountMarkdown } = await import(fixture)
+    await mountMarkdown({ text: "`wide.png` `portrait.png`", fixtureImages: true })
+  }, fixture)
+  const harness = page.getByTestId("markdown-fixture")
+  await harness.evaluate((element) => { element.style.width = "280px" })
+  const gallery = harness.locator("[data-markdown-image-gallery]")
+  const item = gallery.locator("[data-markdown-image-item]").first()
+  await expect(item.locator("img")).toBeVisible()
+  await item.getByLabel("Opções de prévia").click()
+  const action = item.getByRole("button", { name: "Abrir no painel direito" })
+  await expect(action).toBeVisible()
+  const itemBox = (await item.boundingBox())!
+  const actionBox = (await action.boundingBox())!
+  expect(actionBox.width).toBeGreaterThan(itemBox.width)
+  expect(await action.evaluate((element) => {
+    const box = element.getBoundingClientRect()
+    return element.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2))
+  })).toBe(true)
+  await action.click()
+  await expect(page.locator("body")).toHaveAttribute("data-preview-open", "wide.png:true:panel")
+})
+
 story("HTML blocks retain their code and fit narrow and wide chat views", async ({ page, mount }, testInfo) => {
   await mount("components-markdown--complete-response")
   await page.evaluate(async (fixture) => {

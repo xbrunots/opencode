@@ -70,6 +70,7 @@ export const dict = {
   "conversation.actions.pin": "Pin conversation",
   "conversation.actions.unpin": "Unpin conversation",
   "conversation.actions.sideChat": "New side chat",
+  "conversation.actions.openSideChat": "Open side chat",
   "conversation.actions.share": "Share conversation file",
   "conversation.actions.copy": "Copy",
   "conversation.actions.copyConversation": "Conversation as Markdown",

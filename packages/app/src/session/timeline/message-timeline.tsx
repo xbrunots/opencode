@@ -40,6 +40,7 @@ import {
 import { SessionHeaderSpacer } from "@/session/header/session-header"
 import { SessionHeaderGap } from "@/session/header/drag-area"
 import { SessionWorkingIndicator } from "@/session/header/session-working-indicator"
+import { SideChatButton } from "@/session/header/side-chat"
 
 type BlockingTask = { type: "shell" | "subagent"; partID: string; id?: string; label?: string; started: number }
 
@@ -614,6 +615,26 @@ function MessageTimelineView(
                       {props.search}
                       <PluginSlot
                         at="session.header"
+                        before={20}
+                        input={{
+                          get session() {
+                            return props.view
+                          },
+                          get screen() {
+                            return props.screen
+                          },
+                          get active() {
+                            return props.active !== false
+                          },
+                          get compact() {
+                            return fit.compact
+                          },
+                        }}
+                      />
+                      <SideChatButton />
+                      <PluginSlot
+                        at="session.header"
+                        from={20}
                         input={{
                           get session() {
                             return props.view

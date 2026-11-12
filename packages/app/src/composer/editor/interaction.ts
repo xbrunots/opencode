@@ -832,10 +832,11 @@ export function createComposerEditor(input: {
     setFileInput(element: HTMLInputElement) {
       fileInput = element
     },
-    addAttachments(files: File[]) {
-      if (!attachments) return
-      void attachments.addAttachments(files)
-      restoreFocus()
+    addAttachments(files: File[], options?: { waitForUpload?: boolean; focus?: boolean }) {
+      if (!attachments) return Promise.resolve(false)
+      const added = attachments.addAttachments(files, undefined, false, options?.waitForUpload)
+      if (options?.focus !== false) restoreFocus()
+      return added
     },
     setQuery(value: string) {
       dispatch({ type: "popover.query", value })

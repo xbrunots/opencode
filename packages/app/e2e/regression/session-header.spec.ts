@@ -1001,7 +1001,12 @@ test.describe("conversation actions", () => {
     expect(viewport.width - initial!.x - initial!.width).toBeCloseTo(24, 0)
     expect(viewport.height - initial!.y - initial!.height).toBeCloseTo(24, 0)
 
-    const handle = side.getByLabel("Move side chat")
+    await expect(side.locator(".workspace-floating-chat-heading")).toHaveCount(0)
+    const close = side.getByRole("button", { name: "Close conversation pane" })
+    const location = side.locator('[data-slot="session-location-trigger"]')
+    await expect(close).toBeVisible()
+    await expect.poll(async () => (await close.boundingBox())!.x < (await location.boundingBox())!.x).toBe(true)
+    const handle = side.locator("[data-session-title] h1")
     const box = await handle.boundingBox()
     expect(box).not.toBeNull()
     await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
@@ -1010,6 +1015,21 @@ test.describe("conversation actions", () => {
     await page.mouse.up()
     await expect.poll(async () => (await side.boundingBox())?.x).toBeCloseTo(initial!.x - 100, 0)
     await expect.poll(async () => (await side.boundingBox())?.y).toBeCloseTo(initial!.y - 80, 0)
+
+    const moved = (await side.boundingBox())!
+    await page.mouse.move(moved.x + moved.width - 3, moved.y + moved.height - 3)
+    await page.mouse.down()
+    await page.mouse.move(moved.x + moved.width + 37, moved.y + moved.height + 27, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(async () => (await side.boundingBox())!.width).toBeGreaterThan(moved.width)
+    await expect.poll(async () => (await side.boundingBox())!.height).toBeGreaterThan(moved.height)
+    const resized = (await side.boundingBox())!
+    await side.focus()
+    await expect(side).toBeFocused()
+    await page.keyboard.press("Shift+ArrowRight")
+    await page.keyboard.press("Shift+ArrowDown")
+    await expect.poll(async () => (await side.boundingBox())?.width).toBeCloseTo(resized.width + 16, 0)
+    await expect.poll(async () => (await side.boundingBox())?.height).toBeCloseTo(resized.height + 16, 0)
 
     await side.locator('[data-component="composer-editor"]').click()
     await side.locator('[data-slot="conversation-actions-trigger"]').click()
@@ -1028,10 +1048,36 @@ test.describe("conversation actions", () => {
     await expect(page.locator(".workspace-session-grid .workspace-session-pane")).toHaveCount(1)
     expect(duplicateCommands).toEqual([])
 
-    await side.getByRole("button", { name: "Close conversation pane" }).click()
+    await side.locator('[data-component="composer-editor"]').fill("Draft in side chat")
+    await close.click()
     await expect(side).toHaveCount(0)
     await expect(page.getByRole("region", { name: target.title }).locator('[data-component="composer-editor"]')).toBeEditable()
     await expect(page).toHaveURL(new RegExp(sessionHref(target.id).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$"))
+    await page.reload()
+    await expect(page.getByRole("region", { name: target.title }).locator('[data-component="composer-editor"]')).toBeEditable()
+    await page.getByRole("region", { name: target.title }).getByRole("button", { name: "Open side chat", exact: true }).click()
+    await expect(side.locator('[data-component="composer-editor"]')).toContainText("Draft in side chat")
+    expect(created).toHaveLength(1)
+  })
+
+  test("the chat button beside usage opens a side conversation", async ({ page }) => {
+    const created: Record<string, unknown>[] = []
+    await setup(page, {
+      createdSessionTitle: "Side conversation",
+      onSessionCreate: (body) => {
+        created.push(body)
+      },
+    })
+    const usage = page.getByRole("button", { name: "Toggle session context" })
+    const button = page.getByRole("button", { name: "Open side chat" })
+    await expect(button).toBeVisible()
+    await expect(button.locator("use")).toHaveAttribute("href", /icon-(?:new-)?comment$/)
+    await expect.poll(async () => (await button.boundingBox())!.x >= (await usage.boundingBox())!.x + (await usage.boundingBox())!.width).toBe(true)
+    await button.click()
+    await expect.poll(() => created.length).toBe(1)
+    const side = page.getByRole("region", { name: "Side conversation", exact: true }).and(page.locator(".workspace-floating-chat"))
+    await expect(side.locator('[data-component="composer-editor"]')).toBeEditable()
+    expect(created).toHaveLength(1)
   })
 
   test("conversation actions fork from the chosen message through the session command", async ({ page }) => {

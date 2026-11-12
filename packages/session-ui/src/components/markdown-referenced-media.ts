@@ -1,19 +1,23 @@
 import { localImagePath } from "./markdown-image"
-import type { OpenMarkdownPreview, ReadMarkdownPreview } from "../context/markdown"
+import type { OpenMarkdownPreview, ReadMarkdownPreview, RenderMarkdownPreview } from "../context/markdown"
 import { markdownPreviewActions } from "./markdown-preview-actions"
 import { markdownPreviewAnnotation } from "./markdown-preview-annotation"
 import { checksum } from "@opencode/util/encode"
 import { safeHtmlPreview } from "./safe-html-preview"
 
-type MediaReference = { kind: "youtube" | "video" | "html" | "html-code" | "website"; source: string; local: boolean }
+type MediaReference = { kind: "youtube" | "video" | "html" | "html-code" | "artifact" | "website"; source: string; local: boolean }
 
 export function markdownMediaReference(source: string): MediaReference | undefined {
   const value = source.trim()
   if (!value) return
+  if (/^\/api\/experimental\/artifacts\/art_[a-zA-Z0-9]{26}\/view\/?$/.test(value))
+    return { kind: "artifact", source: value.endsWith("/") ? value : `${value}/`, local: true }
   if (/^https?:\/\//i.test(value)) {
     if (!URL.canParse(value)) return
     const url = new URL(value)
     if (!["http:", "https:"].includes(url.protocol)) return
+    if (!url.username && !url.password && !url.search && !url.hash && /^\/api\/experimental\/artifacts\/art_[a-zA-Z0-9]{26}\/view\/?$/.test(url.pathname))
+      return { kind: "artifact", source: url.href.endsWith("/") ? url.href : `${url.href}/`, local: true }
     const host = url.hostname.toLowerCase().replace(/^www\./, "")
     const id =
       host === "youtu.be"
@@ -40,6 +44,7 @@ export function createMarkdownReferencedMedia() {
   let reader: ReadMarkdownPreview | undefined
   let activeSession: string | undefined
   let activeServer: string | undefined
+  let renderer: RenderMarkdownPreview | undefined
   return {
     update(
       root: HTMLElement,
@@ -48,6 +53,7 @@ export function createMarkdownReferencedMedia() {
       open?: OpenMarkdownPreview,
       sessionID?: string,
       serverID?: string,
+      renderPreview?: RenderMarkdownPreview,
     ) {
       const previous = root.querySelector<HTMLElement>("[data-markdown-media-previews]")
       const entries = new Map<string, MediaReference>()
@@ -74,6 +80,7 @@ export function createMarkdownReferencedMedia() {
         reader === read &&
         activeSession === sessionID
         && activeServer === serverID
+        && renderer === renderPreview
       )
         return
       cleanup?.()
@@ -81,6 +88,7 @@ export function createMarkdownReferencedMedia() {
       reader = read
       activeSession = sessionID
       activeServer = serverID
+      renderer = renderPreview
       previous?.remove()
       if (!parent || entries.size === 0) return
       const container = document.createElement("div")
@@ -88,6 +96,7 @@ export function createMarkdownReferencedMedia() {
       container.dataset.sources = key
       const controller = new AbortController()
       const urls: string[] = []
+      const mounts: (() => void)[] = []
       const observer = root.isConnected && typeof IntersectionObserver !== "undefined"
         ? new IntersectionObserver((items) => {
             items.forEach((item) => {
@@ -100,6 +109,7 @@ export function createMarkdownReferencedMedia() {
       cleanup = () => {
         observer?.disconnect()
         controller.abort()
+        mounts.forEach((dispose) => dispose())
         urls.forEach((url) => URL.revokeObjectURL(url))
       }
       entries.forEach((entry) => {
@@ -112,13 +122,13 @@ export function createMarkdownReferencedMedia() {
             ? "Reproduzir vídeo do YouTube"
             : entry.kind === "video"
               ? "Visualizar vídeo"
-              : entry.kind === "html" || entry.kind === "html-code"
+              : entry.kind === "html" || entry.kind === "html-code" || entry.kind === "artifact"
                 ? "Visualizar HTML"
                 : "Visualizar site"
         const name = document.createElement("span")
         name.textContent = entry.kind === "youtube" ? `YouTube · ${entry.source}` : entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source
         card.append(name, button)
-        if (open && entry.kind !== "html-code")
+        if (open && entry.kind !== "html-code" && entry.kind !== "artifact")
           card.append(
             markdownPreviewActions(
               entry.kind === "youtube" ? `https://www.youtube.com/watch?v=${entry.source}` : entry.source,
@@ -126,19 +136,51 @@ export function createMarkdownReferencedMedia() {
               open,
             ),
           )
-        const load = async () => {
+        const load = async (staticOnly = false) => {
           if (button.disabled || controller.signal.aborted) return
           button.disabled = true
           card.setAttribute("aria-busy", "true")
+          if (!staticOnly && renderPreview && (entry.kind === "html" || entry.kind === "artifact" || entry.kind === "html-code")) {
+            const viewer = document.createElement("div")
+            viewer.dataset.previewViewer = ""
+            let dispose: (() => void) | undefined
+            dispose = renderPreview(viewer, entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source, () => queueMicrotask(() => {
+              if (controller.signal.aborted) return
+              dispose?.()
+              viewer.remove()
+              button.disabled = false
+              card.append(button)
+              void load(true)
+            }), entry.kind === "html-code" ? entry.source : undefined)
+            if (dispose) {
+              mounts.push(dispose)
+              button.remove()
+              card.append(viewer)
+              card.removeAttribute("aria-busy")
+              return
+            }
+          }
           button.textContent = "Carregando…"
           try {
-            const blob = entry.kind === "html-code" ? new Blob([entry.source], { type: "text/html" }) : entry.local ? await read?.(entry.source, controller.signal) : undefined
+            const blob = entry.kind === "html-code" ? new Blob([entry.source], { type: "text/html" }) : entry.local ? await read?.(entry.source, controller.signal, sessionID) : undefined
             if (controller.signal.aborted) return
             if (entry.local && !blob) throw new Error("Arquivo indisponível")
-            const html = entry.kind === "html" || entry.kind === "html-code"
+            const html = entry.kind === "html" || entry.kind === "html-code" || (entry.kind === "artifact" && blob?.type === "text/html")
             const src = blob && !html ? URL.createObjectURL(blob) : entry.source
             if (blob && !html) urls.push(src)
-            if (entry.kind === "video") {
+            if (entry.kind === "artifact" && blob?.type.startsWith("image/")) {
+              const image = document.createElement("img")
+              image.src = src
+              image.alt = entry.source
+              const viewer = document.createElement("div")
+              viewer.dataset.previewViewer = ""
+              viewer.append(image)
+              button.remove()
+              card.append(viewer)
+              if (sessionID) card.append(markdownPreviewAnnotation(viewer, entry.source, sessionID, undefined, serverID))
+              return
+            }
+            if (entry.kind === "video" || (entry.kind === "artifact" && blob?.type.startsWith("video/"))) {
               const video = document.createElement("video")
               video.controls = true
               video.preload = "metadata"
@@ -153,7 +195,7 @@ export function createMarkdownReferencedMedia() {
             }
             const frame = document.createElement("iframe")
             frame.title = entry.kind === "youtube" ? "Vídeo do YouTube" : entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source
-            frame.setAttribute("sandbox", html ? "" : "allow-scripts allow-presentation")
+            frame.setAttribute("sandbox", html || entry.kind === "artifact" ? "" : "allow-scripts allow-presentation")
             frame.setAttribute("referrerpolicy", "no-referrer")
             frame.allowFullscreen = true
             if (html && blob) frame.srcdoc = safeHtmlPreview(await blob.text())
@@ -170,7 +212,7 @@ export function createMarkdownReferencedMedia() {
                   viewer,
                   entry.kind === "youtube" ? `https://www.youtube.com/watch?v=${entry.source}` : entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source,
                   sessionID,
-                  entry.kind === "html" || entry.kind === "html-code" ? frame : undefined,
+                  entry.kind === "html" || entry.kind === "html-code" || entry.kind === "artifact" ? frame : undefined,
                   serverID,
                 ),
               )
@@ -182,8 +224,8 @@ export function createMarkdownReferencedMedia() {
             card.removeAttribute("aria-busy")
           }
         }
-        button.addEventListener("click", load)
-        card.addEventListener("preview-visible", load, { once: true })
+        button.addEventListener("click", () => void load())
+        card.addEventListener("preview-visible", () => void load(), { once: true })
         container.append(card)
         if (observer) observer.observe(card)
         else void load()

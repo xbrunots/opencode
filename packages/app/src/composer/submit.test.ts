@@ -1339,6 +1339,55 @@ describe("Composer submission", () => {
     expect(request.delivery).toBe("steer")
   })
 
+  test.each(["opencodex-mcp", "opencodex-plugin", "opencodex-skill"])(
+    "rebases setup command mentions while preserving unmentioned attachments: %s",
+    async (command) => {
+      const prefix = `/${command}  `
+      const file = "@src/app.ts"
+      const agent = "@review"
+      const skill = "@effect"
+      const state = createMemoryComposerState().capture()
+      state.set([
+        { type: "text", content: prefix, start: 0, end: prefix.length },
+        { type: "file", path: "src/app.ts", content: file, start: prefix.length, end: prefix.length + file.length },
+        { type: "text", content: " ", start: prefix.length + file.length, end: prefix.length + file.length + 1 },
+        { type: "agent", name: "review", content: agent, start: prefix.length + file.length + 1, end: prefix.length + file.length + 1 + agent.length },
+        { type: "text", content: " ", start: prefix.length + file.length + 1 + agent.length, end: prefix.length + file.length + 2 + agent.length },
+        { type: "skill", id: Skill.ID.make("effect"), name: Skill.Name.make("Effect"), content: skill, start: prefix.length + file.length + 2 + agent.length, end: prefix.length + file.length + 2 + agent.length + skill.length },
+      ])
+      state.context.add({ type: "file", path: "notes.md", description: "extra context" })
+      const sent = Promise.withResolvers<Parameters<ComposerSession["api"]["command"]>[0]>()
+      const target = session({ calls: [], command: async (value) => sent.resolve(value) })
+
+      await submitInput(active(state, target), undefined, "normal", () => [{ name: command }]).submit(new Event("submit"))
+      const request = await sent.promise
+      expect(request.text).toBe(`${file} ${agent} ${skill}`)
+      expect(request.files).toMatchObject([
+        { name: "app.ts", mention: { text: file, start: 0, end: file.length } },
+        { name: "notes.md", description: "extra context" },
+      ])
+      expect(request.files?.[1]?.mention).toBeUndefined()
+      expect(request.agents).toMatchObject([{ name: "review", mention: { text: agent, start: file.length + 1, end: file.length + 1 + agent.length } }])
+      expect(request.skills).toMatchObject([{ id: "effect", mention: { text: skill, start: file.length + agent.length + 2, end: file.length + agent.length + 2 + skill.length } }])
+    },
+  )
+
+  test("keeps a setup attachment when its mention no longer matches the command text", async () => {
+    const prefix = "/opencodex-mcp "
+    const state = createMemoryComposerState().capture()
+    state.set([
+      { type: "text", content: prefix, start: 0, end: prefix.length },
+      { type: "file", path: "src/app.ts", content: "@src/app.ts", start: prefix.length + 1, end: prefix.length + 12 },
+    ])
+    const sent = Promise.withResolvers<Parameters<ComposerSession["api"]["command"]>[0]>()
+    const target = session({ calls: [], command: async (value) => sent.resolve(value) })
+
+    await submitInput(active(state, target), undefined, "normal", () => [{ name: "opencodex-mcp" }]).submit(new Event("submit"))
+    const request = await sent.promise
+    expect(request.files).toMatchObject([{ name: "app.ts" }])
+    expect(request.files?.[0]?.mention).toBeUndefined()
+  })
+
   test("captures commands before creating a session in a new worktree", async () => {
     const state = createMemoryComposerState({ prompt: "/review https://github.com/example/repo/pull/1" }).capture()
     const catalog = [{ name: "review" }]

@@ -42,13 +42,94 @@ test("an artifact annotation keeps the draft and identifies a point in the activ
     return window.scrollY
   })).toBeGreaterThan(0)
 
-  await panel.getByRole("button", { name: "Comment on preview" }).click()
+  await panel.getByRole("button", { name: "Comment", exact: true }).click()
   await panel.getByRole("button", { name: "Select a point in the preview" }).click({ position: { x: 100, y: 100 } })
   await panel.getByLabel("What would you like to change?").fill("Move this title")
-  await panel.getByRole("button", { name: "Add to message" }).click()
+  await panel.getByRole("button", { name: "Select a point in the preview" }).click({ position: { x: 200, y: 200 } })
+  await panel.getByLabel("What would you like to change?").fill("Adjust the spacing")
+  await expect(panel.locator('[data-slot="artifact-annotation-pin"]')).toHaveCount(2)
+  await panel.getByRole("button", { name: "Send", exact: true }).click()
   await expect(composer).toContainText("Existing draft")
   await expect(composer).toContainText("[Preview: effect.html;")
   await expect(composer).toContainText("Move this title")
+  await expect(composer).toContainText("Adjust the spacing")
+
+  await panel.getByRole("button", { name: "Comment", exact: true }).click()
+  await panel.getByRole("button", { name: "Select a point in the preview" }).click({ position: { x: 120, y: 120 } })
+  await panel.getByLabel("What would you like to change?").fill("Keep this comment")
+  await panel.getByLabel("What would you like to change?").press("Escape")
+  await expect(panel.getByLabel("What would you like to change?")).toHaveValue("Keep this comment")
+  await page.evaluate(() => {
+    const dispatch = window.dispatchEvent.bind(window)
+    window.dispatchEvent = (event) => event.type === "opencode:image-annotation" ? true : dispatch(event)
+  })
+  await panel.getByRole("button", { name: "Send", exact: true }).click()
+  await expect(panel.getByRole("alert")).toBeVisible()
+  await expect(panel.getByLabel("What would you like to change?")).toHaveValue("Keep this comment")
+})
+
+test("freehand image markup is retained when attachment fails and can be retried", async ({ page }) => {
+  const directory = "C:/OpenCode/MarkupPreview"
+  const file = "sample.svg"
+  await openSession(page, {
+    name: "MarkupPreview",
+    fileList: (path) => path ? [] : [fileNode(directory, file)],
+    fileContent: () => ({ type: "text", mimeType: "image/svg+xml", content: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="160"><rect width="200" height="160" fill="white"/></svg>' }),
+    seed: { panes: { ses_markuppreview: { review: true } } },
+  })
+  const panel = page.locator("#review-panel")
+  await openFileLauncher(panel)
+  await panel.getByRole("treeitem", { name: file }).click()
+  const image = panel.locator('img[data-slot="artifact-media"]')
+  await expect(image).toHaveJSProperty("naturalWidth", 200)
+  await page.evaluate(() => {
+    const dispatch = window.dispatchEvent.bind(window)
+    const testWindow = window as Window & { markupAllowed: boolean; markedFile?: File }
+    testWindow.markupAllowed = false
+    window.dispatchEvent = (event) => {
+      if (event.type !== "opencode:image-markup" || !(event instanceof CustomEvent)) return dispatch(event)
+      testWindow.markedFile = event.detail.file
+      event.detail.completion = Promise.resolve(testWindow.markupAllowed)
+      event.preventDefault()
+      return false
+    }
+  })
+  await panel.getByRole("button", { name: "Markup", exact: true }).click()
+  const rect = (await image.boundingBox())!
+  await page.mouse.move(rect.x + 20, rect.y + 20)
+  await page.mouse.down()
+  await page.mouse.move(rect.x + 150, rect.y + 100, { steps: 8 })
+  await page.mouse.up()
+  await expect(panel.locator('[data-slot="artifact-annotation-ink"] polyline')).toHaveCount(1)
+  await page.setViewportSize({ width: 1100, height: 900 })
+  await expect.poll(() => panel.locator('[data-slot="artifact-annotation-stage"]').evaluate((stage, fraction) => {
+    const image = stage.querySelector<HTMLImageElement>('img[data-slot="artifact-media"]')!
+    const line = stage.querySelector<SVGPolylineElement>('[data-slot="artifact-annotation-ink"] polyline')!
+    const last = line.points.getItem(line.points.numberOfItems - 1)
+    const parent = stage.getBoundingClientRect()
+    const box = image.getBoundingClientRect()
+    const x = parent.left + last.x * parent.width / 100
+    const y = parent.top + last.y * parent.height / 100
+    return Math.max(Math.abs(x - box.left - box.width * fraction.x), Math.abs(y - box.top - box.height * fraction.y))
+  }, { x: 150 / rect.width, y: 100 / rect.height })).toBeLessThanOrEqual(1)
+  await panel.getByRole("button", { name: "Send", exact: true }).click()
+  await expect(panel.getByRole("alert")).toBeVisible()
+  await expect(panel.locator('[data-slot="artifact-annotation-ink"] polyline')).toHaveCount(1)
+  await page.evaluate(() => { (window as Window & { markupAllowed: boolean }).markupAllowed = true })
+  await panel.getByRole("button", { name: "Send", exact: true }).click()
+  await expect(panel.getByRole("button", { name: "Markup", exact: true })).toBeVisible()
+  expect(await page.evaluate(async () => {
+    const file = (window as Window & { markedFile: File }).markedFile
+    const image = await createImageBitmap(file)
+    const canvas = document.createElement("canvas")
+    canvas.width = image.width
+    canvas.height = image.height
+    const context = canvas.getContext("2d")!
+    context.drawImage(image, 0, 0)
+    const pixels = context.getImageData(0, 0, image.width, image.height).data
+    const blue = pixels.some((value, index) => index % 4 === 2 && value > pixels[index - 2] + 20)
+    return { type: file.type, width: image.width, height: image.height, blue }
+  })).toEqual({ type: "image/png", width: 200, height: 160, blue: true })
 })
 
 test("review toggle shows its tooltip with the side panel open or closed", async ({ page }) => {
@@ -1642,11 +1723,11 @@ test("video files stream into the viewer behind a loading state, open into the p
   const inlineBounds = (await stage.boundingBox())!
   expect(inlineBounds.width).toBeLessThan(1000)
 
-  await panel.getByRole("button", { name: "Comment on preview" }).click()
+  await panel.getByRole("button", { name: "Comment", exact: true }).click()
   await panel.getByRole("button", { name: "Select a point in the preview" }).click({ position: { x: 2, y: 2 } })
   await expect(panel.getByText("Select a point inside the media")).toBeVisible()
-  await expect(panel.getByRole("button", { name: "Add to message" })).toBeDisabled()
-  await panel.getByRole("button", { name: "Cancel", exact: true }).click()
+  await expect(panel.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+  await panel.getByRole("button", { name: "Discard annotations", exact: true }).click()
 
   await video.evaluate((element) => {
     element.dataset.e2eProbe = "retained"

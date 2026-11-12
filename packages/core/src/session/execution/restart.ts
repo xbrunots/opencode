@@ -277,6 +277,10 @@ export const layer = (options?: Options) =>
         }
 
         const notify = Effect.fnUntraced(function* (result: Pick<Job.Background, "status" | "output" | "error">) {
+          if (recovery.notifyParent === false) {
+            yield* jobs.completeBackground(background.notificationID)
+            return
+          }
           yield* SubagentCompletion.deliver(sessions, jobs, {
             ...result,
             recovery,

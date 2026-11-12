@@ -9,7 +9,7 @@ import { useData, useServer } from "@/runtime/server/current"
 import { useServerSDK } from "@/runtime/server/client"
 import { useCommand } from "@/shell/commands/command"
 import { useTabs } from "@/shell/tabs/tabs"
-import { useWorkspaceViews } from "@/shell/workspace-views"
+import { useSideChat } from "./side-chat"
 import { sessionHref } from "@/shell/routes/session"
 import { errorMessage } from "@/shell/layout/helpers"
 import { showToast } from "@/shell/notifications/toast"
@@ -26,7 +26,7 @@ export function ConversationActions() {
   const params = useSessionTargetParams()
   const focused = useSessionTargetFocused()
   const tabs = useTabs()
-  const views = useWorkspaceViews()
+  const sideChat = useSideChat()
   const command = useCommand()
   const exporter = createSessionExporter()
   const [editors] = createResource(async () => {
@@ -77,14 +77,6 @@ export function ConversationActions() {
       sessionID: current.id,
       metadata: { ...current.metadata, opencodexPinned: current.metadata?.opencodexPinned !== true },
     })
-  }
-  const sideChat = async () => {
-    const current = info()
-    if (!current) return
-    const created = data.session.create({ location: current.location, model: current.model, agent: current.agent })
-    await created.request
-    tabs.addSessionTab({ server: server.key, sessionId: created.id })
-    views.openFloating(server.key, created.id)
   }
   const archive = async () => {
     const current = info()

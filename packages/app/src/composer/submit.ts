@@ -716,6 +716,15 @@ async function sendCommand(
   track?: ModelSelection["trackSessionCommit"],
 ) {
   const request = await buildSubmissionRequest(session, value)
+  const setup = ["opencodex-mcp", "opencodex-plugin", "opencodex-skill"].includes(command.command)
+  const offset = command.arguments ? value.text.indexOf(command.arguments, command.command.length + 1) : -1
+  const mention = (item: { start: number; end: number; text: string } | undefined) => {
+    if (!setup || !item) return item
+    if (offset < 0 || item.start < offset || value.text.slice(item.start, item.end) !== item.text) return undefined
+    const start = item.start - offset
+    const end = item.end - offset
+    return command.arguments.slice(start, end) === item.text ? { ...item, start, end } : undefined
+  }
 
   // Like queued prompts, queued commands must not apply the composer's selection to active work.
   if (value.delivery === "steer") await applySelection(session, value.selection, track)
@@ -727,10 +736,10 @@ async function sendCommand(
       uri: file.uri,
       name: file.name,
       description: file.description,
-      mention: file.mention,
+      mention: mention(file.mention),
     })),
-    agents: request.agents,
-    skills: request.skills,
+    agents: request.agents.map((agent) => ({ ...agent, mention: mention(agent.mention) })),
+    skills: request.skills.map((skill) => ({ ...skill, mention: mention(skill.mention) })),
     delivery: value.delivery,
   })
   session.data.session.acceptSend(session.id)

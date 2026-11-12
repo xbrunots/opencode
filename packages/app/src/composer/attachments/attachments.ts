@@ -63,7 +63,7 @@ export function createComposerAttachments(
   // Media the model reads natively travels inline with the prompt, so its bytes live in the draft
   // store. Everything else, including text, reaches the model as a path on the server that its
   // tools open; those bytes never enter the store, and never get base64-encoded into the request.
-  const add = async (file: File, target = capture(), clipboard = false) => {
+  const add = async (file: File, target = capture(), clipboard = false, waitForUpload = false) => {
     if (!target) return false
     const mime = await attachmentMime(file)
     const destination = input.destination()
@@ -72,7 +72,8 @@ export function createComposerAttachments(
     const sourcePath = input.getPathForFile?.(file) || undefined
 
     if (destination.local && sourcePath) return addPath(target, { filename: file.name, mime, path: sourcePath })
-    void stage(file, mime, target, destination)
+    const staged = stage(file, mime, target, destination)
+    if (waitForUpload) return staged
 
     return true
   }
@@ -138,17 +139,18 @@ export function createComposerAttachments(
         return undefined
       })
 
-    if (path) addPath(target, { filename: file.name, mime, path })
+    if (!path) return false
+    return addPath(target, { filename: file.name, mime, path })
   }
 
   // Callers start this without awaiting it, so a failure (for example a blob write on a full disk)
   // is reported through onError instead of escaping as an unhandled rejection.
-  const addAttachments = (files: File[], target = capture(), clipboard = false) =>
+  const addAttachments = (files: File[], target = capture(), clipboard = false, waitForUpload = false) =>
     files
       .reduce(async (result, file) => {
         const previous = await result
 
-        return (await add(file, target, clipboard)) || previous
+        return (await add(file, target, clipboard, waitForUpload)) || previous
       }, Promise.resolve(false))
       .catch((error) => {
         input.onError(error)

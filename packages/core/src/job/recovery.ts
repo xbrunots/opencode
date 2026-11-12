@@ -14,6 +14,7 @@ export const RecoverySchema = Schema.Union([
     childSessionID: SessionSchema.ID,
     agent: Schema.String,
     description: Schema.String,
+    notifyParent: Schema.optional(Schema.Boolean),
   }),
   Schema.Struct({
     kind: Schema.Literal("image"),

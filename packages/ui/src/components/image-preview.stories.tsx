@@ -82,6 +82,19 @@ export const Screenshot = {
   },
 }
 
+export const Annotatable = {
+  render: () => {
+    const dialog = useDialog()
+    const src = poster()
+
+    const open = () => dialog.show(() => <mod.ImagePreview src={src} alt="Garden poster" sessionID="story-session" serverID="story-server" reference="poster.png" />)
+
+    onMount(open)
+
+    return <Button variant="neutral" onClick={open}>Open annotated preview</Button>
+  },
+}
+
 // Images in a message open from where they sit and close back into place: a full-width image and a cropped thumbnail.
 export const FromMessage = {
   render: () => {

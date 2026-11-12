@@ -30,6 +30,100 @@ test("adds an image comment to the existing draft", async ({ page }) => {
   await expect(view.editor).toContainText("Make this brighter")
 })
 
+test("adds the marked image only to its owning conversation", async ({ page }) => {
+  const writes: string[] = []
+  await page.addInitScript(() => {
+    window.addEventListener("opencode:image-markup", (event) => {
+      const note = (event as CustomEvent).detail
+      queueMicrotask(async () => {
+        document.body.dataset.markupReceipt = JSON.stringify({ accepted: event.defaultPrevented, sessionID: note.sessionID, serverID: note.serverID, result: note.completion ? await note.completion : null })
+      })
+    }, { capture: true })
+  })
+  const image = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#ddd"/></svg>').toString("base64")
+  const message = userMessage([
+    textPart("prt_markup_delivery_text", "Review this image"),
+    { id: "prt_markup_delivery_image", type: "file", mime: "image/svg+xml", filename: "poster.svg", url: `data:image/svg+xml;base64,${image}` },
+  ])
+  const view = await openSession(page, {
+    name: "MarkupDelivery",
+    provider: provider({ id: "test", name: "Test", capabilities: { tools: true, input: ["text", "image"], output: ["text"] } }),
+    pageMessages: () => ({ items: [message] }),
+    onFileWrite: (write) => void writes.push(write.path),
+  })
+  await view.editor.fill("Keep this draft")
+  const context = page.getByRole("button", { name: "Conversation context", exact: true })
+  if ((await context.getAttribute("aria-expanded")) === "true") await context.click()
+  const accepted = await page.evaluate(() => window.dispatchEvent(new CustomEvent("opencode:image-markup", {
+    cancelable: true,
+    detail: { sessionID: "ses_markupdelivery", serverID: "different-server", src: "poster.svg", file: new File(["image"], "wrong.png", { type: "image/png" }) },
+  })))
+  expect(accepted).toBe(true)
+  await expect(page.locator('[data-component="composer-attachments"]')).toHaveCount(0)
+
+  await page.evaluate(() => delete document.body.dataset.markupReceipt)
+
+  await page.getByRole("button", { name: "poster.svg", exact: true }).and(page.locator('[data-slot="user-message-attachment"]')).click()
+  const preview = page.locator('[data-component="image-preview"]')
+  await expect(preview).toHaveAttribute("data-stage", "rest")
+  await preview.getByRole("button", { name: "Markup", exact: true }).click()
+  const drawing = preview.getByRole("img", { name: "Draw on the image" })
+  const box = (await drawing.boundingBox())!
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.8, { steps: 8 })
+  await page.mouse.up()
+  await preview.getByRole("button", { name: "Add to message" }).click()
+  await expect(page.locator("body")).toHaveAttribute("data-markup-receipt", /"accepted":true/)
+  await expect(page.locator("body")).toHaveAttribute("data-markup-receipt", /"result":true/)
+  await expect(page.locator('[data-component="composer-attachments"]').getByRole("img", { name: "markup.png" })).toBeVisible()
+  expect(writes).toHaveLength(0)
+  await expect(view.editor).toContainText("Keep this draft")
+})
+
+test("keeps image markup after a failed upload and sends it after retry", async ({ page }) => {
+  const writes: string[] = []
+  const image = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#ddd"/></svg>').toString("base64")
+  const message = userMessage([
+    textPart("prt_markup_retry_text", "Review this image"),
+    { id: "prt_markup_retry_image", type: "file", mime: "image/svg+xml", filename: "poster.svg", url: `data:image/svg+xml;base64,${image}` },
+  ])
+  const view = await openSession(page, {
+    name: "MarkupRetry",
+    provider: provider({ id: "test", name: "Test", capabilities: { tools: true, input: ["text"], output: ["text"] } }),
+    pageMessages: () => ({ items: [message] }),
+    onFileWrite: (write) => void writes.push(write.path),
+  })
+  let attempts = 0
+  await page.route("**/api/experimental/fs/write?**", (route) => {
+    if (route.request().method() !== "POST") return route.fallback()
+    if (++attempts === 1) return route.fulfill({ status: 500, body: "Upload failed" })
+    return route.fallback()
+  })
+  await view.editor.fill("Keep this draft")
+  const context = page.getByRole("button", { name: "Conversation context", exact: true })
+  if ((await context.getAttribute("aria-expanded")) === "true") await context.click()
+  await page.getByRole("button", { name: "poster.svg", exact: true }).and(page.locator('[data-slot="user-message-attachment"]')).click()
+  const preview = page.locator('[data-component="image-preview"]')
+  await expect(preview).toHaveAttribute("data-stage", "rest")
+  await preview.getByRole("button", { name: "Markup", exact: true }).click()
+  const drawing = preview.getByRole("img", { name: "Draw on the image" })
+  const box = (await drawing.boundingBox())!
+  await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.8, { steps: 8 })
+  await page.mouse.up()
+  await preview.getByRole("button", { name: "Add to message" }).click()
+  await expect(preview.getByRole("alert")).toContainText("Your drawing is still available")
+  await page.keyboard.press("Escape")
+  await expect(preview).toHaveAttribute("data-stage", "rest")
+  await expect(drawing.locator("polyline")).toHaveCount(1)
+  await preview.getByRole("button", { name: "Add to message" }).click()
+  await expect.poll(() => writes.length).toBe(1)
+  expect(writes[0]).toMatch(/markup\.png$/)
+  await expect(view.editor).toContainText("Keep this draft")
+})
+
 test.use({
   permissions: ["clipboard-read", "clipboard-write"],
   launchOptions: {
