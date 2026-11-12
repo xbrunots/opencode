@@ -1,4 +1,4 @@
-import { Logo } from "@opencode/ui/logo"
+import { Logo, Mark } from "@opencode/ui/logo"
 import { prefersReducedMotion } from "@opencode/ui/motion"
 import { type Accessor, createEffect, For, onCleanup, onMount, Show } from "solid-js"
 import { PinSound } from "./pin-sound"
@@ -233,6 +233,10 @@ function WordmarkLodger(props: {
   return (
     <div ref={stage} class="absolute">
       <div ref={flat} data-slot="wordmark-flat" class="absolute inset-0">
+        <div class="opencodex-welcome-brand" aria-label="OpenCodex">
+          <Mark class="opencodex-welcome-mark" />
+          <span>OpenCodex</span>
+        </div>
         <svg viewBox="0 0 234 42" fill="none" class="block size-full overflow-visible">
           <For each={LETTERS}>
             {(item, i) => (

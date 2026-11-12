@@ -11,7 +11,7 @@ import { useLanguage } from "@/runtime/i18n/language"
 import { useTabs } from "@/shell/tabs/tabs"
 import { ActivityRing } from "@opencode/ui/activity-ring"
 import { Loader } from "@opencode/ui/loader"
-import { SessionTabAvatarView } from "@/shell/layout/session-tab-avatar"
+import { ProjectIcon } from "@/shell/layout/project-icon"
 import { useSessionTabAvatarState } from "@/shell/layout/project-avatar-state"
 import type { ServerConnection } from "@/runtime/server/registry"
 import { getRelativeTime } from "@/shell/time"
@@ -160,6 +160,19 @@ function PaletteRow(props: {
           </div>
         }
       >
+        <Match when={props.item.type === "project" && props.item.project}>
+          {(project) => (
+            <div class="command-palette-row-main">
+              <ProjectIcon project={project()} />
+              <div class="command-palette-row-text">
+                <span class="command-palette-title palette-menu-title">
+                  <SearchHighlight text={props.item.title} />
+                </span>
+                <span class="command-palette-description">{props.item.description}</span>
+              </div>
+            </div>
+          )}
+        </Match>
         <Match when={props.item.type === "command" || props.item.type === "setting"}>
           <div class="command-palette-row-main">
             <div class="command-palette-row-text">
@@ -224,11 +237,7 @@ function PaletteSessionRow(props: {
             />
           </Show>
           {/* A busy session shows its activity ring instead of the unread dot, as session tabs do. */}
-          <SessionTabAvatarView
-            project={props.item.project}
-            directory={props.directory}
-            unread={status.unread() && !status.loading()}
-          />
+          <ProjectIcon project={props.item.project ?? { worktree: props.directory }} />
         </div>
         <div class="command-palette-row-text">
           <span

@@ -1,4 +1,10 @@
 export const dict = {
+  "context.workspaceDiffError": "Não foi possível carregar todas as alterações.",
+  "sidebar.group.create": "Criar grupo",
+  "sidebar.group.name": "Nome do grupo",
+  "sidebar.group.move": "Mover para grupo",
+  "sidebar.group.ungroup": "Remover do grupo",
+  "sidebar.project.rename": "Renomear projeto",
   "context.title": "Contexto da conversa",
   "context.close": "Fechar contexto da conversa",
   "context.project": "Projeto",
@@ -99,8 +105,7 @@ export const dict = {
   "project.settings.name.title": "Nome do projeto",
   "project.settings.name.description": "O nome mostrado para este projeto em OpenCode",
   "project.settings.icon.description": "Recomendado: 128×128px. Clique ou arraste para fazer upload de uma imagem.",
-  "project.settings.color.description":
-    "Usado para o ícone do projeto quando nenhuma imagem personalizada está definida",
+  "project.settings.color.description": "Cor do ícone de pasta do projeto",
   "project.settings.worktree.startup.description": "Executa uma vez após a criação de uma novo espaço de trabalho",
   "project.settings.worktree.startup.hint.base": "Use $OPENCODE_WORKTREE_BASE para o espaço de trabalho base.",
   "project.settings.worktree.startup.hint.new": "Use $OPENCODE_WORKTREE_PATH para o novo espaço de trabalho.",

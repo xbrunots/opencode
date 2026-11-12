@@ -1,3 +1,6 @@
+import { useNavigate } from "@solidjs/router"
+import { displayName } from "@opencode/ui/project-avatar"
+import { useLayout } from "@/shell/state/layout"
 import { useDialog, useDialogLayer } from "@opencode/ui/context/dialog"
 import { createSignal, onCleanup, startTransition, untrack } from "solid-js"
 import { useGlobal } from "@/runtime/server/runtime"
@@ -26,6 +29,8 @@ export function DialogSessionSearch(props: { archived?: boolean }) {
   const language = useLanguage()
   const tabs = useTabs()
   const registry = useServers()
+  const layout = useLayout()
+  const navigate = useNavigate()
 
   const servers = registry.visible.filter((conn) => !isServerFailed(global.servers.health[ServerConnection.key(conn)]))
 
@@ -71,9 +76,35 @@ export function DialogSessionSearch(props: { archived?: boolean }) {
   })
 
   const items = (query: string) => {
-    const entries = loaders
-      .flatMap((loader) => loader.items(query))
-      .toSorted((a, b) => (b.updated ?? 0) - (a.updated ?? 0))
+    const projects: CommandPaletteEntry[] = props.archived
+      ? []
+      : servers.flatMap((conn) => {
+          const key = ServerConnection.key(conn)
+          return (global.serverCtx(key)?.projects.used() ?? []).flatMap((project) => {
+            const title = displayName(project)
+            if (
+              query &&
+              !title.toLowerCase().includes(query.toLowerCase()) &&
+              !project.worktree.toLowerCase().includes(query.toLowerCase())
+            )
+              return []
+            return [
+              {
+                id: `project:${key}:${project.id}`,
+                type: "project" as const,
+                title,
+                description: project.worktree,
+                category: language.t("home.projects"),
+                directory: project.worktree,
+                project,
+                server: key,
+              },
+            ]
+          })
+        })
+    const entries = [...projects, ...loaders.flatMap((loader) => loader.items(query))].toSorted(
+      (a, b) => (b.updated ?? 0) - (a.updated ?? 0),
+    )
 
     return query ? entries : entries.slice(0, RECENT_LIMIT)
   }
@@ -140,6 +171,12 @@ export function DialogSessionSearch(props: { archived?: boolean }) {
   onCleanup(() => dispatch({ type: "disposed" }))
 
   const select = (item: CommandPaletteEntry | undefined) => {
+    if (item?.type === "project" && item.server && item.directory) {
+      layout.home.setSelection({ server: item.server, directory: item.directory })
+      dialog.close(layer?.id)
+      navigate("/")
+      return
+    }
     if (!item?.sessionID || !item.server) return
     dispatch({
       type: "entry.selected",

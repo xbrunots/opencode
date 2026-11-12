@@ -7,23 +7,6 @@
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--v2-border-border-muted);
-  border-radius: 10px;
-  background: var(--v2-background-bg-layer-01);
-}
-
-[data-slot="workspace-view-controls"] [data-component="icon-button-v2"] {
-  width: 27px;
-  height: 25px;
-  border-radius: 6px;
-}
-
-[data-slot="workspace-view-controls"] [aria-pressed="true"] {
-  background: var(--v2-background-bg-layer-03);
-  color: var(--v2-icon-icon-base);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 7%);
 }
 
 [data-slot="vertical-tabs-sidebar"] [data-slot="vertical-tabs"] {

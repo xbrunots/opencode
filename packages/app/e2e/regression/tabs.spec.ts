@@ -2544,7 +2544,8 @@ test("parallel conversations keep prompts and drafts scoped and islands fill a c
       prompts.push({ sessionID, text: body.text })
     },
   })
-  await page.getByRole("button", { name: "Grid", exact: true }).click()
+  await page.getByRole("button", { name: "Conversation layout", exact: true }).click()
+  await page.getByRole("menuitemradio", { name: "Grid", exact: true }).click()
   const first = page.getByRole("region", { name: a.title, exact: true })
   const second = page.getByRole("region", { name: b.title, exact: true })
   const firstEditor = first.locator('[data-component="composer-editor"]')
@@ -2565,7 +2566,8 @@ test("parallel conversations keep prompts and drafts scoped and islands fill a c
       { sessionID: b.id, text: "Only session B" },
       { sessionID: a.id, text: "Only session A" },
     ])
-  await page.getByRole("button", { name: "Floating conversations", exact: true }).click()
+  await page.getByRole("button", { name: "Conversation layout", exact: true }).click()
+  await page.getByRole("menuitemradio", { name: "Floating conversations", exact: true }).click()
   await page.screenshot({ path: "../../.impeccable/review/production-islands.png" })
   const before = await first.boundingBox()
   await second.getByRole("button", { name: "Close conversation pane", exact: true }).click()
@@ -2589,7 +2591,8 @@ test("parallel conversations interrupt only the chosen session", async ({ page }
     sessions: [a, b],
     sessionStatus: { [a.id]: { type: "running" }, [b.id]: { type: "running" } },
   })
-  await page.getByRole("button", { name: "Grid", exact: true }).click()
+  await page.getByRole("button", { name: "Conversation layout", exact: true }).click()
+  await page.getByRole("menuitemradio", { name: "Grid", exact: true }).click()
   const second = page.getByRole("region", { name: b.title, exact: true })
   await expect(second.locator('[data-component="composer-editor"]')).toBeEditable()
   await second.getByRole("button", { name: "Stop", exact: true }).click()
@@ -2623,7 +2626,8 @@ test.describe("parallel layout", () => {
         pageMessages: (id) => ({ items: [{ id: `msg_${id}`, type: "user", text: longText, time: { created: 1 } }] }),
       })
       await page.goto(sessionHref(sessions[0]!.id))
-      await page.getByRole("button", { name: mode, exact: true }).click()
+      await page.getByRole("button", { name: "Conversation layout", exact: true }).click()
+      await page.getByRole("menuitemradio", { name: mode, exact: true }).click()
       const panes = sessions.map((session) => page.getByRole("region", { name: session.title, exact: true }))
       for (const [index, pane] of panes.entries()) {
         await expect(pane).toHaveCSS("text-wrap-style", "auto")
@@ -2756,4 +2760,68 @@ test.describe("project preview navigation", () => {
     await editor.press("Enter")
     await expect.poll(() => created).toEqual([{ directory: branch }])
   })
+})
+
+test("projects can be grouped, dragged and retained after reload", async ({ page }) => {
+  await mockWorkspace(page, {
+    name: "Group project",
+    directory: "C:/OpenCode/GroupProject",
+    sessions: [{ id: "ses_group_project", title: "Group conversation" }],
+    seed: {
+      tabs: ["ses_group_project"],
+      settings: { appearance: { tabLayout: "vertical" }, general: { sidebarOrganize: "projects" } },
+    },
+  })
+  await page.goto(sessionHref("ses_group_project"))
+  const row = page
+    .locator('[data-slot="sidebar-project-row"]')
+    .filter({ has: page.getByRole("button", { name: "Group project", exact: true }) })
+  await expect(row).toBeVisible()
+  await expect(row.locator('[data-folder-state="open"]')).toBeVisible()
+  await row.getByRole("button", { name: "Group project", exact: true }).click()
+  await expect(row.locator('[data-folder-state="closed"]')).toBeVisible()
+  await row.getByRole("button", { name: "Group project", exact: true }).click()
+  await page.getByRole("button", { name: "+ Create group", exact: true }).click()
+  const dialog = page.getByRole("dialog")
+  await dialog.getByRole("textbox", { name: "Create group" }).fill("Work")
+  await dialog.getByRole("button", { name: "Save", exact: true }).click()
+  const group = page.locator("details").filter({ has: page.locator("summary", { hasText: "Work" }) })
+  await expect(group).toBeVisible()
+  const sourceBox = await row.getByRole("button", { name: "Group project", exact: true }).boundingBox()
+  const targetBox = await group.locator("summary").boundingBox()
+  expect(sourceBox).not.toBeNull()
+  expect(targetBox).not.toBeNull()
+  await page.mouse.move(sourceBox!.x + sourceBox!.width / 2, sourceBox!.y + sourceBox!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(targetBox!.x + targetBox!.width / 2, targetBox!.y + targetBox!.height / 2, { steps: 10 })
+  await page.mouse.up()
+  await expect(group.locator('[data-slot="sidebar-project-row"]')).toContainText("Group project")
+  await page.reload()
+  await expect(group.locator('[data-slot="sidebar-project-row"]')).toContainText("Group project")
+})
+
+test("renaming a project updates the matching project and sidebar", async ({ page }) => {
+  const workspace = await mockWorkspace(page, {
+    name: "Original project",
+    directory: "C:/OpenCode/OriginalProject",
+    sessions: [{ id: "ses_rename_project", title: "Project conversation" }],
+    seed: {
+      tabs: ["ses_rename_project"],
+      settings: { appearance: { tabLayout: "vertical" }, general: { sidebarOrganize: "projects" } },
+    },
+  })
+  await page.goto(sessionHref("ses_rename_project"))
+  const row = page.locator(`[data-slot="sidebar-project-row"][data-project-id="${workspace.projectID}"]`)
+  await expect(row.getByRole("button", { name: "Original project", exact: true })).toBeVisible()
+  await row.getByRole("button", { name: "More options", exact: true }).click()
+  await page.getByRole("menuitem", { name: "Rename project", exact: true }).click()
+  const dialog = page.getByRole("dialog")
+  await dialog.getByRole("textbox", { name: "Rename project", exact: true }).fill("Renamed project")
+  const request = page.waitForRequest(
+    (item) => item.method() === "PATCH" && new URL(item.url()).pathname === `/api/project/${workspace.projectID}`,
+  )
+  await dialog.getByRole("button", { name: "Save", exact: true }).click()
+  expect((await request).postDataJSON()).toEqual({ name: "Renamed project" })
+  await expect(dialog).toBeHidden()
+  await expect(row.getByRole("button", { name: "Renamed project", exact: true })).toBeVisible()
 })

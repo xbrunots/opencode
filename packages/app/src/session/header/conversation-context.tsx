@@ -30,6 +30,7 @@ import { usePluginHost } from "@/runtime/plugin/host"
 import { usePluginAttachment } from "@/runtime/plugin/host-apis"
 import { useCommand } from "@/shell/commands/command"
 import { useWorkspaceViews } from "@/shell/workspace-views"
+import { useSessionLayout } from "@/session/session-layout"
 import { showToast } from "@/shell/notifications/toast"
 import { ProviderModelIcon } from "@/providers/models/provider-group"
 import { DialogMcp } from "@/providers/connect/mcp-dialog"
@@ -137,6 +138,7 @@ export function ConversationContext() {
   const params = useRoutedSessionTargetParams()
   const focused = useSessionTargetFocused()
   const views = useWorkspaceViews()
+  const { view } = useSessionLayout()
   const data = useData()
   const sdk = useServerSDK()
   const server = useServer()
@@ -152,7 +154,8 @@ export function ConversationContext() {
   let diffAbort: AbortController | undefined
   const [card, setCard] = createSignal<{ status: "open" } | { status: "closed" }>({ status: "open" })
   const visible = () => views.mode() === "focus" && focused()
-  const opened = () => visible() && card().status === "open"
+  const sideOpened = () => view().side.opened()
+  const opened = () => visible() && !sideOpened() && card().status === "open"
   const info = () => data.session.get(params.id)
   const directory = () => info()?.location.directory
   const messages = () => data.session.message.list(params.id)
@@ -182,6 +185,15 @@ export function ConversationContext() {
       () => setCard({ status: "open" }),
     ),
   )
+  createEffect(
+    on(
+      sideOpened,
+      (open) => {
+        if (!open) setCard({ status: "open" })
+      },
+      { defer: true },
+    ),
+  )
   const close = () => {
     setCard({ status: "closed" })
     trigger?.focus({ preventScroll: true })
@@ -190,12 +202,18 @@ export function ConversationContext() {
     () => (opened() && directory() ? { id: params.id, directory: directory()! } : undefined),
     async (target) => {
       const result = await Promise.allSettled([
+        data.project.sync(),
+        data.location.syncInfo({ directory: target.directory }),
         data.session.sync(target.id, { children: true }),
         data.session.message.sync(target.id),
         data.location.vcs.sync({ directory: target.directory }),
         data.location.mcp.server.sync({ directory: target.directory }),
         data.location.skill.sync({ directory: target.directory }),
       ])
+      if (data.session.message.more(target.id)) {
+        const history = await Promise.allSettled([data.session.message.loadMore(target.id, { all: true })])
+        return [...result, ...history].some((item) => item.status === "rejected")
+      }
       return result.some((item) => item.status === "rejected")
     },
   )
@@ -223,8 +241,35 @@ export function ConversationContext() {
       )
     },
   )
+  const [working, workingActions] = createResource(
+    () => (opened() && directory() ? { directory: directory()! } : undefined),
+    (target) => sdk.api.vcs.diff({ location: { directory: target.directory }, mode: "working" }),
+  )
+  createEffect(() => {
+    const dir = directory()
+    if (!opened() || !dir) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const refresh = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        void workingActions.refetch()
+        void diffActions.refetch()
+      }, 250)
+    }
+    const offFiles = sdk.event.location(dir).on("filesystem.changed", refresh)
+    const offBranch = sdk.event.location(dir).on("vcs.branch.updated", refresh)
+    onCleanup(() => {
+      clearTimeout(timer)
+      offFiles()
+      offBranch()
+    })
+  })
   onCleanup(() => diffAbort?.abort())
-  const changed = () => (diffs.error ? [] : (diffs() ?? []))
+  const changed = () => {
+    const files = new Map((diffs.error ? [] : (diffs() ?? [])).map((file) => [file.file, file]))
+    for (const file of working.error ? [] : (working()?.data ?? [])) files.set(file.file, file)
+    return [...files.values()]
+  }
   const additions = () => changed().reduce((total, file) => total + file.additions, 0)
   const deletions = () => changed().reduce((total, file) => total + file.deletions, 0)
   const open = (file: ContextFile) => {
@@ -282,6 +327,7 @@ export function ConversationContext() {
             aria-label={language.t("context.title")}
             aria-expanded={opened()}
             aria-controls={cardID}
+            disabled={sideOpened()}
             icon={<Icon name="bullet-list" />}
             onClick={() => (card().status === "open" ? close() : setCard({ status: "open" }))}
           />
@@ -306,11 +352,11 @@ export function ConversationContext() {
                   <Icon name="folder" />
                   {projectName()}
                 </strong>
-                <Show when={branch()}>
-                  {(name) => (
-                    <span class="conversation-context-branch">
+                <Show when={directory()}>
+                  {(path) => (
+                    <span class="conversation-context-branch" title={path()}>
                       <Icon name="branch" />
-                      {name()}
+                      {branch() ?? language.t("sidebar.tree.local")}
                     </span>
                   )}
                 </Show>
@@ -347,18 +393,24 @@ export function ConversationContext() {
                 >
                   <Icon name="code-lines" />
                   <span>{language.t("context.changes")}</span>
-                  <Show when={!diffs.error} fallback={<b>—</b>}>
-                    <Show when={!diffs.loading} fallback={<Loader class="size-3.5" />}>
+                  <Show when={!diffs.error || !working.error} fallback={<b>-</b>}>
+                    <Show when={!diffs.loading && !working.loading} fallback={<Loader class="size-3.5" />}>
                       <b>{changed().length}</b>
                       <span class="conversation-context-add">+{additions()}</span>
                       <span class="conversation-context-delete">−{deletions()}</span>
                     </Show>
                   </Show>
                 </button>
-                <Show when={diffs.error}>
+                <Show when={diffs.error || working.error}>
                   <p class="conversation-context-notice">
-                    {language.t("context.diffError")}
-                    <button type="button" onClick={() => void diffActions.refetch()}>
+                    {language.t("context.workspaceDiffError")}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void diffActions.refetch()
+                        void workingActions.refetch()
+                      }}
+                    >
                       {language.t("common.retry")}
                     </button>
                   </p>

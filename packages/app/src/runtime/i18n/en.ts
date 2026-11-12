@@ -1,6 +1,12 @@
 import { DESKTOP_NATIVE_ENGLISH } from "./desktop-native"
 
 export const dict = {
+  "context.workspaceDiffError": "Some changes could not be loaded.",
+  "sidebar.group.create": "Create group",
+  "sidebar.group.name": "Group name",
+  "sidebar.group.move": "Move to group",
+  "sidebar.group.ungroup": "Remove from group",
+  "sidebar.project.rename": "Rename project",
   "context.title": "Conversation context",
   "context.close": "Close conversation context",
   "context.project": "Project",
@@ -60,7 +66,8 @@ export const dict = {
   "prompt.dictation.listening": "Listening…",
   "prompt.dictation.starting": "Preparing offline dictation…",
   "prompt.dictation.finishing": "Transcribing locally…",
-  "prompt.dictation.model": "The bundled Portuguese speech model could not be loaded. Reinstall the complete application to restore offline dictation.",
+  "prompt.dictation.model":
+    "The bundled Portuguese speech model could not be loaded. Reinstall the complete application to restore offline dictation.",
   "prompt.dictation.unsupported": "Speech recognition is unavailable in this browser. Type your message to continue.",
   "prompt.dictation.microphone": "Allow microphone access to dictate a message.",
   "prompt.dictation.failed": "Speech recognition failed. Your draft has been preserved.",
@@ -1079,7 +1086,7 @@ export const dict = {
   "project.settings.name.title": "Project name",
   "project.settings.name.description": "The name shown for this project throughout OpenCode",
   "project.settings.icon.description": "Recommended: 128×128px. Click or drag to upload an image.",
-  "project.settings.color.description": "Used for the project icon when no custom image is set",
+  "project.settings.color.description": "Color of the project folder icon",
   "project.settings.worktree.startup.description": "Runs once after creating a new worktree",
   "project.settings.worktree.startup.hint.base": "Use $OPENCODE_WORKTREE_BASE for the base worktree.",
   "project.settings.worktree.startup.hint.new": "Use $OPENCODE_WORKTREE_PATH for the new worktree.",

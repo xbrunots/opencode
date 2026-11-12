@@ -1,16 +1,31 @@
 import { Schema } from "effect"
-import { createEffect, createMemo, Show, onCleanup, untrack, type Accessor, type JSX } from "solid-js"
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  Show,
+  onCleanup,
+  untrack,
+  type Accessor,
+  type JSX,
+} from "solid-js"
 import { Key } from "@solid-primitives/keyed"
 import { createStore } from "solid-js/store"
 import { useQuery } from "@tanstack/solid-query"
-import { DragDropProvider, PointerSensor } from "@dnd-kit/solid"
+import { DragDropProvider, PointerSensor, useDroppable } from "@dnd-kit/solid"
 import { isSortable, useSortable } from "@dnd-kit/solid/sortable"
 import { Accessibility, Feedback, PointerActivationConstraints } from "@dnd-kit/dom"
 import { RestrictToVerticalAxis } from "@dnd-kit/abstract/modifiers"
 
 import { Icon } from "@opencode/ui/icon"
 import { IconButton } from "@opencode/ui/icon-button"
+import { ProjectIcon } from "@/shell/layout/project-icon"
 import { Menu } from "@opencode/ui/menu"
+import { Button } from "@opencode/ui/button"
+import { Dialog, DialogBody, DialogFooter, DialogHeader, DialogTitle } from "@opencode/ui/dialog"
+import { useDialog } from "@opencode/ui/context/dialog"
+import { TextInput } from "@opencode/ui/text-input"
 import { ScrollView } from "@opencode/ui/scroll-view"
 import { displayName } from "@opencode/ui/project-avatar"
 import { homeSessionsQuery } from "@/home/sessions/queries"
@@ -40,6 +55,8 @@ const SidebarState = Persistence.struct({
   projectsCollapsed: Schema.Boolean,
   expanded: Persistence.record(Schema.Boolean),
   order: Persistence.record(Schema.mutable(Schema.Array(Schema.String))),
+  groups: Persistence.record(Persistence.record(Schema.String)),
+  members: Persistence.record(Schema.String),
 })
 
 /** Tracks session activity on every server, and keeps a preview tab once its session does something. */
@@ -132,6 +149,8 @@ export function SidebarOrganized(props: {
     projectsCollapsed: false,
     expanded: {},
     order: {},
+    groups: {},
+    members: {},
   })
 
   const isOpenTab = (server: ServerConnection.Key, sessionId: string) =>
@@ -186,6 +205,10 @@ export function SidebarOrganized(props: {
                   ready={ready()}
                   onExpand={(key) => setState("expanded", key, (value) => value === false)}
                   onReorder={(server, ids) => setState("order", server, ids)}
+                  onCreateGroup={(server, name) =>
+                    setState("groups", server, (groups) => ({ ...groups, [crypto.randomUUID()]: name }))
+                  }
+                  onMoveGroup={(server, id, group) => setState("members", `${server}:${id}`, group)}
                 />
               </div>
             </Show>
@@ -212,12 +235,44 @@ function ProjectList(props: {
   ready: boolean
   onExpand: (key: string) => void
   onReorder: (server: string, ids: string[]) => void
+  onCreateGroup: (server: string, name: string) => void
+  onMoveGroup: (server: string, id: string, group: string) => void
 }) {
   const servers = useServers()
 
   const layout = useLayout()
 
   const projectActions = createProjectActions()
+  const dialog = useDialog()
+  const language = useLanguage()
+  const global = useGlobal()
+  const createGroup = () => {
+    const key = server()
+    if (!key) return
+    void dialog.show(() => (
+      <ProjectNameDialog
+        title={language.t("sidebar.group.create")}
+        initial=""
+        save={(name) => props.onCreateGroup(key, name)}
+      />
+    ))
+  }
+  const rename = (project: Project) => {
+    const key = server()
+    const context = key && global.serverCtx(key)
+    if (!context) return
+    void dialog.show(() => (
+      <ProjectNameDialog
+        title={language.t("sidebar.project.rename")}
+        initial={displayName(project)}
+        save={async (name) => {
+          if (!project.id || project.id === "global") return context.sync.project.meta(project.worktree, { name })
+          const updated = await context.sdk.api.project.update({ projectID: project.id, name })
+          context.sync.project.update(updated)
+        }}
+      />
+    ))
+  }
 
   const connection = createMemo(
     () =>
@@ -283,6 +338,40 @@ function ProjectList(props: {
 
   const grouped = createMemo(() => Map.groupBy(records(), (record) => pathKey(record.project.worktree)))
 
+  const renderProjects = (items: () => Project[], conn: ServerConnection.Any) => (
+    <Key each={items()} by={(project) => `${ServerConnection.key(conn)}:${project.id}`}>
+      {(project) => {
+        const key = () => `${server()}:${project().id}`
+        const projectSessions = () => grouped().get(pathKey(project().worktree)) ?? []
+        return (
+          <ProjectRow
+            project={project()}
+            server={conn}
+            actions={projectActions}
+            index={projects().findIndex((item) => item.id === project().id)}
+            expanded={props.state.expanded[key()] !== false}
+            onRename={() => rename(project())}
+            onCreateGroup={createGroup}
+            groups={props.state.groups[server() ?? ""] ?? {}}
+            group={props.state.members[key()]}
+            onMoveGroup={(group) => props.onMoveGroup(ServerConnection.key(conn), project().id, group)}
+            onToggle={() => {
+              layout.home.setSelection({ server: ServerConnection.key(conn), directory: project().worktree })
+              props.onExpand(key())
+            }}
+          >
+            <SidebarProjectTree
+              server={conn}
+              directory={project().worktree}
+              directories={project().worktrees.map((worktree) => worktree.directory)}
+              sessions={projectSessions().map((record) => record.session)}
+            />
+          </ProjectRow>
+        )
+      }}
+    </Key>
+  )
+
   return (
     <>
       <Show when={connection()}>
@@ -303,7 +392,26 @@ function ProjectList(props: {
             onDragEnd={(event) => {
               const source = event.operation.source
 
-              if (event.canceled || !isSortable(source) || source.initialIndex === source.index) return
+              if (event.canceled || !isSortable(source)) return
+              const target = event.operation.target?.id.toString()
+              const key = ServerConnection.key(conn())
+              const group = target?.startsWith("group:")
+                ? target.slice(6)
+                : target
+                  ? props.state.members[`${key}:${target}`]
+                  : undefined
+              if (group && props.state.groups[key]?.[group]) {
+                props.onMoveGroup(key, source.id.toString(), group)
+                return
+              }
+              if (
+                target &&
+                projects().some((project) => project.id === target) &&
+                props.state.members[`${key}:${source.id}`]
+              ) {
+                props.onMoveGroup(key, source.id.toString(), "")
+              }
+              if (source.initialIndex === source.index) return
               props.onReorder(
                 ServerConnection.key(conn()),
                 arrayMove(
@@ -314,34 +422,32 @@ function ProjectList(props: {
               )
             }}
           >
-            <Key each={visible()} by={(project) => `${ServerConnection.key(conn())}:${project.id}`}>
-              {(project, index) => {
-                const key = () => `${server()}:${project().id}`
-
-                const projectSessions = () => grouped().get(pathKey(project().worktree)) ?? []
-
-                return (
-                  <ProjectRow
-                    project={project()}
-                    server={conn()}
-                    actions={projectActions}
-                    index={index()}
-                    expanded={props.state.expanded[key()] !== false}
-                    onToggle={() => {
-                      layout.home.setSelection({ server: ServerConnection.key(conn()), directory: project().worktree })
-                      props.onExpand(key())
-                    }}
-                  >
-                    <SidebarProjectTree
-                      server={conn()}
-                      directory={project().worktree}
-                      directories={project().worktrees.map((worktree) => worktree.directory)}
-                      sessions={projectSessions().map((record) => record.session)}
-                    />
-                  </ProjectRow>
-                )
-              }}
-            </Key>
+            <button
+              type="button"
+              class="mx-2 mb-1 text-left text-12-regular text-v2-text-text-muted hover:text-v2-text-text-base"
+              onClick={createGroup}
+            >
+              + {language.t("sidebar.group.create")}
+            </button>
+            <For each={Object.keys(props.state.groups[server() ?? ""] ?? {})}>
+              {(id) => (
+                <ProjectGroup id={id} name={props.state.groups[server() ?? ""]?.[id] ?? ""}>
+                  {renderProjects(
+                    () => visible().filter((project) => props.state.members[`${server()}:${project.id}`] === id),
+                    conn(),
+                  )}
+                </ProjectGroup>
+              )}
+            </For>
+            {renderProjects(
+              () =>
+                visible().filter(
+                  (project) =>
+                    !props.state.members[`${server()}:${project.id}`] ||
+                    !props.state.groups[server() ?? ""]?.[props.state.members[`${server()}:${project.id}`]!],
+                ),
+              conn(),
+            )}
           </DragDropProvider>
         )}
       </Show>
@@ -356,6 +462,11 @@ function ProjectRow(props: {
   index: number
   expanded: boolean
   onToggle: () => void
+  onRename: () => void
+  onCreateGroup: () => void
+  groups: Record<string, string>
+  group?: string
+  onMoveGroup: (group: string) => void
   children: JSX.Element
 }) {
   const language = useLanguage()
@@ -372,8 +483,9 @@ function ProjectRow(props: {
   })
 
   return (
-    <div ref={sortable.ref} class="relative shrink-0">
+    <div data-slot="sidebar-project-row" data-project-id={props.project.id} class="relative shrink-0">
       <div
+        ref={sortable.ref}
         class="group/project relative flex h-7 min-w-0 shrink-0 items-center rounded-[6px] pe-1 hover:bg-v2-overlay-simple-overlay-hover has-[:focus-visible]:bg-v2-overlay-simple-overlay-hover"
         onContextMenu={(event) => {
           event.preventDefault()
@@ -392,7 +504,7 @@ function ProjectRow(props: {
           onClick={props.onToggle}
         >
           <span class="flex size-4 shrink-0 items-center justify-center">
-            <Icon name="folder" />
+            <ProjectIcon project={props.project} open={props.expanded} />
           </span>
           <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap" dir="auto">
             {displayName(props.project)}
@@ -419,6 +531,26 @@ function ProjectRow(props: {
             />
             <Menu.Portal>
               <Menu.Content>
+                <Menu.Item onSelect={props.onRename}>{language.t("sidebar.project.rename")}</Menu.Item>
+                <Menu.Item onSelect={props.onCreateGroup}>{language.t("sidebar.group.create")}</Menu.Item>
+                <Show when={Object.keys(props.groups).length > 0}>
+                  <Menu.Sub placement="right-start" gutter={4}>
+                    <Menu.SubTrigger>{language.t("sidebar.group.move")}</Menu.SubTrigger>
+                    <Menu.Portal>
+                      <Menu.SubContent>
+                        <For each={Object.entries(props.groups)}>
+                          {([id, name]) => <Menu.Item onSelect={() => props.onMoveGroup(id)}>{name}</Menu.Item>}
+                        </For>
+                        <Show when={props.group}>
+                          <Menu.Item onSelect={() => props.onMoveGroup("")}>
+                            {language.t("sidebar.group.ungroup")}
+                          </Menu.Item>
+                        </Show>
+                      </Menu.SubContent>
+                    </Menu.Portal>
+                  </Menu.Sub>
+                </Show>
+                <Menu.Separator />
                 <ProjectMenuItems
                   server={props.server}
                   project={props.project}
@@ -451,5 +583,76 @@ function ProjectRow(props: {
         </div>
       </Show>
     </div>
+  )
+}
+
+function ProjectGroup(props: { id: string; name: string; children: JSX.Element }) {
+  const drop = useDroppable({
+    collisionPriority: 4,
+    get id() {
+      return `group:${props.id}`
+    },
+  })
+  return (
+    <details
+      open
+      ref={drop.ref}
+      class="min-w-0"
+      classList={{ "bg-v2-overlay-simple-overlay-hover": drop.isDropTarget() }}
+    >
+      <summary class="flex h-7 cursor-pointer items-center gap-2 px-2 text-12-regular text-v2-text-text-muted">
+        <Icon name="chevron-down" size="small" />
+        {props.name}
+      </summary>
+      <div class="ms-3">{props.children}</div>
+    </details>
+  )
+}
+
+function ProjectNameDialog(props: { title: string; initial: string; save: (name: string) => void | Promise<unknown> }) {
+  const language = useLanguage()
+  const dialog = useDialog()
+  const [name, setName] = createSignal(props.initial)
+  const [busy, setBusy] = createSignal(false)
+  const submit = () => {
+    const value = name().trim()
+    if (!value || busy()) return
+    setBusy(true)
+    void Promise.try(() => props.save(value)).then(
+      () => dialog.close(),
+      (error) => {
+        setBusy(false)
+        showToast({
+          title: language.t("common.requestFailed"),
+          description: errorMessage(error, language.t("common.requestFailed")),
+        })
+      },
+    )
+  }
+  return (
+    <Dialog fit>
+      <DialogHeader>
+        <DialogTitle>{props.title}</DialogTitle>
+      </DialogHeader>
+      <DialogBody>
+        <TextInput
+          autofocus
+          value={name()}
+          aria-label={props.title}
+          onInput={(event) => setName(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") submit()
+          }}
+        />
+      </DialogBody>
+      <DialogFooter>
+        <Button variant="neutral" onClick={() => dialog.close()}>
+          {language.t("common.cancel")}
+        </Button>
+        <Button variant="contrast" disabled={!name().trim() || busy()} onClick={submit}>
+          {language.t("common.save")}
+        </Button>
+      </DialogFooter>
+    </Dialog>
   )
 }

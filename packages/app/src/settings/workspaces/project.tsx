@@ -1,10 +1,5 @@
 import { Icon } from "@opencode/ui/icon"
-import {
-  displayName,
-  getProjectAvatarVariant,
-  ProjectAvatar,
-  PROJECT_AVATAR_VARIANTS,
-} from "@opencode/ui/project-avatar"
+import { displayName, getProjectAvatarVariant, PROJECT_AVATAR_VARIANTS } from "@opencode/ui/project-avatar"
 import { Select } from "@opencode/ui/select"
 import { Textarea } from "@opencode/ui/textarea"
 import { TextInput } from "@opencode/ui/text-input"
@@ -87,83 +82,39 @@ export const SettingsProjectGeneral: Component<{
           </SettingsRow>
 
           <SettingsRow
-            title={language.t("dialog.project.edit.icon")}
-            description={language.t("project.settings.icon.description")}
+            title={language.t("dialog.project.edit.color")}
+            description={language.t("project.settings.color.description")}
           >
-            <div class="project-settings-icon-field">
-              <button
-                data-action="settings-project-icon"
-                type="button"
-                aria-label={language.t("dialog.project.edit.icon.alt")}
-                aria-invalid={model.view().failed.icon || undefined}
-                class="project-settings-icon"
-                classList={{ "project-settings-icon--active": model.view().dragOver }}
-                onDrop={(event) => model.drop(event)}
-                onDragOver={(event) => model.dragOver(event)}
-                onDragLeave={(event) => model.dragLeave(event)}
-                onClick={() => model.iconClick()}
-              >
-                <ProjectIcon
-                  project={props.project}
-                  fallback={model.view().name || model.defaultName()}
-                  icon={{
-                    color: model.view().color,
-                    url: props.project.icon?.url,
-                    override: model.view().iconOverride,
-                  }}
-                  class="!size-8 [&_[data-slot=project-avatar-surface]]:!rounded-[6px] [&_[data-slot=project-avatar-surface]]:!text-[16px]"
-                />
-                <span class="project-settings-icon-overlay">
-                  <Icon name={model.view().iconOverride ? "close" : "share"} />
-                </span>
-              </button>
-              <SaveFailed when={model.view().failed.icon} onRetry={() => model.retry("icon")} />
+            <div class="project-settings-colors" data-action="settings-project-color">
+              <For each={PROJECT_AVATAR_VARIANTS}>
+                {(color) => {
+                  const selected = () => getProjectAvatarVariant(model.view().color) === color
+
+                  return (
+                    <button
+                      type="button"
+                      aria-label={language.t("dialog.project.edit.color.select", {
+                        color: language.t(`common.color.${color}`),
+                      })}
+                      aria-pressed={selected()}
+                      class="project-settings-color"
+                      classList={{ "project-settings-color--selected": selected() }}
+                      onClick={() => model.setColor(selected() ? undefined : color)}
+                    >
+                      <span
+                        aria-hidden="true"
+                        class="size-5 rounded-[6px]"
+                        style={{ background: `var(--v2-avatar-bg-${color})` }}
+                      />
+                      <Show when={selected()}>
+                        <Icon name="check" size="small" class="project-settings-color-check" />
+                      </Show>
+                    </button>
+                  )
+                }}
+              </For>
             </div>
-            <input
-              ref={(element) => model.setIconInput(element)}
-              type="file"
-              accept="image/*"
-              class="hidden"
-              onChange={(event) => model.inputChange(event.currentTarget)}
-            />
           </SettingsRow>
-
-          <Show when={!model.view().iconOverride}>
-            <SettingsRow
-              title={language.t("dialog.project.edit.color")}
-              description={language.t("project.settings.color.description")}
-            >
-              <div class="project-settings-colors" data-action="settings-project-color">
-                <For each={PROJECT_AVATAR_VARIANTS}>
-                  {(color) => {
-                    const selected = () => getProjectAvatarVariant(model.view().color) === color
-
-                    return (
-                      <button
-                        type="button"
-                        aria-label={language.t("dialog.project.edit.color.select", {
-                          color: language.t(`common.color.${color}`),
-                        })}
-                        aria-pressed={selected()}
-                        class="project-settings-color"
-                        classList={{ "project-settings-color--selected": selected() }}
-                        onClick={() => model.setColor(selected() ? undefined : color)}
-                      >
-                        <ProjectAvatar
-                          fallback=""
-                          variant={color}
-                          class="!size-5 [&_[data-slot=project-avatar-surface]]:!rounded-[6px]"
-                        />
-                        <Show when={selected()}>
-                          <Icon name="check" size="small" class="project-settings-color-check" />
-                        </Show>
-                      </button>
-                    )
-                  }}
-                </For>
-              </div>
-            </SettingsRow>
-          </Show>
 
           <AutoAcceptPermissionsSetting project={props.project} server={props.server} />
 

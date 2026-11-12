@@ -1469,3 +1469,14 @@ async function expectToken(element: Locator, property: string, token: string) {
 
   await expect(element).toHaveCSS(property, color)
 }
+test("new session shows the animated OpenCodex identity", async ({ page }) => {
+  await openDraft(page, { name: "BrandIdentity", seed: { theme: { id: "oc-2", scheme: "dark" } } })
+  const brand = page.locator(".opencodex-welcome-brand")
+  await expect(brand).toBeVisible()
+  await expect(brand).toHaveText("OpenCodex")
+  await expect(brand.locator('[data-component="logo-mark"]')).toBeVisible()
+  await brand.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)))
+  await page.screenshot({ path: "../../.impeccable/review/opencodex-welcome.png" })
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await expect(brand).toHaveCSS("animation-name", "none")
+})

@@ -69,3 +69,58 @@
 :root[data-motion="reduce"] [data-component="new-session-wordmark"] .wordmark-shimmer {
   animation: none;
 }
+
+/* Keep the interactive wordmark geometry while presenting the OpenCodex identity. */
+[data-component="new-session-wordmark"] [data-slot="wordmark-flat"] > svg {
+  visibility: hidden;
+}
+.opencodex-welcome-brand {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 2vw, 24px);
+  color: var(--v2-text-text-base);
+  font-size: clamp(28px, 5vw, 60px);
+  font-weight: 620;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  animation: opencodex-welcome 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.opencodex-welcome-mark {
+  width: 1.12em;
+  height: 1.12em;
+  flex: none;
+  animation: opencodex-mark 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes opencodex-welcome {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 0.82;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@keyframes opencodex-mark {
+  from {
+    transform: rotate(-24deg) scale(0.82);
+  }
+  to {
+    transform: rotate(0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .opencodex-welcome-brand,
+  .opencodex-welcome-mark {
+    animation: none;
+  }
+}
+:root[data-motion="reduce"] .opencodex-welcome-brand,
+:root[data-motion="reduce"] .opencodex-welcome-mark {
+  animation: none;
+}

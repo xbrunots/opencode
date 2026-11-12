@@ -983,7 +983,9 @@ test.describe("conversation actions", () => {
     expect(created[0]!.location).toEqual({ directory })
     const id = created[0]!.id
     expect(typeof id).toBe("string")
-    await expect(page.getByRole("button", { name: "Grid", exact: true })).toHaveAttribute("aria-pressed", "true")
+    await page.getByRole("button", { name: "Conversation layout", exact: true }).click()
+    await expect(page.getByRole("menuitemradio", { name: "Grid", exact: true })).toHaveAttribute("aria-checked", "true")
+    await page.keyboard.press("Escape")
     await expect(page.getByRole("region", { name: target.title, exact: true })).toBeVisible()
     const side = page.getByRole("region", { name: "Side conversation", exact: true })
     await expect(side.locator('[data-component="composer-editor"]')).toBeEditable()

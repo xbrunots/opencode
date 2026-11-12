@@ -522,3 +522,79 @@
 [data-slot="workspace-conversation-tabs"] {
   max-width: 100%;
 }
+
+[data-component="morph-loader"] {
+  color: var(--v2-icon-icon-muted);
+  animation: morph-loader-rotate 5s ease-in-out infinite;
+}
+[data-component="morph-loader"] path {
+  animation: morph-loader-path 5s ease-in-out infinite;
+}
+@keyframes morph-loader-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes morph-loader-path {
+  0%,
+  10% {
+    d: path(
+      "M50.00 4.00 L61.91 5.57 L73.00 10.16 L82.53 17.47 L89.84 27.00 L94.43 38.09 L96.00 50.00 L94.43 61.91 L89.84 73.00 L82.53 82.53 L73.00 89.84 L61.91 94.43 L50.00 96.00 L38.09 94.43 L27.00 89.84 L17.47 82.53 L10.16 73.00 L5.57 61.91 L4.00 50.00 L5.57 38.09 L10.16 27.00 L17.47 17.47 L27.00 10.16 L38.09 5.57 Z"
+    );
+  }
+  20%,
+  30% {
+    d: path(
+      "M50.00 17.47 L58.72 17.47 L68.78 17.47 L82.53 17.47 L82.53 31.22 L82.53 41.28 L82.53 50.00 L82.53 58.72 L82.53 68.78 L82.53 82.53 L68.78 82.53 L58.72 82.53 L50.00 82.53 L41.28 82.53 L31.22 82.53 L17.47 82.53 L17.47 68.78 L17.47 58.72 L17.47 50.00 L17.47 41.28 L17.47 31.22 L17.47 17.47 L31.22 17.47 L41.28 17.47 Z"
+    );
+  }
+  40%,
+  50% {
+    d: path(
+      "M50.00 23.44 L56.16 27.00 L61.50 30.08 L66.84 33.16 L73.00 36.72 L81.42 41.58 L96.00 50.00 L81.42 58.42 L73.00 63.28 L66.84 66.84 L61.50 69.92 L56.16 73.00 L50.00 76.56 L41.58 81.42 L27.00 89.84 L27.00 73.00 L27.00 63.28 L27.00 56.16 L27.00 50.00 L27.00 43.84 L27.00 36.72 L27.00 27.00 L27.00 10.16 L41.58 18.58 Z"
+    );
+  }
+  60%,
+  70% {
+    d: path(
+      "M50.00 10.16 L60.67 10.16 L73.00 10.16 L79.16 20.84 L84.50 30.08 L89.84 39.33 L96.00 50.00 L89.84 60.67 L84.50 69.92 L79.16 79.16 L73.00 89.84 L60.67 89.84 L50.00 89.84 L39.33 89.84 L27.00 89.84 L20.84 79.16 L15.50 69.92 L10.16 60.67 L4.00 50.00 L10.16 39.33 L15.50 30.08 L20.84 20.84 L27.00 10.16 L39.33 10.16 Z"
+    );
+  }
+  80%,
+  90% {
+    d: path(
+      "M50.00 4.00 L59.72 13.72 L66.84 20.84 L73.00 27.00 L79.16 33.16 L86.28 40.28 L96.00 50.00 L86.28 59.72 L79.16 66.84 L73.00 73.00 L66.84 79.16 L59.72 86.28 L50.00 96.00 L40.28 86.28 L33.16 79.16 L27.00 73.00 L20.84 66.84 L13.72 59.72 L4.00 50.00 L13.72 40.28 L20.84 33.16 L27.00 27.00 L33.16 20.84 L40.28 13.72 Z"
+    );
+  }
+  100% {
+    d: path(
+      "M50.00 4.00 L61.91 5.57 L73.00 10.16 L82.53 17.47 L89.84 27.00 L94.43 38.09 L96.00 50.00 L94.43 61.91 L89.84 73.00 L82.53 82.53 L73.00 89.84 L61.91 94.43 L50.00 96.00 L38.09 94.43 L27.00 89.84 L17.47 82.53 L10.16 73.00 L5.57 61.91 L4.00 50.00 L5.57 38.09 L10.16 27.00 L17.47 17.47 L27.00 10.16 L38.09 5.57 Z"
+    );
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-component="morph-loader"],
+  [data-component="morph-loader"] path {
+    animation: none;
+  }
+}
+:root[data-motion="reduce"] [data-component="morph-loader"],
+:root[data-motion="reduce"] [data-component="morph-loader"] path {
+  animation: none;
+}
+
+[data-slot="session-branch-tag"] {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 4px;
+  padding: 1px 4px;
+  background: var(--v2-background-bg-layer-02);
+  color: var(--v2-text-text-muted);
+  font-size: 10px;
+  line-height: 15px;
+  font-weight: 400;
+}

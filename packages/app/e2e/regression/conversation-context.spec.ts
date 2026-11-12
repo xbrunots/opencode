@@ -122,23 +122,33 @@ test("conversation context shows recorded resources, opens review and subagents,
       ),
     )
     .toBe(true)
-  await card.getByRole("button", { name: /Changes/ }).click()
-  await expect(page.locator("#review-panel")).toHaveAttribute("aria-hidden", "false")
-  await card.getByRole("button", { name: /report.md/ }).click()
-  await expect.poll(() => openedFiles.some((path) => path.endsWith("report.md"))).toBe(true)
-  await expect(page.locator("#review-panel")).toContainText("Report from the tool")
   await card.getByRole("button", { name: /review-ui ×1/ }).click()
   await expect(page.getByRole("dialog")).toContainText("Check contrast and keyboard navigation.")
   await page.keyboard.press("Escape")
   await expect(page.getByRole("dialog")).toHaveCount(0)
+  await card.getByRole("button", { name: /report.md/ }).click()
+  await expect.poll(() => openedFiles.some((path) => path.endsWith("report.md"))).toBe(true)
+  await expect(page.locator("#review-panel")).toContainText("Report from the tool")
+  await expect(card).toHaveCount(0)
+  const sideToggle = page.locator('button[aria-controls="review-panel"]')
+  await sideToggle.click()
+  await expect(card).toBeVisible()
+  await card.getByRole("button", { name: /Changes/ }).click()
+  await expect(page.locator("#review-panel")).toHaveAttribute("aria-hidden", "false")
+  await expect(card).toHaveCount(0)
+  await sideToggle.click()
+  await expect(card).toBeVisible()
   await card.getByRole("button", { name: "Close conversation context", exact: true }).click()
   await expect(card).toHaveCount(0)
   await page.getByRole("button", { name: "Conversation context", exact: true }).click()
   await expect(card).toBeVisible()
-  await page.getByRole("button", { name: "Grid", exact: true }).click()
+  await page.getByRole("button", { name: "Conversation layout", exact: true }).click()
+  await page.getByRole("menuitemradio", { name: "Grid", exact: true }).click()
+  await page.keyboard.press("Escape")
   await expect(card).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Conversation context", exact: true })).toHaveCount(0)
-  await page.getByRole("button", { name: "Focus", exact: true }).click()
+  await page.getByRole("button", { name: "Conversation layout", exact: true }).click()
+  await page.getByRole("menuitemradio", { name: "Focus", exact: true }).click()
   await expect(card).toBeVisible()
   await card.getByRole("button", { name: /Accessibility review Completed/ }).click()
   await expect(page).toHaveURL(new RegExp(`${child}$`))
@@ -154,4 +164,28 @@ test("empty context records no sources, artifacts, integrations or skills", asyn
   }
   await card.locator("summary").filter({ hasText: "Sources" }).click()
   await expect(card.getByText("No web sources or attached files recorded.", { exact: true })).toBeVisible()
+})
+
+test("context refreshes working changes after a filesystem event", async ({ page }) => {
+  let additions = 2
+  const workspace = await openSession(page, {
+    name: "LiveConversationContext",
+    vcs: { current: "feature/live", default: "main" },
+    vcsDiff: () => [{ file: "src/live.ts", patch: "", additions, deletions: 1, status: "modified" }],
+  })
+  const card = page.getByRole("region", { name: "Conversation context", exact: true })
+  const changes = card.getByRole("button", { name: /Changes/ })
+  await expect(changes).toContainText("+2")
+  additions = 9
+  await workspace.push([
+    {
+      id: "evt_live_context",
+      created: 1,
+      type: "filesystem.changed",
+      location: { directory: workspace.directory },
+      data: { file: "src/live.ts", event: "change" },
+    },
+  ])
+  await expect(changes).toContainText("+9")
+  await expect(card).toContainText("feature/live")
 })

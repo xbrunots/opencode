@@ -35,7 +35,7 @@ import {
 
 export type CommandPaletteEntry = {
   id: string
-  type: "command" | "file" | "session" | "setting"
+  type: "command" | "file" | "session" | "setting" | "project"
   title: string
   description?: string
   keywords?: string
