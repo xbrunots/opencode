@@ -1,0 +1,20 @@
+{
+  "surface": "OpenCodex workspace prototype",
+  "mode": "operate",
+  "typography": { "family": "system-ui, -apple-system, Segoe UI, sans-serif", "conversation": "15px / 1.7", "navigation": "13–14px", "code": "12px" },
+  "color": {
+    "dark": { "background": "#111214", "sidebar": "#191a1c", "surface": "#202123", "text": "#f0f0f0", "muted": "#a2a4a7" },
+    "light": { "background": "#fafafa", "sidebar": "#f1f1f1", "surface": "#ffffff", "text": "#212121", "muted": "#666666" },
+    "accent": "#3297ef",
+    "faint": { "dark": "#909296", "light": "#737373" },
+    "feedback": {
+      "dark": { "addition": "#78cba1", "removal": "#df7773" },
+      "light": { "addition": "#26754b", "removal": "#ad3f39" }
+    }
+  },
+  "layout": { "sidebar": "260px", "sidebarLight": "268px including inset", "review": "390px", "conversationMax": "780px", "topbar": "53px", "tabs": "40px", "narrow": "overlay side panels; islands become grid", "breakpoints": [800, 520] },
+  "radius": { "composer": "15px", "dialog": "13px", "control": "7px" },
+  "motion": { "controls": "160ms color feedback", "review": "200ms entrance", "working": "1100ms state indicator", "reducedMotion": "0.01ms" },
+  "interaction": ["per-session drafts and attachments", "preserved focus and scroll", "reorderable tabs", "movable and resizable islands", "anchored model picker"],
+  "review": { "direction": "ship", "listedFixes": "resolved", "evidence": "previews/" }
+}
