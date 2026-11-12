@@ -1,8 +1,7 @@
-import type { OpenCodeClient } from "@opencode/client/promise"
-import { Option, Schema } from "effect"
+import type { KaldiRecognizer, Model } from "vosk-browser"
 import type { Platform } from "@/runtime/platform/platform"
 import workletURL from "./dictation-worklet?worker&url"
-import type { DictationWorkletEvent } from "./dictation-audio"
+import { dictationFloat, type DictationWorkletEvent } from "./dictation-audio"
 import {
   transitionDictationTransport,
   type DictationFailure,
@@ -10,26 +9,20 @@ import {
   type DictationTransportState,
 } from "./dictation-transport-machine"
 
-export type DictationBackend = {
-  voice: () => OpenCodeClient["experimental"]["voice"]
-  platform: Pick<Platform, "platform" | "requestMicrophone">
+export type DictationEnvironment = {
+  platform: Pick<Platform, "requestMicrophone">
 }
 
-const decode = Schema.decodeUnknownOption(
-  Schema.fromJsonString(
-    Schema.Struct({
-      type: Schema.String,
-      item_id: Schema.optional(Schema.String),
-      transcript: Schema.optional(Schema.String),
-    }),
-  ),
-)
+const modelURL = new URL("/speech/vosk-model-small-pt-0.3.tar.gz", window.location.href).href
 
-/** A dedicated transcription session; it never creates assistant responses or delegates tools. */
+/** Portuguese speech recognition runs entirely in a local WASM worker. */
 export class DictationTransport {
   private state: DictationTransportState = { status: "starting" }
   private abort = new AbortController()
-  private socket?: WebSocket
+  private model?: Model
+  private recognizer?: KaldiRecognizer
+  private pendingFrames = 0
+  private segments: string[] = []
   private stream?: MediaStream
   private context?: AudioContext
   private source?: MediaStreamAudioSourceNode
@@ -38,8 +31,7 @@ export class DictationTransport {
   private timer?: ReturnType<typeof setTimeout>
 
   constructor(
-    private input: DictationBackend & {
-      language: string
+    private input: DictationEnvironment & {
       started: () => void
       stopped: () => void
       complete: (text: string) => void
@@ -48,7 +40,7 @@ export class DictationTransport {
   ) {}
 
   start() {
-    this.timer = setTimeout(() => this.dispatch({ type: "failed", reason: "failed" }), 30_000)
+    this.timer = setTimeout(() => this.dispatch({ type: "failed", reason: "model" }), 60_000)
     void this.prepare().catch((error: unknown) => {
       if (this.state.status === "closed") return
       this.dispatch({ type: "failed", reason: error instanceof DictationError ? error.reason : "failed" })
@@ -82,29 +74,54 @@ export class DictationTransport {
         this.timer = setTimeout(() => this.dispatch({ type: "failed", reason: "failed" }), 2_000)
         return
       }
-      clearTimeout(this.timer)
-      this.releaseCapture()
-      this.socket?.send(JSON.stringify({ type: "input_audio_buffer.commit" }))
-      this.timer = setTimeout(() => this.dispatch({ type: "failed", reason: "failed" }), 20_000)
+      if (effect.type === "drain") {
+        clearTimeout(this.timer)
+        this.releaseCapture()
+        this.timer = setTimeout(() => this.dispatch({ type: "failed", reason: "failed" }), 60_000)
+        if (!this.pendingFrames) this.dispatch({ type: "drained" })
+        return
+      }
+      this.recognizer?.retrieveFinalResult()
     })
   }
 
   private async prepare() {
     if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) throw new DictationError("unsupported")
-    const context = new AudioContext({ sampleRate: 24_000 })
+    const context = new AudioContext({ sampleRate: 16_000 })
     this.context = context
     await context.resume()
-    const voice = this.input.voice()
-    const models = await voice.models({ signal: this.abort.signal })
-    if (
-      !models.models.some(
-        (model) => model.model === "gpt-live-transcribe" && model.available && model.transports.includes("websocket"),
-      )
-    )
-      throw new DictationError("unavailable")
     if (this.input.platform.requestMicrophone && !(await this.input.platform.requestMicrophone()))
       throw new DictationError("microphone")
     this.abort.signal.throwIfAborted()
+    const { Model } = await import("vosk-browser")
+    this.abort.signal.throwIfAborted()
+    const model = new Model(modelURL, -2)
+    this.model = model
+    await new Promise<void>((resolve, reject) => {
+      model.on("load", (message) => {
+        if (message.event === "load" && message.result) return resolve()
+        reject(new DictationError("model"))
+      })
+      model.on("error", () => {
+        reject(new DictationError("model"))
+        this.dispatch({ type: "failed", reason: "model" })
+      })
+      this.abort.signal.addEventListener("abort", () => reject(this.abort.signal.reason), { once: true })
+    })
+    this.abort.signal.throwIfAborted()
+    const recognizer = new model.KaldiRecognizer(16_000)
+    this.recognizer = recognizer
+    recognizer.on("result", (message) => {
+      if (message.event !== "result" || this.state.status === "closed") return
+      if (message.result.text.trim()) this.segments.push(message.result.text.trim())
+      if (this.state.status === "finishing") {
+        this.dispatch({ type: "final", text: this.segments.join(" ") })
+        return
+      }
+      this.frameAcknowledged()
+    })
+    recognizer.on("partialresult", () => this.frameAcknowledged())
+    recognizer.on("error", () => this.dispatch({ type: "failed", reason: "model" }))
     const stream = await navigator.mediaDevices
       .getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -117,60 +134,21 @@ export class DictationTransport {
       return
     }
     this.stream = stream
-    if (!context.audioWorklet || context.sampleRate !== 24_000) throw new DictationError("unsupported")
+    if (!context.audioWorklet || context.sampleRate !== 16_000) throw new DictationError("unsupported")
     await context.audioWorklet.addModule(workletURL)
     this.abort.signal.throwIfAborted()
-    const session = {
-      type: "transcription",
-      audio: {
-        input: {
-          format: { type: "audio/pcm", rate: 24_000 },
-          transcription: { model: "gpt-live-transcribe", languages: [this.input.language.split("-")[0]] },
-          turn_detection: null,
-        },
-      },
-    }
-    const response = await voice.session(
-      { model: "gpt-live-transcribe", session, transport: { type: "websocket" } },
-      { signal: this.abort.signal },
-    )
-    this.abort.signal.throwIfAborted()
-    if (response.transport.type !== "websocket") throw new DictationError("failed")
-    const socket = new WebSocket(response.transport.url, [
-      "realtime",
-      `openai-insecure-api-key.${response.transport.token}`,
-    ])
-    this.socket = socket
-    socket.onopen = () => socket.send(JSON.stringify({ type: "session.update", session }))
-    socket.onerror = () => this.dispatch({ type: "failed", reason: "failed" })
-    socket.onclose = () => this.dispatch({ type: "failed", reason: "failed" })
-    socket.onmessage = (message: MessageEvent<string>) => {
-      const event = Option.getOrUndefined(decode(message.data))
-      if (!event) return
-      if (event.type === "error" || event.type === "conversation.item.input_audio_transcription.failed")
-        return this.dispatch({ type: "failed", reason: "failed" })
-      if (event.type === "session.updated" && this.state.status === "starting") {
-        try {
-          this.capture()
-        } catch {
-          this.dispatch({ type: "failed", reason: "failed" })
-        }
-        return
-      }
-      if (event.type === "input_audio_buffer.committed" && event.item_id)
-        return this.dispatch({ type: "committed", itemID: event.item_id })
-      if (
-        event.type === "conversation.item.input_audio_transcription.completed" &&
-        event.item_id &&
-        event.transcript !== undefined
-      )
-        this.dispatch({ type: "transcript", itemID: event.item_id, text: event.transcript })
-    }
+    this.capture()
+  }
+
+  private frameAcknowledged() {
+    if (this.state.status === "closed") return
+    if (this.pendingFrames > 0) this.pendingFrames--
+    if (!this.pendingFrames && this.state.status === "draining") this.dispatch({ type: "drained" })
   }
 
   private capture() {
-    if (!this.context || !this.stream || !this.socket) return
-    const socket = this.socket
+    if (!this.context || !this.stream || !this.recognizer) return
+    const recognizer = this.recognizer
     this.source = this.context.createMediaStreamSource(this.stream)
     this.processor = new AudioWorkletNode(this.context, "opencode-dictation", {
       numberOfInputs: 1,
@@ -186,14 +164,11 @@ export class DictationTransport {
     this.processor.onprocessorerror = () => this.dispatch({ type: "failed", reason: "failed" })
     this.processor.port.onmessage = (message: MessageEvent<DictationWorkletEvent>) => {
       if (message.data.type === "flushed") return this.dispatch({ type: "flushed" })
-      if (
-        (this.state.status !== "listening" && this.state.status !== "flushing") ||
-        socket.readyState !== WebSocket.OPEN
-      )
-        return
-      const bytes = new Uint8Array(message.data.buffer)
-      socket.send(JSON.stringify({ type: "input_audio_buffer.append", audio: btoa(String.fromCharCode(...bytes)) }))
-      this.dispatch({ type: "audio", samples: bytes.length / 2, level: message.data.level })
+      if (this.state.status !== "listening" && this.state.status !== "flushing") return
+      const samples = dictationFloat(message.data.buffer)
+      this.pendingFrames++
+      recognizer.acceptWaveformFloat(samples, 16_000)
+      this.dispatch({ type: "audio", samples: samples.length, level: message.data.level })
     }
     this.stream.getAudioTracks().forEach((track) => {
       track.onended = () => this.dispatch({ type: "failed", reason: "microphone" })
@@ -226,13 +201,11 @@ export class DictationTransport {
     clearTimeout(this.timer)
     this.abort.abort()
     this.releaseCapture()
-    if (!this.socket) return
-    this.socket.onopen = null
-    this.socket.onerror = null
-    this.socket.onclose = null
-    this.socket.onmessage = null
-    this.socket.close()
-    this.socket = undefined
+    this.recognizer?.remove()
+    this.model?.terminate()
+    this.recognizer = undefined
+    this.model = undefined
+    this.segments = []
   }
 }
 

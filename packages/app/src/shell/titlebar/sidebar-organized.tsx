@@ -7,7 +7,7 @@ import { DragDropProvider, PointerSensor } from "@dnd-kit/solid"
 import { isSortable, useSortable } from "@dnd-kit/solid/sortable"
 import { Accessibility, Feedback, PointerActivationConstraints } from "@dnd-kit/dom"
 import { RestrictToVerticalAxis } from "@dnd-kit/abstract/modifiers"
-import { Button } from "@opencode/ui/button"
+
 import { Icon } from "@opencode/ui/icon"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Menu } from "@opencode/ui/menu"
@@ -24,13 +24,16 @@ import { Persist, persisted } from "@/runtime/persistence/storage"
 import { ServerConnection, useServers } from "@/runtime/server/registry"
 import { useGlobal, useServerCtx } from "@/runtime/server/runtime"
 import type { Project } from "@/runtime/server/types"
-import { ProjectIcon } from "@/shell/layout/project-icon"
 import { useLayout } from "@/shell/state/layout"
-import { createProjectSessionActions } from "@/shell/tabs/project-sessions"
+
 import { useTabs, type Tab } from "@/shell/tabs/tabs"
 import { pathKey } from "@/workspaces/path-key"
 import "./tab-nav.css"
-import { ProjectSessionRow } from "./project-session-row"
+import { SidebarProjectTree } from "./sidebar-project-tree"
+import { useDirectoryPicker } from "@/workspaces/selection/picker"
+import { addProjects } from "@/home/projects/add"
+import { errorMessage, homeProjectDirectories } from "@/shell/layout/helpers"
+import { showToast } from "@/shell/notifications/toast"
 import { isSidebarSessionActivity, mergeSidebarSessions } from "./sidebar-sessions"
 
 const SidebarState = Persistence.struct({
@@ -77,6 +80,33 @@ export function SidebarOrganized(props: {
   const language = useLanguage()
 
   const tabs = useTabs()
+  const servers = useServers()
+  const global = useGlobal()
+  const layout = useLayout()
+  const pickDirectory = useDirectoryPicker()
+  const addProject = () => {
+    const server =
+      servers.visible.find(
+        (connection) =>
+          ServerConnection.key(connection) === (props.currentTab?.server ?? layout.home.selection().server),
+      ) ?? servers.visible[0]
+    if (!server) return
+    const context = global.serverCtx(ServerConnection.key(server))
+    if (!context) return
+    pickDirectory({
+      server,
+      title: language.t("command.project.open"),
+      multiple: true,
+      onSelect: (value) => {
+        void addProjects(context, homeProjectDirectories(value)).catch((error) =>
+          showToast({
+            title: language.t("common.requestFailed"),
+            description: errorMessage(error, language.t("common.requestFailed")),
+          }),
+        )
+      },
+    })
+  }
 
   createSidebarActivityListener()
 
@@ -122,20 +152,29 @@ export function SidebarOrganized(props: {
       <ScrollView class="min-h-0 flex-1" thumbContainer={local.thumbTrack} thumbHoverTarget={local.hoverTarget}>
         <div class="flex flex-col gap-3">
           <section class="flex shrink-0 flex-col gap-2">
-            <button
-              type="button"
-              class="flex h-6 w-full shrink-0 items-center gap-1.5 rounded-[6px] px-2 text-start text-[13px] leading-4 font-medium text-v2-text-text-muted hover:text-v2-text-text-base focus-visible:outline-none focus-visible:bg-v2-overlay-simple-overlay-hover"
-              aria-expanded={!state.projectsCollapsed}
-              onClick={() => setState("projectsCollapsed", (value) => !value)}
-            >
-              <span class="min-w-0 truncate">{language.t("sidebar.organize.projects")}</span>
-              <Icon
-                name="fill-triangle-down"
+            <div class="flex min-w-0 items-center gap-1">
+              <button
+                type="button"
+                class="flex h-6 min-w-0 flex-1 items-center gap-1.5 rounded-[6px] px-2 text-start text-[13px] leading-4 font-medium text-v2-text-text-muted hover:text-v2-text-text-base focus-visible:outline-none focus-visible:bg-v2-overlay-simple-overlay-hover"
+                aria-expanded={!state.projectsCollapsed}
+                onClick={() => setState("projectsCollapsed", (value) => !value)}
+              >
+                <span class="min-w-0 truncate">{language.t("home.projects")}</span>
+                <Icon
+                  name="fill-triangle-down"
+                  size="small"
+                  class="shrink-0 text-v2-icon-icon-muted transition-transform"
+                  classList={{ "-rotate-90 rtl:rotate-90": state.projectsCollapsed }}
+                />
+              </button>
+              <IconButton
+                icon={<Icon name="plus" />}
+                variant="ghost-muted"
                 size="small"
-                class="shrink-0 text-v2-icon-icon-muted transition-transform"
-                classList={{ "-rotate-90 rtl:rotate-90": state.projectsCollapsed }}
+                aria-label={language.t("command.project.open")}
+                onClick={addProject}
               />
-            </button>
+            </div>
             <Show when={!state.projectsCollapsed}>
               <div class="flex min-w-0 flex-col gap-1">
                 <ProjectList
@@ -145,7 +184,7 @@ export function SidebarOrganized(props: {
                   onSelect={(session) => setLocal("projectSession", session)}
                   state={state}
                   ready={ready()}
-                  onExpand={(key) => setState("expanded", key, (value) => !value)}
+                  onExpand={(key) => setState("expanded", key, (value) => value === false)}
                   onReorder={(server, ids) => setState("order", server, ids)}
                 />
               </div>
@@ -174,20 +213,11 @@ function ProjectList(props: {
   onExpand: (key: string) => void
   onReorder: (server: string, ids: string[]) => void
 }) {
-  const language = useLanguage()
-
   const servers = useServers()
 
   const layout = useLayout()
 
-  const actions = createProjectSessionActions()
-
   const projectActions = createProjectActions()
-
-  const [local, setLocal] = createStore<{ showAll: boolean; sessionLimits: Record<string, number> }>({
-    showAll: false,
-    sessionLimits: {},
-  })
 
   const connection = createMemo(
     () =>
@@ -215,7 +245,7 @@ function ProjectList(props: {
     ]
   })
 
-  const visible = () => (local.showAll ? projects() : projects().slice(0, 7))
+  const visible = () => projects()
 
   // Freeze the initial order, then append newly used projects instead of following last activity.
   createEffect(() => {
@@ -290,76 +320,30 @@ function ProjectList(props: {
 
                 const projectSessions = () => grouped().get(pathKey(project().worktree)) ?? []
 
-                const limit = () => local.sessionLimits[key()] ?? 5
-
                 return (
                   <ProjectRow
                     project={project()}
                     server={conn()}
                     actions={projectActions}
                     index={index()}
-                    expanded={!!props.state.expanded[key()]}
+                    expanded={props.state.expanded[key()] !== false}
                     onToggle={() => {
-                      if (props.state.expanded[key()]) setLocal("sessionLimits", key(), 5)
+                      layout.home.setSelection({ server: ServerConnection.key(conn()), directory: project().worktree })
                       props.onExpand(key())
                     }}
                   >
-                    <Key
-                      each={projectSessions().slice(0, limit())}
-                      by={(record) => record.session.id}
-                      fallback={
-                        <div class="ps-8 pe-2 py-2 text-12-regular text-v2-text-text-faint">
-                          {language.t("sidebar.organize.empty")}
-                        </div>
-                      }
-                    >
-                      {(record) => (
-                        <ProjectSessionRow
-                          server={ServerConnection.key(conn())}
-                          session={record().session}
-                          openTab={props.isOpenTab(ServerConnection.key(conn()), record().session.id)}
-                          active={
-                            props.highlightActive &&
-                            props.currentTab?.type === "session" &&
-                            props.currentTab.server === ServerConnection.key(conn()) &&
-                            props.currentTab.sessionId === record().session.id
-                          }
-                          onOpen={() => {
-                            props.onSelect({
-                              server: ServerConnection.key(conn()),
-                              sessionId: record().session.id,
-                            })
-                            actions.openProjectSession(conn(), project().worktree, record().session, { preview: true })
-                          }}
-                        />
-                      )}
-                    </Key>
-                    <Show when={projectSessions().length > limit()}>
-                      <Button
-                        variant="ghost-muted"
-                        size="small"
-                        class="ms-[23px] self-start"
-                        onClick={() => setLocal("sessionLimits", key(), (value) => (value ?? 5) + 5)}
-                      >
-                        {language.t("sidebar.organize.showMore")}
-                      </Button>
-                    </Show>
+                    <SidebarProjectTree
+                      server={conn()}
+                      directory={project().worktree}
+                      directories={project().worktrees.map((worktree) => worktree.directory)}
+                      sessions={projectSessions().map((record) => record.session)}
+                    />
                   </ProjectRow>
                 )
               }}
             </Key>
           </DragDropProvider>
         )}
-      </Show>
-      <Show when={projects().length > 7}>
-        <Button
-          variant="ghost-muted"
-          size="small"
-          class="ms-[23px] self-start"
-          onClick={() => setLocal("showAll", (value) => !value)}
-        >
-          {language.t(local.showAll ? "sidebar.organize.showLess" : "sidebar.organize.showMore")}
-        </Button>
       </Show>
     </>
   )
@@ -408,7 +392,7 @@ function ProjectRow(props: {
           onClick={props.onToggle}
         >
           <span class="flex size-4 shrink-0 items-center justify-center">
-            <ProjectIcon project={props.project} />
+            <Icon name="folder" />
           </span>
           <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap" dir="auto">
             {displayName(props.project)}

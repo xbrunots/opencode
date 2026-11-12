@@ -348,7 +348,12 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
     })
 
     const navigateTab = (tab: Tab) => {
-      if (preview.current()) {
+      const current = preview.current()
+      if (current && tabKey(current) === tabKey(tab)) {
+        navigate(tabHref(tab))
+        return
+      }
+      if (current) {
         void startTransition(() => {
           preview.clear()
           setRecentKey(tabKey(tab))

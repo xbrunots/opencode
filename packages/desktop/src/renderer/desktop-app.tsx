@@ -51,7 +51,7 @@ const MigrationStatus = lazy(() => import("./migration-status").then((module) =>
 
 export function DesktopApp(props: { api: ElectronAPI; version: string }) {
   const windowState = { id: props.api.getWindowID(), version: props.version }
-  const initialUrl = getLastActiveUrl(windowState.id)
+  const initialUrl = props.api.getWindowBootstrap().initialUrl ?? getLastActiveUrl(windowState.id)
   const url = new URL(initialUrl, "http://localhost")
   const platform = createDesktopPlatform(props.api, windowState)
 

@@ -888,3 +888,144 @@ test.describe("revert", () => {
     await expect(menu.getByRole("menuitem", { name: /^(Revert to here|Undo)$/ })).toHaveCount(0)
   })
 })
+
+test.describe("conversation actions", () => {
+  const target = { id: "ses_conversation_actions", title: "Conversation actions sample" }
+  const directory = "C:/OpenCode/ConversationActions"
+  const setup = (page: Page, overrides: Partial<Parameters<typeof openSession>[1]> = {}) =>
+    openSession(page, {
+      name: "ConversationActions",
+      directory,
+      sessions: [target],
+      seed: { settings: { appearance: { tabLayout: "horizontal" } } },
+      pageMessages: (id) => ({
+        items: [
+          { id: `msg_${id}`, type: "user", text: "Starting message for conversation actions", time: { created: 1 } },
+        ],
+      }),
+      ...overrides,
+    })
+  const menu = (page: Page) => page.getByRole("menu", { name: "Conversation actions", exact: true })
+  const open = async (page: Page) => {
+    await page.locator('[data-slot="conversation-actions-trigger"]').click()
+    await expect(menu(page).getByRole("menuitem", { name: /^Rename(?:\s|$)/ })).toBeVisible()
+  }
+
+  test("conversation actions rename, pin metadata and archive the targeted session", async ({ page }) => {
+    const updates: unknown[] = []
+    page.on("request", (request) => {
+      if (request.method() === "PATCH" && new URL(request.url()).pathname === `/api/session/${target.id}`)
+        updates.push(request.postDataJSON())
+    })
+    await setup(page)
+    await open(page)
+    await menu(page)
+      .getByRole("menuitem", { name: /^Rename(?:\s|$)/ })
+      .click()
+    const name = page.locator('input[data-slot="session-title-child"]')
+    await expect(name).toHaveValue(target.title)
+    await name.fill("A renamed conversation")
+    await name.press("Enter")
+    await expect.poll(() => updates).toContainEqual({ title: "A renamed conversation" })
+    await open(page)
+    await menu(page)
+      .getByRole("menuitem", { name: /^Pin conversation/ })
+      .click()
+    await expect.poll(() => updates).toContainEqual({ metadata: { opencodexPinned: true } })
+    await open(page)
+    await expect(menu(page).getByRole("menuitem", { name: /^Unpin conversation/ })).toBeVisible()
+    await menu(page)
+      .getByRole("menuitem", { name: /^Archive conversation/ })
+      .click()
+    await expect.poll(() => updates).toContainEqual({ archived: true })
+    await expect(page.locator(`[data-slot="titlebar-tab-item"]:has(a[href="${sessionHref(target.id)}"])`)).toHaveCount(
+      0,
+    )
+  })
+
+  test("conversation actions copy exact identity, path and full Markdown and share an exported file", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"])
+    await setup(page)
+    for (const [label, expected] of [
+      ["Session ID", target.id],
+      ["Workspace path", directory],
+      ["Conversation as Markdown", `# ${target.title}\n\n## User\n\nStarting message for conversation actions`],
+    ]) {
+      await open(page)
+      await menu(page).getByRole("menuitem", { name: "Copy", exact: true }).hover()
+      await page.getByRole("menuitem", { name: label, exact: true }).click()
+      await expect
+        .poll(() => page.evaluate(async () => (await navigator.clipboard.readText()).replace(/\r\n/g, "\n")))
+        .toBe(expected)
+    }
+    await open(page)
+    const download = page.waitForEvent("download")
+    await menu(page).getByRole("menuitem", { name: "Share conversation file", exact: true }).click()
+    expect((await download).suggestedFilename()).toBe("conversation-actions-sample.json")
+  })
+
+  test("conversation actions create a real side session in the same workspace and open grid", async ({ page }) => {
+    const created: Record<string, unknown>[] = []
+    await setup(page, {
+      createdSessionTitle: "Side conversation",
+      onSessionCreate: (body) => {
+        created.push(body)
+      },
+    })
+    await open(page)
+    await menu(page)
+      .getByRole("menuitem", { name: /^New side chat/ })
+      .click()
+    await expect.poll(() => created.length).toBe(1)
+    expect(created[0]!.location).toEqual({ directory })
+    const id = created[0]!.id
+    expect(typeof id).toBe("string")
+    await expect(page.getByRole("button", { name: "Grid", exact: true })).toHaveAttribute("aria-pressed", "true")
+    await expect(page.getByRole("region", { name: target.title, exact: true })).toBeVisible()
+    const side = page.getByRole("region", { name: "Side conversation", exact: true })
+    await expect(side.locator('[data-component="composer-editor"]')).toBeEditable()
+    await expect(page).toHaveURL(new RegExp(sessionHref(String(id)).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$"))
+  })
+
+  test("conversation actions fork from the chosen message through the session command", async ({ page }) => {
+    const forks: { sessionID: string; body: unknown }[] = []
+    await setup(page, {
+      onFork: (input) => {
+        forks.push(input)
+      },
+    })
+    await open(page)
+    await menu(page).getByRole("menuitem", { name: /Fork/ }).click()
+    await page
+      .getByRole("dialog")
+      .getByRole("option", { name: /Starting message for conversation actions/ })
+      .click()
+    await expect.poll(() => forks).toEqual([{ sessionID: target.id, body: { before: `msg_${target.id}` } }])
+    await expect(page.locator('[data-component="composer-editor"]')).toBeEditable()
+  })
+
+  test("conversation actions use the desktop window and installed editor platform contracts", async ({ page }) => {
+    const mock = await mockWorkspace(page, {
+      name: "ConversationDesktop",
+      sessions: [target],
+      seed: { settings: { appearance: { tabLayout: "horizontal" } } },
+    })
+    await page.goto(
+      `/e2e/utils/windows-menu.html?${new URLSearchParams({ server: mock.server, path: sessionHref(target.id, "sidecar"), openApps: "1" })}`,
+    )
+    await expect(page.locator('[data-component="composer-editor"]')).toBeEditable()
+    await open(page)
+    await menu(page).getByRole("menuitem", { name: "Open in new window", exact: true }).click()
+    await expect(page.getByLabel("Opened session windows")).toHaveText(
+      JSON.stringify([sessionHref(target.id, "sidecar")]),
+    )
+    await open(page)
+    await menu(page).getByRole("menuitem", { name: "Open in", exact: true }).hover()
+    await expect(page.getByRole("menuitem", { name: "Cursor", exact: true })).toHaveCount(0)
+    await page.getByRole("menuitem", { name: "Visual Studio Code", exact: true }).click()
+    await expect(page.getByLabel("Opened paths")).toHaveText(JSON.stringify([{ path: mock.directory, app: "code" }]))
+  })
+})

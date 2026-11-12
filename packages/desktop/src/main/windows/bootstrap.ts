@@ -17,6 +17,6 @@ export function windowBootstrap(id: string): WindowBootstrap {
   }
 }
 
-export function windowArguments(id: string) {
-  return [windowBootstrapArgument(windowBootstrap(id))]
+export function windowArguments(id: string, initialUrl?: string) {
+  return [windowBootstrapArgument({ ...windowBootstrap(id), initialUrl })]
 }

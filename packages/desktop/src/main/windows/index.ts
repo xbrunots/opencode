@@ -128,7 +128,7 @@ export const mainWindows = Effect.fn("Window.make")(function* (input: {
       openExternal: (url) => runFork(openExternalURL(url)),
     }).map((step) => create(step.id, step.kind === "adopt" ? step.entry : undefined))
 
-  const create = (id: string = randomUUID(), early?: EarlyWindow) => {
+  const create = (id: string = randomUUID(), early?: EarlyWindow, initialUrl?: string) => {
     const stateFile = path.join(app.getPath("userData"), windowStateFile(id))
     const state = early?.state ?? resolveWindowState(readWindowState(stateFile), { width: 1280, height: 800 }, displays)
     const appearance = windowAppearance(path, paths)
@@ -145,7 +145,7 @@ export const mainWindows = Effect.fn("Window.make")(function* (input: {
         ...appearance,
         webPreferences: {
           ...appearance.webPreferences,
-          additionalArguments: windowArguments(id),
+          additionalArguments: windowArguments(id, initialUrl),
         },
       })
 

@@ -11,7 +11,8 @@ import { IconButton } from "@opencode/ui/icon-button"
 import { Icon } from "@opencode/ui/icon"
 import "@/shell/workspace-views.css"
 import { Route, useParams } from "@solidjs/router"
-import { createMemo, createSignal, For, lazy, onCleanup, Show, Suspense, type ParentProps } from "solid-js"
+import { createMemo, createSignal, For, lazy, onCleanup, onMount, Show, Suspense, type ParentProps } from "solid-js"
+import { createStore } from "solid-js/store"
 import { Home } from "@/home/route"
 import { ServerProvider } from "@/runtime/server/current"
 import { useGlobal } from "@/runtime/server/runtime"
@@ -77,6 +78,7 @@ function WorkspaceSessions() {
   const language = useLanguage()
   const views = useWorkspaceViews()
   const tabs = useTabs()
+  const [geometry, setGeometry] = createStore({ height: 600 })
   const single = () => (
     <SessionRouteFrame>
       <Suspense fallback={<SessionPanelFrame raised />}>
@@ -89,17 +91,29 @@ function WorkspaceSessions() {
   return (
     <Show when={views.mode() !== "focus" && views.sessions().length > 0} fallback={single()}>
       <div
+        ref={(element) =>
+          onMount(() => {
+            const style = getComputedStyle(element)
+            setGeometry(
+              "height",
+              Math.max(360, element.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)),
+            )
+          })
+        }
         class="workspace-session-grid"
         data-mode={views.mode()}
         style={{ "--workspace-pane-minimum": `${views.minimum()}px` }}
       >
         <For each={views.sessions()}>
           {(tab) => {
+            const [size, setSize] = createStore({ width: views.minimum() })
             const [resize, setResize] = createSignal<WorkspaceResizeState>({ type: "idle" })
             const dispatch = (event: WorkspaceResizeEvent) => {
               const next = transitionWorkspaceResize(resize(), event)
               setResize(next.state)
-              if (next.width !== undefined) views.setMinimum(next.width)
+              if (event.type !== "finished") return
+              if (next.width !== undefined) setSize("width", next.width)
+              if (next.height !== undefined) setGeometry("height", next.height)
             }
             onCleanup(() => dispatch({ type: "disposed" }))
             let element: HTMLElement | undefined
@@ -120,6 +134,10 @@ function WorkspaceSessions() {
                 ref={element}
                 class="workspace-session-pane"
                 data-focused={focused() || undefined}
+                style={{
+                  "--workspace-pane-width": `${size.width}px`,
+                  "--workspace-pane-height": `${geometry.height}px`,
+                }}
                 aria-label={tabs.info[key]?.title || tab.sessionId}
                 onPointerDown={() => views.focus(key)}
                 onFocusIn={() => views.focus(key)}
@@ -155,39 +173,64 @@ function WorkspaceSessions() {
                     </Suspense>
                   </SessionTargetProvider>
                 </div>
-                <Show when={views.mode() === "islands"}>
-                  <div
-                    class="workspace-session-column-resizer"
-                    role="separator"
-                    aria-label={language.t("workspace.pane.resize")}
-                    aria-orientation="vertical"
-                    tabIndex={0}
-                    onPointerDown={(event) => {
-                      dispatch({
-                        type: "started",
-                        pointerID: event.pointerId,
-                        x: event.clientX,
-                        minimum: views.minimum(),
-                      })
-                      event.currentTarget.setPointerCapture(event.pointerId)
-                    }}
-                    onPointerMove={(event) => {
-                      dispatch({ type: "moved", pointerID: event.pointerId, x: event.clientX })
-                    }}
-                    onPointerUp={(event) => {
-                      dispatch({ type: "finished", pointerID: event.pointerId })
-                      if (event.currentTarget.hasPointerCapture(event.pointerId))
-                        event.currentTarget.releasePointerCapture(event.pointerId)
-                    }}
-                    onPointerCancel={(event) => dispatch({ type: "finished", pointerID: event.pointerId })}
-                    onLostPointerCapture={(event) => dispatch({ type: "finished", pointerID: event.pointerId })}
-                    onKeyDown={(event) => {
-                      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return
-                      event.preventDefault()
-                      views.setMinimum(views.minimum() + (event.key === "ArrowRight" ? 16 : -16))
-                    }}
-                  />
-                </Show>
+                <For each={["width", "height"] as const}>
+                  {(axis) => (
+                    <div
+                      class={`workspace-session-resizer workspace-session-${axis}-resizer`}
+                      role="separator"
+                      aria-label={language.t("workspace.pane.resize")}
+                      aria-orientation={axis === "width" ? "vertical" : "horizontal"}
+                      tabIndex={0}
+                      data-dragging={(() => {
+                        const gesture = resize()
+                        return (gesture.type === "dragging" && gesture.axis === axis) || undefined
+                      })()}
+                      style={{
+                        transform: (() => {
+                          const gesture = resize()
+                          if (gesture.type !== "dragging" || gesture.axis !== axis) return undefined
+                          return `${axis === "width" ? "translateX" : "translateY"}(${gesture.current - gesture.origin}px)`
+                        })(),
+                      }}
+                      onPointerDown={(event) => {
+                        dispatch({
+                          type: "started",
+                          pointerID: event.pointerId,
+                          x: axis === "width" ? event.clientX : event.clientY,
+                          minimum:
+                            axis === "width"
+                              ? element!.getBoundingClientRect().width
+                              : element!.getBoundingClientRect().height,
+                          axis,
+                        })
+                        event.currentTarget.setPointerCapture(event.pointerId)
+                      }}
+                      onPointerMove={(event) => {
+                        dispatch({
+                          type: "moved",
+                          pointerID: event.pointerId,
+                          x: axis === "width" ? event.clientX : event.clientY,
+                        })
+                      }}
+                      onPointerUp={(event) => {
+                        dispatch({ type: "finished", pointerID: event.pointerId })
+                        if (event.currentTarget.hasPointerCapture(event.pointerId))
+                          event.currentTarget.releasePointerCapture(event.pointerId)
+                      }}
+                      onPointerCancel={(event) => dispatch({ type: "cancelled", pointerID: event.pointerId })}
+                      onLostPointerCapture={(event) => dispatch({ type: "cancelled", pointerID: event.pointerId })}
+                      onKeyDown={(event) => {
+                        const keys = axis === "width" ? ["ArrowLeft", "ArrowRight"] : ["ArrowUp", "ArrowDown"]
+                        if (!keys.includes(event.key)) return
+                        event.preventDefault()
+                        const delta = event.key === keys[1] ? 16 : -16
+                        if (axis === "width") setSize("width", Math.max(300, Math.min(1600, size.width + delta)))
+                        if (axis === "height")
+                          setGeometry("height", Math.max(360, Math.min(1600, geometry.height + delta)))
+                      }}
+                    />
+                  )}
+                </For>
               </section>
             )
           }}

@@ -515,3 +515,10 @@
     transition: none;
   }
 }
+[data-slot="titlebar-tab-item"][data-preview] [data-slot="tab-title"] {
+  font-style: italic;
+}
+
+[data-slot="workspace-conversation-tabs"] {
+  max-width: 100%;
+}

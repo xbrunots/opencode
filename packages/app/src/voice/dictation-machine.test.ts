@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { transitionDictation } from "./dictation-machine"
 import { transitionDictationTransport } from "./dictation-transport-machine"
-import { dictationPCM } from "./dictation-audio"
+import { dictationPCM, dictationFloat } from "./dictation-audio"
 
 describe("composer dictation", () => {
   test("sends final results once after recognition ends, excluding interim text", () => {
@@ -49,68 +49,62 @@ describe("composer dictation", () => {
   })
 })
 
-describe("native dictation transport", () => {
-  test("silence after speech flushes audio before committing and only the matching final item is sent", () => {
+describe("offline dictation transport", () => {
+  test("speech end flushes the final audio, drains recognition work, and only then sends the final transcript", () => {
     const ready = transitionDictationTransport({ status: "starting" }, { type: "ready" })
-    const speech = transitionDictationTransport(ready.state, { type: "audio", samples: 7200, level: 0.1 })
-    const silent = transitionDictationTransport(speech.state, { type: "audio", samples: 21_600, level: 0 })
+    const speech = transitionDictationTransport(ready.state, { type: "audio", samples: 1600, level: 0.1 })
+    const silent = transitionDictationTransport(speech.state, { type: "audio", samples: 14_400, level: 0 })
     expect(silent.effects).toEqual([{ type: "flush" }])
+    expect(transitionDictationTransport(silent.state, { type: "final", text: "Too early" }).effects).toEqual([])
     const flushed = transitionDictationTransport(silent.state, { type: "flushed" })
-    expect(flushed.effects).toEqual([{ type: "commit" }])
-    const committed = transitionDictationTransport(flushed.state, { type: "committed", itemID: "recording-1" })
-    const unrelated = transitionDictationTransport(committed.state, {
-      type: "transcript",
-      itemID: "another",
-      text: "Ignore",
-    })
-    expect(unrelated.effects).toEqual([])
-    const final = transitionDictationTransport(unrelated.state, {
-      type: "transcript",
-      itemID: "recording-1",
-      text: " Corrija as abas. ",
-    })
-    expect(final.effects).toEqual([{ type: "release" }, { type: "complete", text: "Corrija as abas." }])
-    expect(
-      transitionDictationTransport(final.state, { type: "transcript", itemID: "recording-1", text: "Duplicate" })
-        .effects,
-    ).toEqual([])
+    expect(flushed.effects).toEqual([{ type: "drain" }])
+    const drained = transitionDictationTransport(flushed.state, { type: "drained" })
+    expect(drained.effects).toEqual([{ type: "finalize" }])
+    const final = transitionDictationTransport(drained.state, { type: "final", text: " bom dia tudo bem " })
+    expect(final.effects).toEqual([{ type: "release" }, { type: "complete", text: "bom dia tudo bem" }])
+    expect(transitionDictationTransport(final.state, { type: "final", text: "Duplicate" }).effects).toEqual([])
   })
 
-  test("manual stop accepts a final event before the commit acknowledgment without sending early", () => {
-    const stopped = transitionDictationTransport(
-      { status: "listening", samples: 4800, speech: 4800, silence: 0 },
-      { type: "stop" },
+  test("manual stop uses the same finalization boundary without a recording duration quota", () => {
+    const long = transitionDictationTransport(
+      { status: "listening", samples: 0, speech: 0, silence: 0 },
+      { type: "audio", samples: 9_600_000, level: 0.1 },
     )
-    const flushed = transitionDictationTransport(stopped.state, { type: "flushed" })
-    const early = transitionDictationTransport(flushed.state, { type: "transcript", itemID: "one", text: "Hello" })
-    expect(early.effects).toEqual([])
-    expect(transitionDictationTransport(early.state, { type: "committed", itemID: "one" }).effects).toEqual([
-      { type: "release" },
-      { type: "complete", text: "Hello" },
-    ])
+    expect(long.state.status).toBe("listening")
+    expect(long.effects).toEqual([])
+    expect(transitionDictationTransport(long.state, { type: "stop" }).effects).toEqual([{ type: "flush" }])
   })
 
-  test("cancel, unavailable microphone and silence release resources without completing a draft", () => {
+  test("cancel, missing local model and silence release resources without sending a draft", () => {
     const cancelled = transitionDictationTransport({ status: "flushing" }, { type: "cancel" })
     expect(cancelled.effects).toEqual([{ type: "release" }])
     expect(transitionDictationTransport(cancelled.state, { type: "flushed" }).effects).toEqual([])
-    const failed = transitionDictationTransport({ status: "starting" }, { type: "failed", reason: "microphone" })
-    expect(failed.effects).toEqual([{ type: "release" }, { type: "failed", reason: "microphone" }])
+    const failed = transitionDictationTransport({ status: "starting" }, { type: "failed", reason: "model" })
+    expect(failed.effects).toEqual([{ type: "release" }, { type: "failed", reason: "model" }])
     expect(
       transitionDictationTransport(
         { status: "listening", samples: 0, speech: 0, silence: 0 },
-        { type: "audio", samples: 240_000, level: 0 },
+        { type: "audio", samples: 160_000, level: 0 },
       ).effects,
     ).toEqual([{ type: "release" }, { type: "failed", reason: "empty" }])
   })
 
-  test("PCM frames are clipped mono little-endian 16-bit samples with the actual RMS level", () => {
+  test("PCM frames preserve mono little-endian samples and actual RMS for local recognition", () => {
     const frame = dictationPCM(new Float32Array([-2, -1, -0.5, 0, 0.5, 1, 2]))
     const view = new DataView(frame.buffer)
     expect(Array.from({ length: 7 }, (_, index) => view.getInt16(index * 2, true))).toEqual([
       -32768, -32768, -16384, 0, 16383, 32767, 32767,
     ])
+    expect(Array.from(dictationFloat(frame.buffer))).toEqual([
+      -1,
+      -1,
+      -0.5,
+      0,
+      16383 / 32768,
+      32767 / 32768,
+      32767 / 32768,
+    ])
     expect(dictationPCM(new Float32Array([-1, 1])).level).toBe(1)
-    expect(dictationPCM(new Float32Array(2400)).level).toBe(0)
+    expect(dictationPCM(new Float32Array(1600)).level).toBe(0)
   })
 })

@@ -19,10 +19,12 @@ export function mount(input: { server: string; path?: string; os?: "macos"; open
     const [store, setStore] = createStore<{
       actions: string[]
       opened: { path: string; app?: string }[]
+      windows: string[]
       trafficLights?: { x: number; y: number }
     }>({
       actions: [],
       opened: [],
+      windows: [],
     })
 
     const unused = async () => {
@@ -53,6 +55,7 @@ export function mount(input: { server: string; path?: string; os?: "macos"; open
       os: input.os ?? "windows",
       windowID: "windows-menu-test",
       openExternal: () => undefined,
+      openSessionWindow: async (route) => void setStore("windows", (windows) => [...windows, route]),
       openDirectoryPickerDialog: async () => null,
       notify: async () => undefined,
       restart: unused,
@@ -78,6 +81,9 @@ export function mount(input: { server: string; path?: string; os?: "macos"; open
           <output aria-label="Desktop menu actions">{store.actions.join(",")}</output>
           <output aria-label="Opened paths" class="sr-only">
             {JSON.stringify(store.opened)}
+          </output>
+          <output aria-label="Opened session windows" class="sr-only">
+            {JSON.stringify(store.windows)}
           </output>
           <output aria-label="Traffic lights" class="sr-only">
             {JSON.stringify(store.trafficLights ?? null)}

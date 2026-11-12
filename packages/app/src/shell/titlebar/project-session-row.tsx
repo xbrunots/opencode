@@ -30,6 +30,7 @@ import {
 import type { Project } from "@/runtime/server/types"
 import { ProjectIcon } from "@/shell/layout/project-icon"
 import { ProviderModelIcon } from "@/providers/models/provider-group"
+import { useTabs } from "@/shell/tabs/tabs"
 import "./tab-nav.css"
 
 export function ProjectSessionRow(props: {
@@ -46,6 +47,7 @@ export function ProjectSessionRow(props: {
   onOpen: () => void
 }) {
   const language = useLanguage()
+  const tabs = useTabs()
 
   const global = useGlobal()
 
@@ -136,6 +138,7 @@ export function ProjectSessionRow(props: {
         title={sessionLabel(props.session)}
         style={props.depth ? { "padding-inline-start": `calc(2rem + ${props.depth * 14}px)` } : undefined}
         onClick={props.onOpen}
+        onDblClick={() => tabs.keepPreview({ type: "session", server: props.server, sessionId: props.session.id })}
       >
         <Show when={props.session.model}>
           {(model) => (

@@ -2,6 +2,7 @@
 // preload's argv so the shell can mount before the IPC port exists. Undefined means "ask over IPC".
 export type WindowBootstrap = {
   id: string
+  initialUrl?: string
   firstLaunchPending?: boolean
   /** The app runs packaged (`app.isPackaged`), as plugins' `App.packaged` reports in both processes. */
   packaged?: boolean

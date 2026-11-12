@@ -5,7 +5,7 @@ import { Effect, FileSystem, Path } from "effect"
 const execFilePromise = util.promisify(execFile)
 
 export const checkAppExists = Effect.fn("DesktopFiles.checkAppExists")(function* (appName: string) {
-  if (process.platform === "win32") return true
+  if (process.platform === "win32") return (yield* resolveWindowsAppPath(appName)) !== null
 
   if (process.platform === "linux") return true
 

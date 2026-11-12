@@ -31,7 +31,7 @@ export interface Interface {
    * handoff fails, the stopped plugins start again before the promise rejects.
    */
   readonly restart: (keep: Scope, handoff?: Handoff) => Promise<void>
-  readonly createWindow: () => BrowserWindow
+  readonly createWindow: (initialUrl?: string) => BrowserWindow
   readonly restoreWindows: () => BrowserWindow[]
 }
 
@@ -89,7 +89,7 @@ const runtime = Layer.effect(
       sessionEnding: () => driver.dispatch({ type: "session.ending" }),
     })
 
-    const createWindow = windows.create
+    const createWindow = (initialUrl?: string) => windows.create(undefined, undefined, initialUrl)
     const restoreWindows = windows.restore
 
     const focusWindow = (win: BrowserWindow | null) => {

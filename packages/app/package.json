@@ -61,9 +61,9 @@
     "@ibm/plex": "6.4.1",
     "@kobalte/core": "catalog:",
     "@opencode/client": "workspace:*",
-    "@opencode/schema": "workspace:*",
     "@opencode/gui-plugins": "workspace:*",
     "@opencode/plugin": "workspace:*",
+    "@opencode/schema": "workspace:*",
     "@opencode/session-ui": "workspace:*",
     "@opencode/ui": "workspace:*",
     "@opencode/util": "workspace:*",
@@ -83,6 +83,7 @@
     "effect": "catalog:",
     "fuzzysort": "catalog:",
     "qr-scanner": "1.4.2",
-    "solid-js": "catalog:"
+    "solid-js": "catalog:",
+    "vosk-browser": "0.0.8"
   }
 }

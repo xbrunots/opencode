@@ -144,7 +144,9 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
   const path = () => `${location.pathname}${location.search}${location.hash}`
 
   const titlebarItems = useTitlebarItems()
-  const hideVerticalTitlebar = createMemo(() => !!props.verticalTabs && !windows())
+  const hideVerticalTitlebar = createMemo(
+    () => !!props.verticalTabs && !windows() && (mobile() || settings.general.sidebarOrganize() !== "projects"),
+  )
   const homeInSidebarHeader = () => !windows() && !macTrafficLights()
 
   command.register(() => [
@@ -207,17 +209,6 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
             const tabs = useTabs()
             const tabsStore = tabs.store
 
-            createEffect(() => {
-              if (
-                settings.appearance.tabLayout() === "vertical" &&
-                (settings.general.sidebarOrganize() === "projects" ||
-                  settings.general.sidebarOrganize() === "customize") &&
-                !mobile()
-              )
-                return
-
-              if (tabs.preview()) tabs.keepPreview()
-            })
             const tabsStoreActions = tabs
 
             const routeSync = createRouteTabSync()
@@ -306,7 +297,22 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
               }
             }
 
-            const openNewTab = () => openDraft(uuid())
+            const openNewTab = () => {
+              const selection = layout.home.selection()
+              if (settings.general.sidebarOrganize() === "projects" && selection.server && selection.directory) {
+                void tabs.newDraft(
+                  {
+                    server: selection.server,
+                    directory: selection.directory,
+                    worktree: selection.directory,
+                    draftID: uuid(),
+                  },
+                  "",
+                )
+                return
+              }
+              openDraft(uuid())
+            }
 
             const toggleHome = () => tabs.toggleHome({ home: layout.route().type === "home", current: currentTab() })
 
@@ -816,7 +822,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                                   <SidebarInbox />
                                 </Match>
                                 <Match when={settings.general.sidebarOrganize() === "projects"}>
-                                  <SidebarOrganized currentTab={currentTab()}>{verticalTabStrip}</SidebarOrganized>
+                                  <SidebarOrganized currentTab={currentTab()}>{() => null}</SidebarOrganized>
                                 </Match>
                                 <Match when={settings.general.sidebarOrganize() === "customize"}>
                                   <SidebarCustomized currentTab={currentTab()} onNewSession={openNewTab}>
@@ -828,7 +834,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                                 </Match>
                               </Switch>
                             </div>
-                            <Show when={!windows()}>
+                            <Show when={!windows() && settings.general.sidebarOrganize() !== "projects"}>
                               <div
                                 data-slot="sidebar-layout-controls"
                                 class="mt-3 flex w-full shrink-0 items-center justify-end border-t border-v2-border-border-muted pt-3"
@@ -846,6 +852,34 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                       </Show>
                     )}
                   </Show>
+                </Show>
+                <Show when={!mobile() && !!props.verticalTabs && settings.general.sidebarOrganize() === "projects"}>
+                  <div data-slot="workspace-conversation-tabs" class="flex min-w-0 items-center gap-1">
+                    <TitlebarTabStrip
+                      tabs={
+                        tabs.preview() && !tabsStore.some((item) => tabKey(item) === tabKey(tabs.preview()!))
+                          ? [...tabsStore, tabs.preview()!]
+                          : tabsStore
+                      }
+                      currentTab={currentTab()}
+                      onNavigate={(tab, element) => {
+                        tabs.select(tab)
+                        element?.scrollIntoView({ behavior: "instant" })
+                      }}
+                      onClose={(tab) => {
+                        if (tab === tabs.preview()) return tabs.closePreview()
+                        const index = tabsStore.findIndex((item) => tabKey(item) === tabKey(tab))
+                        if (index !== -1) tabsStoreActions.closeTab(index)
+                      }}
+                      onCloseTabs={(items, keep) => {
+                        if (items.some((item) => item === tabs.preview())) tabs.closePreview()
+                        if (keep === tabs.preview()) tabs.keepPreview()
+                        tabsStoreActions.closeTabs(items.map(tabKey), keep)
+                      }}
+                      onReorder={(keys) => tabsStoreActions.reorder(keys)}
+                    />
+                    <RecentlyClosedTabsMenu onNewTab={openNewTab} />
+                  </div>
                 </Show>
                 <Show when={!mobile()}>
                   <div class="flex-1" />

@@ -6,6 +6,8 @@ import { Tooltip } from "@opencode/ui/tooltip"
 import { useCommand } from "@/shell/commands/command"
 import { useLanguage } from "@/runtime/i18n/language"
 import { useSessionLayout } from "@/session/session-layout"
+import { ConversationActions } from "./conversation-actions"
+import { ConversationContext } from "./conversation-context"
 
 /** The review toggle's pane fill, scaled from the panel's edge to `open` of its width. */
 export const reviewGlyphFill = (open: number) => `matrix(${open} 0 0 1 ${2.917 * (1 - open)} 0)`
@@ -16,16 +18,20 @@ export function SessionReviewToggle(props: { onToggle: () => void; glyph?: (fill
   const { view } = useSessionLayout()
 
   return (
-    <SessionHeaderActions
-      state={{
-        reviewLabel: language.t("command.review.toggle"),
-        reviewKeybind: command.keybindParts("review.toggle"),
-        reviewVisible: true,
-        reviewOpened: view().side.opened(),
-        onReviewToggle: props.onToggle,
-        reviewGlyph: props.glyph,
-      }}
-    />
+    <div data-slot="conversation-toolbar" class="flex items-center gap-1">
+      <ConversationActions />
+      <ConversationContext />
+      <SessionHeaderActions
+        state={{
+          reviewLabel: language.t("command.review.toggle"),
+          reviewKeybind: command.keybindParts("review.toggle"),
+          reviewVisible: true,
+          reviewOpened: view().side.opened(),
+          onReviewToggle: props.onToggle,
+          reviewGlyph: props.glyph,
+        }}
+      />
+    </div>
   )
 }
 

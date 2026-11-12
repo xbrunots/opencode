@@ -1,0 +1,17 @@
+diff --git a/dist/vosk.js b/dist/vosk.js
+index d7b7c552f747e78b5715a902929807e762008c4c..aea7f1d1eb54a9af0f52ab0485e55a87885384c8 100644
+--- a/dist/vosk.js
++++ b/dist/vosk.js
+@@ -703,9 +703,9 @@
+             return this._ready;
+         }
+         terminate() {
+-            this.postMessage({
+-                action: "terminate",
+-            });
++            this.messagePort?.close();
++            this.worker.terminate();
++            this.recognizers.clear();
+             this._ready = false;
+         }
+         setLogLevel(level) {

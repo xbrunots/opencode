@@ -17,6 +17,7 @@ import type { SessionInfo } from "@opencode/client/promise"
 import { showToast } from "@/shell/notifications/toast"
 import { createSessionExporter } from "@/session/commands/export-session"
 import { SessionReadMenuItem } from "@/session/session-read-menu-item"
+import { useTabs } from "@/shell/tabs/tabs"
 import { sessionTabTitle } from "./tab-title"
 import { TabPreviewPopover } from "./tab-popover"
 import {
@@ -95,6 +96,11 @@ export function TabNavItem(
 ) {
   const language = useLanguage()
   const actions = "onClose" in props ? props : undefined
+  const tabs = useTabs()
+  const preview = () => {
+    const value = tabs.preview()
+    return value?.server === props.server && value?.sessionId === props.session?.id
+  }
   const [renameState, setRenameState] = createSignal(INITIAL_TAB_RENAME_STATE)
   const editing = () => isTabRenaming(renameState())
   const [titleOverflowing, setTitleOverflowing] = createSignal(false)
@@ -438,6 +444,7 @@ export function TabNavItem(
       data-orientation={props.orientation ?? "horizontal"}
       data-title-overflow={titleOverflowing()}
       data-editing={editing()}
+      data-preview={preview() || undefined}
       data-avatar={props.hideAvatar && !props.session?.model ? "hidden" : undefined}
       class="group relative flex h-7 w-full min-w-0 select-none flex-row items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[6px] px-1.5 [container-type:inline-size]"
       classList={{ invisible: props.hidden }}
@@ -447,6 +454,9 @@ export function TabNavItem(
       data-state={props.active || props.pressed ? "pressed" : undefined}
       onPointerEnter={() => hover(true)}
       onPointerLeave={() => hover(false)}
+      onDblClick={() => {
+        if (preview()) tabs.keepPreview()
+      }}
       onMouseDown={(event) => {
         if (event.button !== MIDDLE_MOUSE_BUTTON) return
         event.preventDefault()
@@ -551,6 +561,7 @@ export function TabNavItem(
           onDblClick={(event) => {
             event.preventDefault()
             event.stopPropagation()
+            if (preview()) return tabs.keepPreview()
             startRename("pointer")
           }}
           onKeyDown={(event) => {

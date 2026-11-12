@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "id": "vosk-model-small-pt-0.3",
+  "version": "0.3",
+  "language": "pt",
+  "languageDescription": "Portuguese / Brazilian Portuguese",
+  "engine": "vosk-browser",
+  "modelSampleRateHz": 16000,
+  "source": {
+    "url": "https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip",
+    "catalogUrl": "https://alphacephei.com/vosk/models",
+    "filename": "vosk-model-small-pt-0.3.zip",
+    "bytes": 32453112,
+    "sha256": "6e1ce909032e1afa7a88e68a3d628ecafff302bdf195befab308826c395e93b7",
+    "retrievedAt": "2026-11-12T12:57:58+00:00",
+    "embeddedLicense": false,
+    "embeddedReadme": "MODEL-README.txt"
+  },
+  "archive": {
+    "filename": "vosk-model-small-pt-0.3.tar.gz",
+    "url": "/speech/vosk-model-small-pt-0.3.tar.gz",
+    "format": "tar+gzip",
+    "bytes": 32358719,
+    "sha256": "2a24dba5090c63dc323c7b100debee17e1c8d0d04a6c285d0900c433eae8f5b6",
+    "prefix": "model/",
+    "layout": "vosk-v1-flat",
+    "uncompressedFileBytes": 53552717,
+    "fileCount": 14,
+    "modelFilesChanged": false,
+    "repack": "Original ZIP prefix replaced with model/. File bytes unchanged. Sorted USTAR entries; uid/gid/mtime zero; files 0644, directories 0755; gzip level 9, mtime zero, empty filename.",
+    "files": [
+      {
+        "path": "model/Gr.fst",
+        "bytes": 16007119,
+        "sha256": "d81023936f5557c06930802b1db4880f56d6ac51b16ed4e5060ceba06895442c"
+      },
+      {
+        "path": "model/HCLr.fst",
+        "bytes": 15510922,
+        "sha256": "8b45be1fa72913d61e37ac0b411177803848f4cda7728f74139b39acd1c0cf36"
+      },
+      {
+        "path": "model/README",
+        "bytes": 29,
+        "sha256": "85353085fa2096ef12cac654fa9534b186bef9b56a61f544da3ebfbd006b78bb"
+      },
+      {
+        "path": "model/disambig_tid.int",
+        "bytes": 54,
+        "sha256": "ca8970bc50b8ae2452749f75f5a12049e511075f9fc3f63acc1526c280a33748"
+      },
+      {
+        "path": "model/final.mdl",
+        "bytes": 13549849,
+        "sha256": "3e10e43ec01cf8d968bcc24c626a2eae2bfa77863bee82f36a554854afa1f147"
+      },
+      {
+        "path": "model/ivector/final.dubm",
+        "bytes": 168048,
+        "sha256": "28dcdc395b13a2085d20f7a2e850ef7e5216ba33ded76391b9690dd60f5143de"
+      },
+      {
+        "path": "model/ivector/final.ie",
+        "bytes": 8288887,
+        "sha256": "9345786636c358c9539591da71fb685ae82d8a96ce5de533fb8ac5fdafa965f0"
+      },
+      {
+        "path": "model/ivector/final.mat",
+        "bytes": 22575,
+        "sha256": "e310571390a3183718fce914bb022d297777c7ed860892a1812b576a698ec420"
+      },
+      {
+        "path": "model/ivector/global_cmvn.stats",
+        "bytes": 547,
+        "sha256": "8848c2dcf9919fbb3db574cbce59f980c3b11107c29adfa1fc42a4faed27e1a8"
+      },
+      {
+        "path": "model/ivector/online_cmvn.conf",
+        "bytes": 95,
+        "sha256": "a2f3571754b64297cb7efb2e7ca3df61995c5a45fcbb97188f90613552bb2dfe"
+      },
+      {
+        "path": "model/ivector/splice.conf",
+        "bytes": 35,
+        "sha256": "9f0c5f7c82d18eaf25d8bce470efa9f7741f88411fe428774bc0a9bb69a24756"
+      },
+      {
+        "path": "model/mfcc.conf",
+        "bytes": 153,
+        "sha256": "d3d4c517da7e6d02ed85803eebf77bca3f7f48c9ab6dc035013250b36187f274"
+      },
+      {
+        "path": "model/phones.txt",
+        "bytes": 1923,
+        "sha256": "dc207b906747b59e9e3da0af30e8f8d6712c9897ad7df06929d4b2cae7ee13f1"
+      },
+      {
+        "path": "model/word_boundary.int",
+        "bytes": 2481,
+        "sha256": "b8f981d84d8765fb15003ac54ec0f9599efa65a00d6d4d60086e5969ad45ff01"
+      }
+    ]
+  },
+  "license": {
+    "spdx": "Apache-2.0",
+    "declarationUrl": "https://alphacephei.com/vosk/models",
+    "textFile": "LICENSE-APACHE-2.0.txt",
+    "textSourceUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    "note": "The original model ZIP contains README but no separate license or notice file. Its license is declared by the official model catalog."
+  },
+  "compatibilitySources": {
+    "voskBrowserCommit": "4b8eb257503108d96819854d3984372903c2259e",
+    "voskBrowserSourceUrl": "https://github.com/ccoreilly/vosk-browser",
+    "voskBrowserModelFormatUrl": "https://github.com/ccoreilly/vosk-browser/blob/4b8eb257503108d96819854d3984372903c2259e/lib/README.md#model-format",
+    "voskBrowserExtractorUrl": "https://github.com/ccoreilly/vosk-browser/blob/4b8eb257503108d96819854d3984372903c2259e/src/vosk.post.js#L125-L143",
+    "voskApiCommit": "7012103b3bc7a3da67faf9eb452991e60fcd8af7",
+    "voskLegacyLoaderUrl": "https://github.com/alphacep/vosk-api/blob/7012103b3bc7a3da67faf9eb452991e60fcd8af7/src/model.cc#L98-L110",
+    "browserNoticeFile": "NOTICE-vosk-browser.txt"
+  },
+  "publishedEvaluation": {
+    "sourceUrl": "https://alphacephei.com/vosk/models",
+    "wordErrorRatePercent": [
+      {
+        "dataset": "coraa dev",
+        "value": 68.92
+      },
+      {
+        "dataset": "cv test",
+        "value": 32.6
+      }
+    ],
+    "note": "Upstream benchmark results, not measurements of this app. Accuracy varies with accent, noise, microphone, vocabulary and speaking style."
+  },
+  "validation": {
+    "originalZipCrc": "passed",
+    "allRepackedModelFileHashesMatchOriginal": true,
+    "archiveHasSingleStripCompatiblePrefix": true,
+    "runtimeRecognitionTested": true,
+    "runtimeRecognitionTest": "Chromium fake microphone, local synthetic Portuguese fixture, external network blocked; transcript bom dia tudo bem; auto-submit and cancellation validated in app composer E2E."
+  }
+}

@@ -82,7 +82,7 @@ export function Composer(props: {
           </span>
         }
         emptyAction={
-          <ComposerDictation controller={props.model} backend={props.model.dictation} disabled={props.readOnly} />
+          <ComposerDictation controller={props.model} environment={props.model.dictation} disabled={props.readOnly} />
         }
         modelControl={
           <ComposerModelControl

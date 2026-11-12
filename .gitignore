@@ -35,6 +35,7 @@ logs/
 *.bun-build
 tsconfig.tsbuildinfo
 /artifacts/
+/portable/
 
 # Legal drafts pending review are kept outside the repository; never copy them in.
 legal-drafts-private/

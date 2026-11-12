@@ -12,6 +12,11 @@ export const menuHandlers = MenuRpcs.toLayer(
     const lifecycle = yield* ApplicationLifecycle.Service
 
     return MenuRpcs.of({
+      MenuOpenSessionWindow: ({ route }, context) =>
+        Effect.sync(() => {
+          sender(handoff, context)
+          lifecycle.createWindow(route)
+        }),
       MenuRunAction: ({ action }, context) =>
         Effect.sync(() =>
           runDesktopMenuAction(BrowserWindow.fromWebContents(sender(handoff, context)), action, {

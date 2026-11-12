@@ -7,7 +7,7 @@ declare abstract class AudioWorkletProcessor {
 declare function registerProcessor(name: string, processor: typeof AudioWorkletProcessor): void
 
 class DictationProcessor extends AudioWorkletProcessor {
-  private samples = new Float32Array(2400)
+  private samples = new Float32Array(1600)
   private offset = 0
   private state: { status: "capturing" } | { status: "closed" } = { status: "capturing" }
 

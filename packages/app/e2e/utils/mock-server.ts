@@ -94,6 +94,7 @@ export interface MockServerConfig {
   // `directory` is the requested `location[directory]`, such as an untracked folder the review opened.
   /** `context` is the patch's lines of context, sent when the review asks for a large file's full patch. */
   vcsDiff?: unknown[] | ((input: { mode?: string; directory: string; context?: string }) => unknown[])
+  sessionDiff?: unknown[] | ((input: { sessionID: string; from?: string; to?: string; context?: string }) => unknown[])
   beforeMessagesResponse?: (input: { sessionID: string; before?: string }) => Promise<void>
   beforeAgentsResponse?: () => Promise<void>
   onMessages?: (input: { sessionID: string; before?: string; phase: "start" | "end" }) => void
@@ -1047,6 +1048,17 @@ function mockHandlers(
                 })
               : (config.vcsDiff ?? []),
           })),
+        sessionDiff: (ctx) =>
+          Effect.sync(() => ({
+            data: Predicate.isFunction(config.sessionDiff)
+              ? config.sessionDiff({
+                  sessionID: ctx.params.sessionID,
+                  from: ctx.query.from,
+                  to: ctx.query.to,
+                  context: ctx.query.context,
+                })
+              : (config.sessionDiff ?? []),
+          })),
         fsList: (ctx) =>
           Effect.promise(() => Promise.resolve(config.fileList?.(ctx.query.path ?? ""))).pipe(
             Effect.map((data) => ({ location: location(config), data })),
@@ -1406,6 +1418,20 @@ function mockHandlers(
 
             if (update.title !== undefined) session.title = update.title
 
+            if (update.metadata !== undefined) {
+              session.metadata = update.metadata
+              state.emit([
+                {
+                  id: `evt_metadata_${session.id}_${Date.now()}`,
+                  created: Date.now(),
+                  type: "session.metadata.updated",
+                  durable: { aggregateID: session.id, seq: 1, version: 1 },
+                  location: { directory: requestDirectory(config, ctx.request) },
+                  data: { sessionID: session.id, metadata: update.metadata },
+                },
+              ])
+            }
+
             if (update.archived !== undefined) {
               session.time = {
                 ...currentSession(session, config.directory).time,
@@ -1633,7 +1659,11 @@ const decodeSessionCreate = Schema.decodeUnknownOption(
 )
 
 const decodeSessionUpdate = Schema.decodeUnknownOption(
-  Schema.Struct({ title: Schema.optionalKey(Schema.String), archived: Schema.optionalKey(Schema.Boolean) }),
+  Schema.Struct({
+    title: Schema.optionalKey(Schema.String),
+    archived: Schema.optionalKey(Schema.Boolean),
+    metadata: Schema.optionalKey(Schema.JsonObject),
+  }),
 )
 
 const decodeRevertStage = Schema.decodeUnknownOption(Schema.Struct({ messageID: Schema.String }))

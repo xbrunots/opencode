@@ -8,32 +8,16 @@ import { showToast } from "@/shell/notifications/toast"
 import type { ComposerEditorModel } from "@/composer/editor/interaction"
 import { promptLength } from "@/composer/prompt-parts"
 import { transitionDictation, type DictationEvent, type DictationState } from "./dictation-machine"
-import { DictationTransport, type DictationBackend } from "./dictation-transport"
+import { DictationTransport, type DictationEnvironment } from "./dictation-transport"
 import type { DictationFailure } from "./dictation-transport-machine"
-
-type SpeechResult = { isFinal: boolean; readonly [index: number]: { transcript: string } }
-type SpeechRecognition = {
-  lang: string
-  continuous: boolean
-  interimResults: boolean
-  onstart: (() => void) | null
-  onresult: ((event: { results: ArrayLike<SpeechResult> }) => void) | null
-  onspeechend: (() => void) | null
-  onerror: ((event: { error: string }) => void) | null
-  onend: (() => void) | null
-  start: () => void
-  stop: () => void
-  abort: () => void
-}
 
 export function ComposerDictation(props: {
   controller: ComposerEditorModel
-  backend?: DictationBackend
+  environment?: DictationEnvironment
   disabled?: boolean
 }) {
   const language = useLanguage()
   const [state, setState] = createSignal<DictationState>({ status: "idle" })
-  let recognition: SpeechRecognition | undefined
   let transport: DictationTransport | undefined
   const active = () => state().status === "starting" || state().status === "listening" || state().status === "stopping"
 
@@ -54,18 +38,9 @@ export function ComposerDictation(props: {
   }
 
   const release = () => {
-    const backend = transport
+    const current = transport
     transport = undefined
-    backend?.close()
-    const current = recognition
-    recognition = undefined
-    if (!current) return
-    current.onstart = null
-    current.onresult = null
-    current.onspeechend = null
-    current.onerror = null
-    current.onend = null
-    current.abort()
+    current?.close()
   }
 
   const fail = (reason: DictationFailure) => {
@@ -78,31 +53,16 @@ export function ComposerDictation(props: {
     })
   }
 
-  const stop = () => {
+  const start = () => {
     if (state().status === "starting") {
       dispatch({ type: "cancel" })
       release()
       return
     }
-    if (state().status !== "listening") return
-    if (transport) return transport.stop()
-    dispatch({ type: "stop" })
-    try {
-      recognition?.stop()
-    } catch {
-      fail("failed")
-    }
-  }
-
-  const startBackend = () => {
-    const backend = props.backend
-    if (!backend) return fail("unsupported")
-    release()
-    dispatch({ type: "cancel" })
+    if (active()) return transport?.stop()
     dispatch({ type: "start" })
     transport = new DictationTransport({
-      ...backend,
-      language: language.intl(),
+      platform: props.environment?.platform ?? {},
       started: () => dispatch({ type: "started" }),
       stopped: () => dispatch({ type: "stop" }),
       complete: (text) => {
@@ -115,70 +75,21 @@ export function ComposerDictation(props: {
     transport.start()
   }
 
-  const start = () => {
-    if (active()) return stop()
-    if (props.backend?.platform.platform === "desktop") return startBackend()
-    const browser = window as Window & {
-      SpeechRecognition?: new () => SpeechRecognition
-      webkitSpeechRecognition?: new () => SpeechRecognition
-    }
-    const Recognition = browser.SpeechRecognition ?? browser.webkitSpeechRecognition
-    if (!Recognition) return startBackend()
-    try {
-      const current = new Recognition()
-      recognition = current
-      current.lang = language.intl()
-      current.continuous = true
-      current.interimResults = true
-      current.onstart = () => dispatch({ type: "started" })
-      current.onresult = (event) => {
-        const results = Array.from(event.results)
-        dispatch({
-          type: "results",
-          final: results.flatMap((result) => (result.isFinal ? [result[0].transcript] : [])),
-          interim: results.flatMap((result) => (!result.isFinal ? [result[0].transcript] : [])).join(" "),
-        })
-      }
-      current.onspeechend = stop
-      current.onerror = (event) => {
-        if (
-          event.error === "network" ||
-          event.error === "service-not-allowed" ||
-          event.error === "language-not-supported"
-        )
-          return startBackend()
-        fail(
-          event.error === "not-allowed" || event.error === "audio-capture"
-            ? "microphone"
-            : event.error === "no-speech"
-              ? "empty"
-              : "failed",
-        )
-      }
-      current.onend = () => {
-        const previous = state()
-        dispatch({ type: "end" })
-        release()
-        if ((previous.status === "listening" || previous.status === "stopping") && previous.final.length === 0)
-          fail("empty")
-      }
-      dispatch({ type: "start" })
-      current.start()
-    } catch {
-      fail("failed")
-    }
-  }
-
   onCleanup(() => {
     dispatch({ type: "disposed" })
     release()
   })
-
   return (
     <div data-slot="composer-dictation" class="flex items-center gap-2">
       <Show when={active()}>
         <output role="status" class="max-w-52 truncate text-12-regular text-v2-text-text-muted">
-          {language.t(state().status === "starting" ? "prompt.dictation.starting" : "prompt.dictation.listening")}
+          {language.t(
+            state().status === "starting"
+              ? "prompt.dictation.starting"
+              : state().status === "stopping"
+                ? "prompt.dictation.finishing"
+                : "prompt.dictation.listening",
+          )}
         </output>
       </Show>
       <Tooltip placement="top" value={language.t(active() ? "prompt.dictation.stop" : "prompt.dictation.start")}>

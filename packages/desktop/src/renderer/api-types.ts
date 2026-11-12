@@ -73,6 +73,7 @@ export type ElectronAPI = {
   setTitlebar(theme: TitlebarTheme): Promise<void>
   setTrafficLightsPosition(position: { x: number; y: number }): Promise<void>
   runDesktopMenuAction(action: DesktopMenuAction): Promise<void>
+  openSessionWindow(route: string): Promise<void>
   setBackgroundColor(color: string): Promise<void>
   exportDebugLogs(): Promise<string>
   setForceFocus(enabled: boolean): Promise<void>

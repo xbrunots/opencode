@@ -27,4 +27,8 @@ export const MenuRunAction = Rpc.make("MenuRunAction", {
   payload: { action: DesktopMenuAction },
 })
 
-export const MenuRpcs = RpcGroup.make(MenuRunAction)
+export const MenuOpenSessionWindow = Rpc.make("MenuOpenSessionWindow", {
+  payload: { route: Schema.String.check(Schema.isPattern(/^\/server\/[A-Za-z0-9_-]+\/session\/ses_[^/?#]+$/)) },
+})
+
+export const MenuRpcs = RpcGroup.make(MenuRunAction, MenuOpenSessionWindow)

@@ -1,0 +1,224 @@
+.conversation-context-anchor {
+  position: relative;
+  display: inline-flex;
+  overflow: visible;
+}
+.conversation-context-card {
+  position: absolute;
+  inset-block-start: calc(100% + 10px);
+  inset-inline-end: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: min(288px, calc(100vw - 24px));
+  max-height: min(720px, calc(100dvh - 104px));
+  overflow: hidden;
+  border: 1px solid var(--v2-border-border-muted);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--v2-background-bg-layer-02) 91%, transparent);
+  backdrop-filter: blur(24px) saturate(1.1);
+  -webkit-backdrop-filter: blur(24px) saturate(1.1);
+  box-shadow:
+    0 12px 40px rgb(0 0 0 / 14%),
+    0 1px 4px rgb(0 0 0 / 5%);
+  color: var(--v2-text-text-base);
+  font-family: var(--font-family-sans);
+  font-size: 13px;
+  line-height: var(--line-height-compact);
+  text-align: start;
+  -webkit-app-region: no-drag;
+}
+.conversation-context-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 12px 14px 16px;
+  border-bottom: 1px solid var(--v2-border-border-muted);
+}
+.conversation-context-header > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 9px;
+}
+.conversation-context-header small {
+  color: var(--v2-text-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.conversation-context-header strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: var(--line-height-base);
+  text-overflow: ellipsis;
+}
+.conversation-context-branch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--v2-text-text-muted);
+  font-size: 12px;
+}
+.conversation-context-branch [data-slot="icon-svg"] {
+  width: 13px;
+  height: 13px;
+}
+.conversation-context-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 5px 8px 8px;
+  overscroll-behavior: contain;
+}
+.conversation-context-section {
+  padding-block: 5px;
+  border-top: 1px solid var(--v2-border-border-muted);
+}
+.conversation-context-section > summary {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--v2-text-text-muted);
+}
+.conversation-context-section > summary::-webkit-details-marker {
+  display: none;
+}
+.conversation-context-section > summary > span {
+  flex: 1;
+}
+.conversation-context-section > summary > b {
+  display: inline-flex;
+  min-width: 19px;
+  height: 19px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 4px;
+  border-radius: 5px;
+  background: var(--v2-background-bg-layer-03);
+  font-size: 10px;
+  font-weight: 500;
+}
+.conversation-context-chevron {
+  width: 12px;
+  height: 12px;
+  transform: rotate(-90deg);
+}
+.conversation-context-section[open] .conversation-context-chevron {
+  transform: none;
+}
+.conversation-context-item {
+  display: flex;
+  width: 100%;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: transparent;
+  text-align: start;
+  font-size: 12px;
+  line-height: var(--line-height-compact);
+  cursor: pointer;
+}
+.conversation-context-item > :is(svg, img) {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--v2-icon-icon-muted);
+}
+.conversation-context-item > span:not(.conversation-context-add, .conversation-context-delete) {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversation-context-item > span > small {
+  display: block;
+  overflow: hidden;
+  color: var(--v2-text-text-faint);
+  font-size: 10px;
+  text-overflow: ellipsis;
+}
+.conversation-context-item > :is(b, small) {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--v2-text-text-muted);
+}
+.conversation-context-item .conversation-context-trailing {
+  width: 12px;
+  height: 12px;
+  color: var(--v2-icon-icon-faint);
+}
+.conversation-context-item:hover,
+.conversation-context-section > summary:hover {
+  background: var(--v2-overlay-simple-overlay-hover);
+}
+.conversation-context-card :is(button, summary):focus-visible {
+  outline: 2px solid var(--v2-border-border-strong);
+  outline-offset: -2px;
+}
+.conversation-context-agent-state[data-running="true"] {
+  color: var(--v2-text-text-base);
+}
+.conversation-context-agent-state[data-running="true"]::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-inline-end: 5px;
+  border-radius: 50%;
+  background: var(--v2-background-bg-accent);
+}
+.conversation-context-add,
+.conversation-context-delete {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.conversation-context-add {
+  color: var(--v2-state-fg-success);
+}
+.conversation-context-delete {
+  color: var(--v2-state-fg-danger);
+}
+.conversation-context-notice,
+.conversation-context-empty {
+  margin: 0;
+  padding: 8px;
+  color: var(--v2-text-text-faint);
+  font-size: 11px;
+  line-height: var(--line-height-compact);
+}
+.conversation-context-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.conversation-context-notice > button {
+  color: var(--v2-text-text-base);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.conversation-context-skill {
+  max-height: 65vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-family: var(--font-family-sans);
+  font-size: 13px;
+  line-height: var(--line-height-base);
+}

@@ -1,9 +1,73 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
+import { fileURLToPath } from "node:url"
 import { NO_PROVIDER, SERVER, T0, expectPath, holdRoute, pageMessagesFrom, provider, sessionHref } from "../utils/app"
 import { mockWorkspace, openDraft, openSession } from "../utils/workspace"
 import { mockPluginsActivating, type MockServerConfig } from "../utils/mock-server"
 
-test.use({ permissions: ["clipboard-read", "clipboard-write"] })
+test.use({
+  permissions: ["clipboard-read", "clipboard-write"],
+  launchOptions: {
+    args: [
+      "--use-fake-device-for-media-stream",
+      "--use-fake-ui-for-media-stream",
+      `--use-file-for-fake-audio-capture=${fileURLToPath(new URL("../fixtures/portuguese-dictation.wav", import.meta.url))}`,
+    ],
+  },
+})
+
+test.describe("offline Portuguese dictation", () => {
+  test("transcribes the bundled Portuguese audio and auto-sends with internet requests blocked", async ({
+    page,
+    context,
+  }) => {
+    const external: string[] = []
+    await context.route(/^https?:\/\/(?!127\.0\.0\.1(?::|\/)|localhost(?::|\/))/, (route) => {
+      external.push(route.request().url())
+      return route.abort()
+    })
+    const prompts: Parameters<NonNullable<MockServerConfig["onPrompt"]>>[0]["body"][] = []
+    const view = await openSession(page, {
+      name: "OfflineDictation",
+      sessions: [{ id: "ses_offline_dictation", title: "Offline dictation" }],
+      seed: { tabs: ["ses_offline_dictation"] },
+      onPrompt: (input) => void prompts.push(input.body),
+    })
+    await expect(view.editor).toBeEditable()
+    const model = page.waitForResponse((response) => response.url().endsWith("/speech/vosk-model-small-pt-0.3.tar.gz"))
+    const workerReady = page.waitForEvent("worker", (worker) => worker.url().startsWith("blob:"))
+    await page.getByRole("button", { name: "Dictate in Portuguese (offline)", exact: true }).click()
+    const worker = await workerReady
+    const closed = new Promise<void>((resolve) => worker.once("close", () => resolve()))
+    expect((await model).ok()).toBe(true)
+    await expect.poll(() => prompts.map((body) => body.text), { timeout: 60_000 }).toEqual(["bom dia tudo bem"])
+    await expect(view.editor).toHaveText("")
+    await closed
+    expect(external).toEqual([])
+  })
+
+  test("cancelling local model loading terminates its worker without submitting", async ({ page }) => {
+    const prompts: Parameters<NonNullable<MockServerConfig["onPrompt"]>>[0]["body"][] = []
+    const view = await openSession(page, {
+      name: "CancelOfflineDictation",
+      sessions: [{ id: "ses_cancel_offline_dictation", title: "Cancel offline dictation" }],
+      seed: { tabs: ["ses_cancel_offline_dictation"] },
+      onPrompt: (input) => void prompts.push(input.body),
+    })
+    await expect(view.editor).toBeEditable()
+    const workerReady = page.waitForEvent("worker", (worker) => worker.url().startsWith("blob:"))
+    await page.getByRole("button", { name: "Dictate in Portuguese (offline)", exact: true }).click()
+    const worker = await workerReady
+    const closed = new Promise<void>((resolve) => worker.once("close", () => resolve()))
+    await page.getByRole("button", { name: "Finish and send", exact: true }).click()
+    await closed
+    await expect(page.getByRole("button", { name: "Dictate in Portuguese (offline)", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    )
+    expect(prompts).toEqual([])
+    await expect(view.editor).toHaveText("")
+  })
+})
 
 test("mention a session by title, send its stable token, and open its own tab", async ({ page }) => {
   const target = "ses_0123456789abcdefghijklmnop"

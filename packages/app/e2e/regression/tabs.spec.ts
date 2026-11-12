@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test, type Page, type Locator } from "@playwright/test"
 import type { OpenCodeEvent, SessionMessageInfo } from "@opencode/client/promise"
 import {
   NO_PROVIDER,
@@ -18,7 +18,7 @@ import { openFileLauncher, reviewTabs } from "../utils/side-panel"
 import { mockServers } from "../utils/mock-server"
 import { fixture, mockStressTimeline } from "../utils/session-fixture"
 import { fileNode, mockWorkspace, openSession } from "../utils/workspace"
-import { expectSessionTitle } from "../utils/waits"
+import { APP_READY_TIMEOUT, expectSessionTitle } from "../utils/waits"
 import { openWithDirection } from "../utils/direction"
 
 const a = { id: "ses_tab_a", title: "Tab A session" }
@@ -2594,4 +2594,166 @@ test("parallel conversations interrupt only the chosen session", async ({ page }
   await expect(second.locator('[data-component="composer-editor"]')).toBeEditable()
   await second.getByRole("button", { name: "Stop", exact: true }).click()
   await expect.poll(() => stopped).toEqual([b.id])
+})
+
+test.describe("parallel layout", () => {
+  const sessions = ["A", "B", "C"].map((name) => ({ id: `ses_layout_${name.toLowerCase()}`, title: `Layout ${name}` }))
+  const longText = "Long message with readable wrapping in a narrow conversation pane. ".repeat(25)
+
+  async function drag(page: Page, handle: Locator, x: number, y: number) {
+    const box = await handle.boundingBox()
+    expect(box).not.toBeNull()
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box!.x + box!.width / 2 + x, box!.y + box!.height / 2 + y, { steps: 12 })
+    await page.mouse.up()
+  }
+
+  for (const mode of ["Grid", "Floating conversations"]) {
+    test(`${mode} contains long messages and drafts through resize and close reflow`, async ({ page }) => {
+      await page.setViewportSize({ width: 1024, height: 1000 })
+      await mockWorkspace(page, {
+        name: "ParallelLayout",
+        sessions,
+        seed: {
+          theme: { id: "oc-2", scheme: "dark" },
+          storage: { "opencode.window.browser.dat:workspace.views": { mode: "focus", minimum: 300 } },
+          settings: { appearance: { tabLayout: "horizontal" } },
+        },
+        pageMessages: (id) => ({ items: [{ id: `msg_${id}`, type: "user", text: longText, time: { created: 1 } }] }),
+      })
+      await page.goto(sessionHref(sessions[0]!.id))
+      await page.getByRole("button", { name: mode, exact: true }).click()
+      const panes = sessions.map((session) => page.getByRole("region", { name: session.title, exact: true }))
+      for (const [index, pane] of panes.entries()) {
+        await expect(pane).toHaveCSS("text-wrap-style", "auto")
+        const editor = pane.locator('[data-component="composer-editor"]')
+        await expect(editor).toBeEditable({ timeout: APP_READY_TIMEOUT })
+        await editor.fill(`Independent draft ${index} ` + "long input text ".repeat(20))
+        await expect(pane.locator('[data-timeline-row="UserMessage"]')).toContainText("Long message")
+        const bounds = await pane.evaluate((node) => {
+          const rect = node.getBoundingClientRect()
+          return Array.from(
+            node.querySelectorAll<HTMLElement>(
+              '[data-slot="session-screen"], [data-slot="session-chat-panel"], [data-component="composer-editor"]',
+            ),
+          ).map((child) => {
+            const box = child.getBoundingClientRect()
+            return {
+              left: box.left - rect.left,
+              right: rect.right - box.right,
+              overflow: child.scrollWidth - child.clientWidth,
+            }
+          })
+        })
+        expect(bounds.every((item) => item.left >= -1 && item.right >= -1 && item.overflow <= 1)).toBe(true)
+      }
+      await page.screenshot({
+        path: `../../.impeccable/review/layout-${mode === "Grid" ? "grid" : "islands"}-three-panes.png`,
+      })
+      await page.setViewportSize({ width: 960, height: 1000 })
+      const first = panes[0]!
+      const before = await first.boundingBox()
+      expect(before!.height).toBeGreaterThan(850)
+      await drag(page, first.locator(".workspace-session-width-resizer"), 150, 0)
+      await expect.poll(async () => (await first.boundingBox())!.width).toBeGreaterThan(before!.width)
+      const grown = await first.boundingBox()
+      await drag(page, first.locator(".workspace-session-height-resizer"), 0, -100)
+      await expect.poll(async () => (await first.boundingBox())!.height).toBeLessThan(grown!.height)
+      await expect(first.locator('[data-component="composer-editor"]')).toContainText("Independent draft 0")
+      await page.screenshot({ path: `../../.impeccable/review/layout-${mode === "Grid" ? "grid" : "islands"}.png` })
+      await panes[1]!.getByRole("button", { name: "Close conversation pane", exact: true }).click()
+      await expect(panes[1]!).toHaveCount(0)
+      await expect(panes[2]!.locator('[data-component="composer-editor"]')).toContainText("Independent draft 2")
+      const remaining = await first.boundingBox()
+      expect(remaining!.width).toBeGreaterThanOrEqual(grown!.width)
+    })
+  }
+})
+
+test.describe("project preview navigation", () => {
+  test("project tree previews replace each other and double click and send keep top tabs", async ({ page }) => {
+    const directory = "C:/OpenCode/PreviewProject"
+    const entries = ["One", "Two", "Three", "Four"].map((title) => ({
+      id: `ses_preview_${title.toLowerCase()}`,
+      title: `Preview ${title}`,
+    }))
+    const prompts: string[] = []
+    await mockWorkspace(page, {
+      name: "PreviewProject",
+      directory,
+      sessions: entries,
+      seed: {
+        tabs: [entries[0]!.id],
+        settings: { appearance: { tabLayout: "vertical" }, general: { sidebarOrganize: "projects" } },
+      },
+      onPrompt: ({ sessionID }) => prompts.push(sessionID),
+    })
+    await page.goto(sessionHref(entries[0]!.id))
+    await expect(page.locator('[data-component="composer-editor"]')).toBeEditable({ timeout: APP_READY_TIMEOUT })
+    const tree = page.locator('[data-slot="sidebar-project-tree"]')
+    const top = page.locator('[data-slot="titlebar-tabs"]:visible')
+    await expect(tree.locator("summary span[title]")).toHaveAttribute("title", directory)
+    await expect(
+      page.locator('[data-slot="vertical-tabs-sidebar"]').getByRole("button", { name: "Open project", exact: true }),
+    ).toBeVisible()
+    const tab = (id: string) => top.locator(`[data-slot="titlebar-tab-item"]:has(a[href="${sessionHref(id)}"])`)
+    await tree.getByTitle(entries[1]!.title, { exact: true }).click()
+    await expect(tab(entries[1]!.id)).toHaveAttribute("data-preview", "true")
+    await tree.getByTitle(entries[2]!.title, { exact: true }).click()
+    await expect(tab(entries[1]!.id)).toHaveCount(0)
+    await expect(tab(entries[2]!.id)).toHaveAttribute("data-preview", "true")
+    await tree.getByTitle(entries[2]!.title, { exact: true }).dblclick()
+    await expect(tab(entries[2]!.id)).not.toHaveAttribute("data-preview", "true")
+    await tree.getByTitle(entries[1]!.title, { exact: true }).click()
+    await tab(entries[1]!.id).dblclick()
+    await expect(tab(entries[1]!.id)).not.toHaveAttribute("data-preview", "true")
+    await tree.getByTitle(entries[3]!.title, { exact: true }).click()
+    const editor = page.locator('[data-component="composer-editor"]')
+    await expect(editor).toBeEditable()
+    await editor.fill("Keep the conversation after sending")
+    await editor.press("Enter")
+    await expect.poll(() => prompts).toEqual([entries[3]!.id])
+    await expect(tab(entries[3]!.id)).not.toHaveAttribute("data-preview", "true")
+    await expect(top.locator('[data-slot="titlebar-tab-item"]')).toHaveCount(4)
+    const contextToggle = page.getByRole("button", { name: "Conversation context", exact: true })
+    if ((await contextToggle.getAttribute("aria-expanded")) !== "true") await contextToggle.click()
+    await expect(page.getByRole("region", { name: "Conversation context", exact: true })).toBeVisible()
+    await page.screenshot({ path: "../../.impeccable/review/projects-tabs-context-focus.png" })
+  })
+
+  test("the top plus creates a draft in the selected workspace group", async ({ page }) => {
+    const directory = "C:/OpenCode/BranchDraft"
+    const branch = "C:/OpenCode/BranchDraft-feature"
+    const created: unknown[] = []
+    await mockWorkspace(page, {
+      name: "BranchDraft",
+      directory,
+      project: { sandboxes: [branch] },
+      sessions: [
+        { id: "ses_branch_local", title: "Local session" },
+        { id: "ses_branch_feature", title: "Feature session", directory: branch },
+      ],
+      seed: {
+        tabs: ["ses_branch_local"],
+        settings: { appearance: { tabLayout: "vertical" }, general: { sidebarOrganize: "projects" } },
+      },
+      onSessionCreate: (body) => {
+        created.push(body.location)
+      },
+    })
+    await page.goto(sessionHref("ses_branch_local"))
+    const tree = page.locator('[data-slot="sidebar-project-tree"]')
+    await expect(tree.locator("summary span[title]")).toHaveCount(2)
+    await tree.getByRole("button", { name: "Feature session", exact: true }).click()
+    await expect(page).toHaveURL(sessionHref("ses_branch_feature"))
+    await expect(page.locator('[data-component="composer-editor"]')).toBeEditable({ timeout: APP_READY_TIMEOUT })
+    await page.getByRole("banner").getByRole("button", { name: "New session", exact: true }).click()
+    await expect(page).toHaveURL(/\/new-session\?draftId=/)
+    const editor = page.locator('[data-component="composer-editor"]')
+    await expect(editor).toBeEditable()
+    await editor.fill("Start in the selected branch")
+    await editor.press("Enter")
+    await expect.poll(() => created).toEqual([{ directory: branch }])
+  })
 })
