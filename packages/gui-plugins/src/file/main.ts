@@ -133,7 +133,7 @@ const setup: Plugin.MainSetup = (ctx) => {
           if (/\.html?$/i.test(file)) {
             headers.set(
               "Content-Security-Policy",
-              "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'self'; object-src 'none'",
+              "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src 'none'; form-action 'none'; base-uri 'self'; object-src 'none'",
             )
             headers.set("X-DNS-Prefetch-Control", "off")
           }
