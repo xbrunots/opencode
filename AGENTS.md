@@ -1,3 +1,9 @@
+## Portable local no Windows
+
+- Antes de gerar ou atualizar o portable deste projeto, encerre os processos que pertencem ao OpenCodex executado a partir da pasta `portable`, incluindo seus serviços e terminais, identificando-os pelo caminho e pela relação com a instância. Prefira o encerramento normal e confirme que terminaram antes de prosseguir.
+- Não encerre o aplicativo Codex, suas outras conversas ou processos de outros projetos. Se um bloqueio persistir fora da instância portable, investigue e preserve os processos alheios.
+- Entregue o pacote completo na pasta `portable`, sem ZIP, e preserve os dados existentes.
+
 - After changing the public Protocol or Server `HttpApi`, run `bun run generate` from `packages/client`. Do not edit generated client files directly.
 - Keep runtime dependencies directed from Schema to Core and Protocol, then from Core and Protocol to Server. Client runtime code may depend on Schema and Protocol but never Core or Server; `sdk` composes Client, Core, and Server.
 - This repository does not use Changesets. Do not add `.changeset` files; follow the existing release workflow instead.
