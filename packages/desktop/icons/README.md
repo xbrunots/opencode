@@ -1,4 +1,10 @@
-# Tauri Icons
+# OpenCodex icons
+
+The Windows ICO and PNG variants in each channel use the user-supplied image stored at
+`packages/ui/src/assets/opencodex.png`. The ICO contains 16, 24, 32, 48, 64, 128 and 256 pixel frames.
+Keep its transparent background and original black-and-white artwork. The application and executable name is OpenCodex.
+
+## Original cross-platform icon tooling
 
 Here's the process I've been using to create icons:
 

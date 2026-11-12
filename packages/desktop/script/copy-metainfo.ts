@@ -6,7 +6,7 @@ const channel = arg === "dev" || arg === "beta" || arg === "prod" ? arg : resolv
 
 const appId = channel === "prod" ? "ai.opencode.desktop" : `ai.opencode.desktop.${channel}`
 
-const productName = channel === "prod" ? "OpenCode" : `OpenCode ${channel.charAt(0).toUpperCase() + channel.slice(1)}`
+const productName = "OpenCodex"
 
 const summary = `Open source AI coding agent${channel !== "prod" ? ` (${channel})` : ""}`
 

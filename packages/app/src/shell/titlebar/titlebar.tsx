@@ -17,6 +17,7 @@ import { WindowsAppMenu } from "./windows-menu"
 import { createTitlebarHistory } from "./history"
 import { TitlebarTabStrip } from "@/shell/titlebar/tab-strip"
 import { WorkspaceViewControls } from "./workspace-view-controls"
+import { Mark } from "@opencode/ui/logo"
 import { macVerticalTrafficLights, SidebarToggle } from "@/shell/sidebar-toggle"
 import { SidebarInbox } from "@/shell/titlebar/inbox"
 import { SidebarCustomized, type SidebarStripGrouping } from "@/shell/titlebar/sidebar-customized"
@@ -356,7 +357,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                       variant="ghost-muted"
                       size="large"
                       class="!w-9 shrink-0"
-                      icon={<Icon name="console" />}
+                      icon={<Mark />}
                       state={layout.route().type === "home" ? "pressed" : undefined}
                       onClick={toggleHome}
                       aria-label={language.t("home.title")}
@@ -375,7 +376,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                   aria-label={language.t("home.title")}
                   aria-pressed={layout.route().type === "home"}
                 >
-                  <Icon name="console" class="shrink-0" />
+                  <Mark class="shrink-0" />
                   <span class="min-w-0 truncate font-semibold">OpenCodex</span>
                   <div class="ms-auto hidden shrink-0 group-hover:block group-focus-visible:block" aria-hidden="true">
                     <Keybind keys={command.keybindParts("home.toggle")} variant="neutral" dir="ltr" />
