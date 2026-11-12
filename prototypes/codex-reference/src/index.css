@@ -1,0 +1,508 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.75rem;
+  --background: #fff;
+  --foreground: #171717;
+  --card: #fff;
+  --card-foreground: #171717;
+  --popover: #fff;
+  --popover-foreground: #171717;
+  --primary: #171717;
+  --primary-foreground: #fff;
+  --secondary: #f4f4f4;
+  --secondary-foreground: #171717;
+  --muted: #f4f4f4;
+  --muted-foreground: #737373;
+  --accent: #f4f4f4;
+  --accent-foreground: #171717;
+  --destructive: #b42318;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #a3a3a3;
+  --sidebar: #f7f7f7;
+  --sidebar-foreground: #262626;
+  --sidebar-primary: #171717;
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: #eaeaea;
+  --sidebar-accent-foreground: #171717;
+  --sidebar-border: #e5e5e5;
+  --sidebar-ring: #a3a3a3;
+  --pplx-bg: #fdfbfb;
+  --pplx-fg: #27251e;
+  --pplx-icon: #3d3d3d;
+  --pplx-secondary: #5c5c5c;
+  --pplx-muted: #6b6b6b;
+  --pplx-subtle: #8d8d8d;
+  --pplx-hover: #f3f3f3;
+  --pplx-row-hover: #f5f5f5;
+  --pplx-bubble: #f3f3f3;
+  --pplx-chip: #f0f0f0;
+  --pplx-favicon: #e8e8e8;
+  --pplx-surface: #ffffff;
+  --pplx-popover: #ffffff;
+  --pplx-border: rgb(0 0 0 / 8%);
+  --pplx-ring: rgb(0 0 0 / 15%);
+  --pplx-send: #2a2a2a;
+  --pplx-send-hover: #1a1a1a;
+  --pplx-send-fg: #ffffff;
+  --pplx-send-disabled: #d9d9d9;
+  --pplx-send-disabled-fg: #ffffff;
+  --pplx-model-chip: #f2f2f2;
+  --pplx-model-chip-hover: #ebebeb;
+  --pplx-badge: #ececec;
+  --pplx-badge-fg: #6b6b6b;
+  --pplx-badge-new: #e8f1fb;
+  --pplx-badge-new-fg: #3d7ab5;
+  --pplx-promo: #e6f3f1;
+  --pplx-promo-hover: #dceeea;
+  --pplx-lock: #b0b0b0;
+  --opencode-bg: #ffffff;
+  --opencode-panel: #f5f5f5;
+  --opencode-sidebar: #fafafa;
+  --opencode-fg: #1a1a1a;
+  --opencode-muted: #6f6f6f;
+  --opencode-subtle: #e1e1e1;
+  --opencode-blue: #3b7dd8;
+  --opencode-orange: #c47a14;
+  --opencode-green: #2f8a4a;
+  --opencode-logo-open: #8a8a8a;
+  --opencode-logo-code: #1a1a1a;
+  --opencode-logo-fill: #dcdcdc;
+  --table-shell: #f3f3f2;
+  --table-shell-border: #e7e7e5;
+  --table-card: #ffffff;
+  --table-card-border: #e5e5e5;
+  --table-row-border: #efefee;
+  --table-card-shadow: 0 1px 2px hsl(240 10% 10% / 0.06), 0 2px 8px -2px hsl(240 10% 10% / 0.06);
+  --chatgpt-bg: #ffffff;
+  --chatgpt-fg: #0d0d0d;
+  --chatgpt-muted: #5d5d5d;
+  --chatgpt-hover: #f3f3f3;
+  --chatgpt-border: #e5e5e5;
+  --chatgpt-bubble: #f4f4f4;
+  --chatgpt-composer: #ffffff;
+  --chatgpt-composer-border: #00000014;
+  --chatgpt-composer-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.04);
+  --chatgpt-popover: #ffffff;
+  --chatgpt-menu-shadow: 0 0 0 1px rgb(0 0 0 / 0.05), 0 4px 16px rgb(0 0 0 / 0.08);
+  --chatgpt-tooltip: #0d0d0d;
+  --chatgpt-tooltip-fg: #ffffff;
+  --chatgpt-send: #2563eb;
+  --chatgpt-send-hover: #1d4ed8;
+  --chatgpt-send-fg: #ffffff;
+  --chatgpt-focus: #2563eb;
+  --chatgpt-search: #e4543a;
+  --chatgpt-slider-track: #e4e4e4;
+  --chatgpt-slider-fill: #3b82f6;
+  --chatgpt-slider-thumb: #ffffff;
+  --chatgpt-slider-dot: #a3a3a3;
+  --chatgpt-slider-dot-fill: rgb(255 255 255 / 60%);
+  --chatgpt-pro: #7c3aed;
+  --chatgpt-pro-gradient: linear-gradient(90deg, #2b3fd6 0%, #6a5be2 25%, #b58cf5 50%, #6a5be2 75%, #2b3fd6 100%);
+  --shell: var(--table-shell);
+  --shell-border: var(--table-shell-border);
+  --codex-bg: #ffffff;
+  --codex-titlebar: #ececec;
+  --codex-dot: #d4d4d4;
+  --codex-title: #00000073;
+  --codex-shadow: #00000026;
+  --codex-ring: #0000001a;
+  --codex-fg: #1a1a1a;
+  --codex-dim: #5c5c5c;
+  --codex-muted: #767676;
+  --codex-rule: #e0e0e0;
+  --codex-band: #f0f0f0;
+  --codex-composer: #f3f3f3;
+  --codex-placeholder: #8a8a8a;
+  --codex-cursor: #d6006a;
+  --codex-blue: #0a6fd6;
+  --codex-command: #1f5fbf;
+  --codex-arg: #3d4f8f;
+  --codex-operator: #0f7f70;
+  --codex-flag: #c0364d;
+  --codex-green: #1f8a3a;
+  --codex-success: #00852a;
+  --codex-yellow: #8f6200;
+  --codex-amber: #8a6420;
+  --codex-red: #d12f2f;
+}
+.dark {
+  --background: #171717;
+  --foreground: #ededed;
+  --card: #1c1c1c;
+  --card-foreground: #ededed;
+  --popover: #252525;
+  --popover-foreground: #ededed;
+  --primary: #ededed;
+  --primary-foreground: #171717;
+  --secondary: #292929;
+  --secondary-foreground: #ededed;
+  --muted: #252525;
+  --muted-foreground: #a3a3a3;
+  --accent: #303030;
+  --accent-foreground: #ededed;
+  --destructive: #ef7972;
+  --border: #ffffff12;
+  --input: #ffffff20;
+  --ring: #737373;
+  --sidebar: #111111;
+  --sidebar-foreground: #d4d4d4;
+  --sidebar-primary: #ededed;
+  --sidebar-primary-foreground: #171717;
+  --sidebar-accent: #242424;
+  --sidebar-accent-foreground: #ededed;
+  --sidebar-border: #ffffff0d;
+  --sidebar-ring: #737373;
+  --pplx-bg: #171615;
+  --pplx-fg: #d6d5d4;
+  --pplx-icon: #fafafa;
+  --pplx-secondary: #b3b3b3;
+  --pplx-muted: #b3b3b3;
+  --pplx-subtle: #a3a3a3;
+  --pplx-hover: rgb(255 255 255 / 10%);
+  --pplx-row-hover: rgb(255 255 255 / 8%);
+  --pplx-bubble: rgb(255 255 255 / 10%);
+  --pplx-chip: rgb(255 255 255 / 10%);
+  --pplx-favicon: rgb(255 255 255 / 12%);
+  --pplx-surface: #1c1c1c;
+  --pplx-popover: #1c1c1c;
+  --pplx-border: rgb(255 255 255 / 10%);
+  --pplx-ring: rgb(255 255 255 / 20%);
+  --pplx-send: #ffffff;
+  --pplx-send-hover: rgb(255 255 255 / 90%);
+  --pplx-send-fg: #1a1a1a;
+  --pplx-send-disabled: rgb(255 255 255 / 20%);
+  --pplx-send-disabled-fg: rgb(255 255 255 / 70%);
+  --pplx-model-chip: rgb(255 255 255 / 10%);
+  --pplx-model-chip-hover: rgb(255 255 255 / 15%);
+  --pplx-badge: rgb(255 255 255 / 10%);
+  --pplx-badge-fg: #b3b3b3;
+  --pplx-badge-new: rgb(61 122 181 / 20%);
+  --pplx-badge-new-fg: #8bb8e0;
+  --pplx-promo: #1c3d38;
+  --pplx-promo-hover: #244843;
+  --pplx-lock: #7a7a7a;
+  --opencode-bg: #090909;
+  --opencode-panel: #191919;
+  --opencode-sidebar: #121212;
+  --opencode-fg: #e9e9e9;
+  --opencode-muted: #737373;
+  --opencode-subtle: #262626;
+  --opencode-blue: #3b91f9;
+  --opencode-orange: #fd9718;
+  --opencode-green: #4fd47b;
+  --opencode-logo-open: #737373;
+  --opencode-logo-code: #e9e9e9;
+  --opencode-logo-fill: #2a2a2a;
+  --table-shell: #161616;
+  --table-shell-border: #232323;
+  --table-card: #1f1f1f;
+  --table-card-border: #2c2c2c;
+  --table-row-border: #292929;
+  --table-card-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.05), inset 0 0 0 1px hsl(0 0% 100% / 0.015),
+    inset 0 12px 18px -16px hsl(0 0% 100% / 0.035);
+  --chatgpt-bg: #212121;
+  --chatgpt-fg: #ececec;
+  --chatgpt-muted: #afafaf;
+  --chatgpt-hover: #303030;
+  --chatgpt-border: #3a3a3a;
+  --chatgpt-bubble: #303030;
+  --chatgpt-composer: #303030;
+  --chatgpt-composer-border: #ffffff1a;
+  --chatgpt-composer-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  --chatgpt-popover: #353535;
+  --chatgpt-menu-shadow: 0 0 0 1px rgb(255 255 255 / 0.08), 0 8px 24px rgb(0 0 0 / 0.4);
+  --chatgpt-tooltip: #000000;
+  --chatgpt-tooltip-fg: #ffffff;
+  --chatgpt-send: #2563eb;
+  --chatgpt-send-hover: #1d4ed8;
+  --chatgpt-send-fg: #ffffff;
+  --chatgpt-focus: #2563eb;
+  --chatgpt-search: #e4543a;
+  --chatgpt-slider-track: #454545;
+  --chatgpt-slider-fill: #3b82f6;
+  --chatgpt-slider-thumb: #ffffff;
+  --chatgpt-slider-dot: #8c8c8c;
+  --chatgpt-slider-dot-fill: rgb(255 255 255 / 55%);
+  --chatgpt-pro: #b794f6;
+  --chatgpt-pro-gradient: linear-gradient(90deg, #2b3fd6 0%, #6a5be2 25%, #b58cf5 50%, #6a5be2 75%, #2b3fd6 100%);
+  --shell: var(--table-shell);
+  --shell-border: var(--table-shell-border);
+  --codex-bg: #0f0f0f;
+  --codex-titlebar: #1c1c1c;
+  --codex-dot: #3a3a3a;
+  --codex-title: #ffffff66;
+  --codex-shadow: #00000033;
+  --codex-ring: #ffffff00;
+  --codex-fg: #f7f7f7;
+  --codex-dim: #909090;
+  --codex-muted: #777777;
+  --codex-rule: #343434;
+  --codex-band: #2d2d2d;
+  --codex-composer: #252525;
+  --codex-placeholder: #868686;
+  --codex-cursor: #fc0076;
+  --codex-blue: #3c9ffc;
+  --codex-command: #70abfa;
+  --codex-arg: #c3cff4;
+  --codex-operator: #6cdfcd;
+  --codex-flag: #f3909f;
+  --codex-green: #85df8d;
+  --codex-success: #00a12e;
+  --codex-yellow: #fcdb9b;
+  --codex-amber: #be9952;
+  --codex-red: #ff6b6b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --animate-shimmer: shimmer var(--shimmer-duration, 1.7s) linear infinite;
+  --animate-button-swap-in: button-swap-in 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-button-swap-out: button-swap-out 360ms cubic-bezier(0.45, 0, 0.25, 1) both;
+  --animate-button-dot: button-dot 1s ease-in-out infinite;
+  --animate-button-progress-out: button-progress-out 600ms ease-out both;
+  --color-pplx-bg: var(--pplx-bg);
+  --color-pplx-fg: var(--pplx-fg);
+  --color-pplx-icon: var(--pplx-icon);
+  --color-pplx-secondary: var(--pplx-secondary);
+  --color-pplx-muted: var(--pplx-muted);
+  --color-pplx-subtle: var(--pplx-subtle);
+  --color-pplx-hover: var(--pplx-hover);
+  --color-pplx-row-hover: var(--pplx-row-hover);
+  --color-pplx-bubble: var(--pplx-bubble);
+  --color-pplx-chip: var(--pplx-chip);
+  --color-pplx-favicon: var(--pplx-favicon);
+  --color-pplx-surface: var(--pplx-surface);
+  --color-pplx-popover: var(--pplx-popover);
+  --color-pplx-border: var(--pplx-border);
+  --color-pplx-ring: var(--pplx-ring);
+  --color-pplx-send: var(--pplx-send);
+  --color-pplx-send-hover: var(--pplx-send-hover);
+  --color-pplx-send-fg: var(--pplx-send-fg);
+  --color-pplx-send-disabled: var(--pplx-send-disabled);
+  --color-pplx-send-disabled-fg: var(--pplx-send-disabled-fg);
+  --color-pplx-model-chip: var(--pplx-model-chip);
+  --color-pplx-model-chip-hover: var(--pplx-model-chip-hover);
+  --color-pplx-badge: var(--pplx-badge);
+  --color-pplx-badge-fg: var(--pplx-badge-fg);
+  --color-pplx-badge-new: var(--pplx-badge-new);
+  --color-pplx-badge-new-fg: var(--pplx-badge-new-fg);
+  --color-pplx-promo: var(--pplx-promo);
+  --color-pplx-promo-hover: var(--pplx-promo-hover);
+  --color-pplx-lock: var(--pplx-lock);
+  --font-pplx: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-pplx-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --color-opencode-bg: var(--opencode-bg);
+  --color-opencode-panel: var(--opencode-panel);
+  --color-opencode-sidebar: var(--opencode-sidebar);
+  --color-opencode-fg: var(--opencode-fg);
+  --color-opencode-muted: var(--opencode-muted);
+  --color-opencode-subtle: var(--opencode-subtle);
+  --color-opencode-blue: var(--opencode-blue);
+  --color-opencode-orange: var(--opencode-orange);
+  --color-opencode-green: var(--opencode-green);
+  --color-opencode-logo-open: var(--opencode-logo-open);
+  --color-opencode-logo-code: var(--opencode-logo-code);
+  --color-opencode-logo-fill: var(--opencode-logo-fill);
+  --font-opencode: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --color-table-shell: var(--table-shell);
+  --color-table-shell-border: var(--table-shell-border);
+  --color-table-card: var(--table-card);
+  --color-table-card-border: var(--table-card-border);
+  --color-table-row-border: var(--table-row-border);
+  --shadow-table-card: var(--table-card-shadow);
+  --color-chatgpt-bg: var(--chatgpt-bg);
+  --color-chatgpt-fg: var(--chatgpt-fg);
+  --color-chatgpt-muted: var(--chatgpt-muted);
+  --color-chatgpt-hover: var(--chatgpt-hover);
+  --color-chatgpt-border: var(--chatgpt-border);
+  --color-chatgpt-bubble: var(--chatgpt-bubble);
+  --color-chatgpt-composer: var(--chatgpt-composer);
+  --color-chatgpt-composer-border: var(--chatgpt-composer-border);
+  --color-chatgpt-popover: var(--chatgpt-popover);
+  --color-chatgpt-tooltip: var(--chatgpt-tooltip);
+  --color-chatgpt-tooltip-fg: var(--chatgpt-tooltip-fg);
+  --color-chatgpt-send: var(--chatgpt-send);
+  --color-chatgpt-send-hover: var(--chatgpt-send-hover);
+  --color-chatgpt-send-fg: var(--chatgpt-send-fg);
+  --color-chatgpt-focus: var(--chatgpt-focus);
+  --color-chatgpt-search: var(--chatgpt-search);
+  --shadow-chatgpt-composer: var(--chatgpt-composer-shadow);
+  --shadow-chatgpt-menu: var(--chatgpt-menu-shadow);
+  --font-chatgpt:
+    ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif,
+    "Segoe UI Emoji", "Segoe UI Symbol";
+  --color-chatgpt-slider-track: var(--chatgpt-slider-track);
+  --color-chatgpt-slider-fill: var(--chatgpt-slider-fill);
+  --color-chatgpt-slider-thumb: var(--chatgpt-slider-thumb);
+  --color-chatgpt-slider-dot: var(--chatgpt-slider-dot);
+  --color-chatgpt-slider-dot-fill: var(--chatgpt-slider-dot-fill);
+  --color-chatgpt-pro: var(--chatgpt-pro);
+  --animate-chatgpt-burst: chatgpt-burst 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  --animate-chatgpt-flow: chatgpt-flow 7s linear infinite;
+  --animate-chatgpt-twinkle: chatgpt-twinkle 3.2s ease-in-out infinite;
+  --color-shell: var(--shell);
+  --color-shell-border: var(--shell-border);
+  --color-codex-bg: var(--codex-bg);
+  --color-codex-titlebar: var(--codex-titlebar);
+  --color-codex-dot: var(--codex-dot);
+  --color-codex-title: var(--codex-title);
+  --color-codex-shadow: var(--codex-shadow);
+  --color-codex-ring: var(--codex-ring);
+  --color-codex-fg: var(--codex-fg);
+  --color-codex-dim: var(--codex-dim);
+  --color-codex-muted: var(--codex-muted);
+  --color-codex-rule: var(--codex-rule);
+  --color-codex-band: var(--codex-band);
+  --color-codex-composer: var(--codex-composer);
+  --color-codex-placeholder: var(--codex-placeholder);
+  --color-codex-cursor: var(--codex-cursor);
+  --color-codex-blue: var(--codex-blue);
+  --color-codex-command: var(--codex-command);
+  --color-codex-arg: var(--codex-arg);
+  --color-codex-operator: var(--codex-operator);
+  --color-codex-flag: var(--codex-flag);
+  --color-codex-green: var(--codex-green);
+  --color-codex-success: var(--codex-success);
+  --color-codex-yellow: var(--codex-yellow);
+  --color-codex-amber: var(--codex-amber);
+  --color-codex-red: var(--codex-red);
+  --font-codex: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --shell-border: var(--shell-border);
+  --shell: var(--shell);
+  --chatgpt-pro-gradient: var(--chatgpt-pro-gradient);
+  --chatgpt-menu-shadow: var(--chatgpt-menu-shadow);
+  --chatgpt-composer-shadow: var(--chatgpt-composer-shadow);
+  --table-card-shadow: var(--table-card-shadow);
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: 0% 0;
+    }
+  }
+  @keyframes button-swap-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.45em);
+      filter: blur(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+  @keyframes button-swap-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-0.45em);
+      filter: blur(4px);
+    }
+  }
+  @keyframes button-dot {
+    0%,
+    60%,
+    100% {
+      opacity: 0.45;
+      transform: translateY(0);
+    }
+    30% {
+      opacity: 1;
+      transform: translateY(-0.3em);
+    }
+  }
+  @keyframes button-progress-out {
+    0%,
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes chatgpt-burst {
+    0% {
+      opacity: 1;
+      transform: translate(0, 0) scale(0.4);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(var(--burst-x), var(--burst-y)) scale(1);
+    }
+  }
+  @keyframes chatgpt-flow {
+    from {
+      background-position: 0% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
+  }
+  @keyframes chatgpt-twinkle {
+    0% {
+      opacity: 0;
+      transform: translateX(14px) scale(0.5);
+    }
+    30%,
+    60% {
+      opacity: 0.95;
+      transform: translateX(0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(-16px) scale(0.6);
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+}

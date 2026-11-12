@@ -1,0 +1,480 @@
+{
+  "distribution": "Official Notra shadcn registry",
+  "registry": "https://ui.usenotra.com/r/{name}.json",
+  "items": [
+    {
+      "name": "app-sidebar",
+      "url": "https://ui.usenotra.com/r/app-sidebar.json",
+      "files": [
+        {
+          "target": "components/app-sidebar/components/sidebar-nav.tsx",
+          "sha256": "a410a2ed35e474150f70cbb4da2d70499c8bec0166a0f67eb1703173fe4b2f64"
+        },
+        {
+          "target": "components/app-sidebar/components/sidebar-search.tsx",
+          "sha256": "6c670a7f8214e31b06c461d31fa1e53fb70017261078c34176827205354ab564"
+        },
+        {
+          "target": "components/app-sidebar/components/sidebar-switcher.tsx",
+          "sha256": "756e112b51419597b00f41042a79df05c67b61534683bafa891ae3b7899f6007"
+        },
+        {
+          "target": "components/app-sidebar/components/sidebar-user-menu.tsx",
+          "sha256": "931cdd119c731ec4a37889bc6ddb9e9040bd95315f24324c7bf87783bb2c9a98"
+        },
+        {
+          "target": "components/app-sidebar/constants/app-sidebar.ts",
+          "sha256": "87a741d5bae20bd1f57d1d772ccbafb966de756aab04b3dad7b14c5f579a767d"
+        },
+        {
+          "target": "components/app-sidebar/hooks/use-sidebar-settled.ts",
+          "sha256": "83debdd8a81815450021142ba1cd35fedbd246f6ebb0b3647e85c3f57b1d8604"
+        },
+        {
+          "target": "components/app-sidebar/hooks/use-scroll-more.ts",
+          "sha256": "faf1f43b6878c5893c877759c62c7408779e85e524fa72aa451ff80d6e12d775"
+        },
+        {
+          "target": "components/app-sidebar/types/app-sidebar.ts",
+          "sha256": "32effa5c39b24d652c2c2cf1a7ba2e4b9db97ab95d399a4bcf92c4e1fd2c5581"
+        }
+      ]
+    },
+    {
+      "name": "card",
+      "url": "https://ui.usenotra.com/r/card.json",
+      "files": [
+        {
+          "target": "components/card/components/card-labels.tsx",
+          "sha256": "ae820b9430df81acacfd83bf9680046cbf14004a70730e0d5eac338089e21e91"
+        },
+        {
+          "target": "components/card/components/instrument-grid.tsx",
+          "sha256": "dba6d795371987af29f653b849850652bdfdd31bdd7734c54478dd89433edfa6"
+        },
+        {
+          "target": "components/card/components/instrument-module.tsx",
+          "sha256": "2b897e8ab23976a4a407eef49111a4cd5a44e5b2b128aab3a344e5f721f63687"
+        },
+        {
+          "target": "components/card/components/instrument-reveal.tsx",
+          "sha256": "939ca0641556bd46ced8322b20d3fb0b72ad13eab6f0f382edb101904094abb6"
+        },
+        {
+          "target": "components/card/constants/card.ts",
+          "sha256": "be20ea5271afc659f34db8d8a20b46400e4861c24f577f53a434993a1c209f66"
+        },
+        {
+          "target": "components/card/types/card.ts",
+          "sha256": "2fc7fc3c4eab7211507d4bb9b57df883618d7851ab80a51869af5c792a8d09a8"
+        }
+      ]
+    },
+    {
+      "name": "chat-minimap",
+      "url": "https://ui.usenotra.com/r/chat-minimap.json",
+      "files": [
+        {
+          "target": "components/chat-minimap/components/chat-minimap.tsx",
+          "sha256": "0a70a7a40e99d8077177677a2ed5cb2c382fae35ffb3f11f97c160d2938a4bdb"
+        },
+        {
+          "target": "components/chat-minimap/types/chat-minimap.ts",
+          "sha256": "ddd5e43efbf70f3d027c91914ef2ab0a8c6254136b1aeace2ff47f683b53b7b5"
+        },
+        {
+          "target": "components/chat-minimap/lib/chat-minimap.ts",
+          "sha256": "974a2f5826e87d7aaab69c60c5bfc9fd24cb1cb7bbbd956595721f7931950484"
+        },
+        {
+          "target": "components/chat-minimap/hooks/use-chat-minimap-scroll-spy.ts",
+          "sha256": "f2a7970364f255dde5d28f58181f60a0f9cc570c25b8f1fb9409c4609fa53251"
+        }
+      ]
+    },
+    {
+      "name": "chatgpt-thread",
+      "url": "https://ui.usenotra.com/r/chatgpt-thread.json",
+      "files": [
+        {
+          "target": "components/chatgpt/components/chatgpt-thread.tsx",
+          "sha256": "26182deb8f1466da67d3c68b2cfb875bd7bfe3afbcfb2840829c42b19e545d25"
+        },
+        {
+          "target": "components/chatgpt/types/chatgpt.ts",
+          "sha256": "443da28dbe20e7901c714e89f79c23dbfec7074451985b2c2ecea4411bd41f68"
+        },
+        {
+          "target": "components/chatgpt/constants/chatgpt.ts",
+          "sha256": "0f9a72191c6846fd60b6ec70846d0a1d441db7afc7d1b80c306849c25d04cda0"
+        }
+      ]
+    },
+    {
+      "name": "chatgpt",
+      "url": "https://ui.usenotra.com/r/chatgpt.json",
+      "files": [
+        {
+          "target": "components/chatgpt/components/chatgpt-action-button.tsx",
+          "sha256": "20eae5924cdd2f3b3490a7694e31b414c2237b70b9bd3d7e45ed2e82b8e48eb3"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-actions.tsx",
+          "sha256": "b227b59d3dffed380e0cc21e2ff6747c2887d0ad27d5a0a23df146442dfd6abb"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-activity.tsx",
+          "sha256": "d1906e47a42b384faf5f0695b4baf295200de0e9a6730c55e166eba0a9011725"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-composer.tsx",
+          "sha256": "f5e80c93dfb940b5ae32c4edb6ef4da18ab2fd608758c305103877e5926a5cb9"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-favicon.tsx",
+          "sha256": "b432fa9798d93a3f010b4151f09e69b431625bb9a11887a6c0c41edceee5a912"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-icons.tsx",
+          "sha256": "2cedf1b946ad937f81f1a1e2b85efc141019de84aacd069c0aa499876430d31b"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-message.tsx",
+          "sha256": "04fa8d79420862e7c90694e7c5dd90abb7f7875fe6de3ceaa1f337aea82916d1"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-model-selector.tsx",
+          "sha256": "76f0ff68d801fde5851b2b441e609c4990c8421014b334777a3e00d4f8610ece"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-reasoning.tsx",
+          "sha256": "389173affc2b0971852a22813f0661575810aec0356f9d0ce87cad8314bae7b2"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-search.tsx",
+          "sha256": "2e0c49dbb803daa56ece1aaab584ff83774b2cc7b224cb786772a1f2da832df8"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-thinking.tsx",
+          "sha256": "f554ab1cde89ffb7e3c583e7cbb34d0acf1ee97569a5d45aacddc336c8a3720f"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-app-call.tsx",
+          "sha256": "54effaa7c2b3493daf3e75d5bc9b2f46c235e22ee53f538c12074d07356e0763"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-thread.tsx",
+          "sha256": "26182deb8f1466da67d3c68b2cfb875bd7bfe3afbcfb2840829c42b19e545d25"
+        },
+        {
+          "target": "components/chatgpt/types/chatgpt.ts",
+          "sha256": "443da28dbe20e7901c714e89f79c23dbfec7074451985b2c2ecea4411bd41f68"
+        },
+        {
+          "target": "components/chatgpt/constants/chatgpt.ts",
+          "sha256": "0f9a72191c6846fd60b6ec70846d0a1d441db7afc7d1b80c306849c25d04cda0"
+        },
+        {
+          "target": "components/chatgpt/constants/chatgpt-models.ts",
+          "sha256": "9d4fd92fc0335abcce8f84c13f51c81900b3414f1f3bec9d217d9c717054f69f"
+        },
+        {
+          "target": "components/chatgpt/constants/chatgpt-story.ts",
+          "sha256": "28990629d24f1c6154c6a279736071c129080c9eaff8b27cd3cf1e5d66f0704c"
+        },
+        {
+          "target": "components/chatgpt/hooks/use-chatgpt-playback.ts",
+          "sha256": "99499b8b35d6bd8062270afeaa9ddaee640204f17b4bb1b73f42ce608259e013"
+        },
+        {
+          "target": "components/chatgpt/examples/chatgpt-demo.tsx",
+          "sha256": "fec5eac37021dee9135b0bebe5aceef355225180ba0c560f82e21eef24025b01"
+        },
+        {
+          "target": "components/chatgpt/components/chatgpt-source-chip.tsx",
+          "sha256": "b6253953dc984a7b43e3262c7bfba316f4a2acad4209e364adb5935198e81f4e"
+        }
+      ]
+    },
+    {
+      "name": "codex-exec",
+      "url": "https://ui.usenotra.com/r/codex-exec.json",
+      "files": [
+        {
+          "target": "components/codex/components/codex-exec.tsx",
+          "sha256": "03fc0975d3cfbe61ec023ed30478432201ac1c14c7b8fdeafd8cb57be7c841ec"
+        },
+        {
+          "target": "components/codex/lib/codex-shell.ts",
+          "sha256": "fe0385d48bffafa98393fe54a95f77cb3bcc23bd9015581928d988e0e7fb3353"
+        },
+        {
+          "target": "components/codex/constants/codex.ts",
+          "sha256": "a265cfb7adc3de5073397995d134a0ae68a9dce7253231e3bf5fec74e171e3b6"
+        },
+        {
+          "target": "components/codex/types/codex.ts",
+          "sha256": "1c3e6491e8ec9b8374a4c92fbafec3e3df6c55ae4a834257b6fa24b73830edff"
+        }
+      ]
+    },
+    {
+      "name": "codex-explored",
+      "url": "https://ui.usenotra.com/r/codex-explored.json",
+      "files": [
+        {
+          "target": "components/codex/components/codex-explored.tsx",
+          "sha256": "bfd527032f653c854399da535fdffe9a0facfd4a111c18f3b1be18e3ff5bf3ee"
+        },
+        {
+          "target": "components/codex/constants/codex.ts",
+          "sha256": "a265cfb7adc3de5073397995d134a0ae68a9dce7253231e3bf5fec74e171e3b6"
+        },
+        {
+          "target": "components/codex/types/codex.ts",
+          "sha256": "1c3e6491e8ec9b8374a4c92fbafec3e3df6c55ae4a834257b6fa24b73830edff"
+        }
+      ]
+    },
+    {
+      "name": "codex-markdown",
+      "url": "https://ui.usenotra.com/r/codex-markdown.json",
+      "files": [
+        {
+          "target": "components/codex/components/codex-markdown.tsx",
+          "sha256": "bd4222f2c3bfe5af0828d448e919125bc35b407c07fb3bb0dc278b6504cbf0b5"
+        },
+        {
+          "target": "components/codex/types/codex.ts",
+          "sha256": "1c3e6491e8ec9b8374a4c92fbafec3e3df6c55ae4a834257b6fa24b73830edff"
+        }
+      ]
+    },
+    {
+      "name": "codex-reasoning",
+      "url": "https://ui.usenotra.com/r/codex-reasoning.json",
+      "files": [
+        {
+          "target": "components/codex/components/codex-reasoning.tsx",
+          "sha256": "e8faa00f339108eb11a6d9f0a5cfd486aa97c249402bc658b5f61926e82b9581"
+        },
+        {
+          "target": "components/codex/constants/codex.ts",
+          "sha256": "a265cfb7adc3de5073397995d134a0ae68a9dce7253231e3bf5fec74e171e3b6"
+        },
+        {
+          "target": "components/codex/types/codex.ts",
+          "sha256": "1c3e6491e8ec9b8374a4c92fbafec3e3df6c55ae4a834257b6fa24b73830edff"
+        }
+      ]
+    },
+    {
+      "name": "codex-working",
+      "url": "https://ui.usenotra.com/r/codex-working.json",
+      "files": [
+        {
+          "target": "components/codex/components/codex-working.tsx",
+          "sha256": "78b99584df166abbc932a39fb86c8555358d2f727be1ebc1180bccf6e5cbca55"
+        },
+        {
+          "target": "components/codex/constants/codex.ts",
+          "sha256": "a265cfb7adc3de5073397995d134a0ae68a9dce7253231e3bf5fec74e171e3b6"
+        },
+        {
+          "target": "components/codex/types/codex.ts",
+          "sha256": "1c3e6491e8ec9b8374a4c92fbafec3e3df6c55ae4a834257b6fa24b73830edff"
+        }
+      ]
+    },
+    {
+      "name": "composer",
+      "url": "https://ui.usenotra.com/r/composer.json",
+      "files": [
+        {
+          "target": "components/composer/components/composer.tsx",
+          "sha256": "eb4e60a01cba184a67fe2eef64e9fd3be14250db51601cf0ccd38ae03b30f713"
+        },
+        {
+          "target": "components/composer/constants/composer.ts",
+          "sha256": "7a66478950735cadc6abe51bdc91b5f849202fae1df3d74d415b06fe57c75985"
+        },
+        {
+          "target": "components/composer/types/composer.ts",
+          "sha256": "d27de762148f93e1d139a78bf7f3c38d97f0919908da9431e3cfdd5a03379485"
+        }
+      ]
+    },
+    {
+      "name": "icon-tabs",
+      "url": "https://ui.usenotra.com/r/icon-tabs.json",
+      "files": [
+        {
+          "target": "components/icon-tabs/components/icon-tabs.tsx",
+          "sha256": "b028dcf1358e5c7f2ef11b43d2c982e822cd7e8b05eb2753582c604c5a7b0e0c"
+        },
+        {
+          "target": "components/icon-tabs/constants/icon-tabs.ts",
+          "sha256": "05186db31aca6cce46b2b950b34c85f032df1f80cb659725c1ed88bcf98dae9b"
+        },
+        {
+          "target": "components/icon-tabs/lib/icon-tabs.ts",
+          "sha256": "38d64325b7aa73626ad945b0fa7bd0bd30fa2a11f2566a2d17dd59c895cc54d6"
+        },
+        {
+          "target": "components/icon-tabs/types/icon-tabs.ts",
+          "sha256": "fe6c0555a170f979ca6dd91f55b31dc7f7b69286d0272619319ed477a2b1d176"
+        }
+      ]
+    },
+    {
+      "name": "notra-button",
+      "url": "https://ui.usenotra.com/r/notra-button.json",
+      "files": [
+        {
+          "target": "components/button/components/button.tsx",
+          "sha256": "50b1ecc4ef8262fc0ddfb9b16d0056f49ab935317cee6302bb9a88b2fe0e9206"
+        },
+        {
+          "target": "components/button/components/button-content.tsx",
+          "sha256": "b30c8b7a4e2e53fdb607445a0ed1d1007e4acd11045536e2485cd8183c6beb07"
+        }
+      ]
+    },
+    {
+      "name": "notra-dropdown-menu",
+      "url": "https://ui.usenotra.com/r/notra-dropdown-menu.json",
+      "files": [
+        {
+          "target": "components/dropdown-menu/components/dropdown-menu.tsx",
+          "sha256": "cefdb0b61ec623436314d7c6bc6a00dbdaeaeb8f66982e8630f2b0eacb29da85"
+        },
+        {
+          "target": "components/dropdown-menu/constants/dropdown-menu.ts",
+          "sha256": "5c70737c14d469970357e836bb2e39302fb4db28274265728c74f88fe43ab93f"
+        }
+      ]
+    },
+    {
+      "name": "notra-select",
+      "url": "https://ui.usenotra.com/r/notra-select.json",
+      "files": [
+        {
+          "target": "components/select/components/select.tsx",
+          "sha256": "0b3c945aa711a867f0e93509e2394ca7eef873890831370e045c9b8fd50e0c6c"
+        },
+        {
+          "target": "components/select/constants/select.ts",
+          "sha256": "c8ee0fabbf2ced49d8103567b5d8d89972914bb8f67dbaa079dfc2f8ef377ae0"
+        }
+      ]
+    },
+    {
+      "name": "notra-sidebar",
+      "url": "https://ui.usenotra.com/r/notra-sidebar.json",
+      "files": [
+        {
+          "target": "components/sidebar/components/sidebar.tsx",
+          "sha256": "c55e40cab0507e81020a737c6be2b825c41f7e3aa7213684eef3a7fe0f9ada51"
+        }
+      ]
+    },
+    {
+      "name": "notra-sonner",
+      "url": "https://ui.usenotra.com/r/notra-sonner.json",
+      "files": [
+        {
+          "target": "components/sonner/components/sonner.tsx",
+          "sha256": "fc0522789b7d165d808fde7c2c51adcf2a61cb8dcce7204d6c4defb8bac8576f"
+        }
+      ]
+    },
+    {
+      "name": "notra-table",
+      "url": "https://ui.usenotra.com/r/notra-table.json",
+      "files": [
+        {
+          "target": "components/table/components/table.tsx",
+          "sha256": "36c2c0bc7b9037a4f699cb18483403ad21b1bc8a86489de986b0eaa16b6181fc"
+        }
+      ]
+    },
+    {
+      "name": "notra-tooltip",
+      "url": "https://ui.usenotra.com/r/notra-tooltip.json",
+      "files": [
+        {
+          "target": "components/tooltip/components/tooltip.tsx",
+          "sha256": "b5a70c0dd7e2d73e00bc67f50f424201b09baafca10eacc04449eccd856ae4ae"
+        }
+      ]
+    },
+    {
+      "name": "opencode-logo",
+      "url": "https://ui.usenotra.com/r/opencode-logo.json",
+      "files": [
+        {
+          "target": "components/opencode/components/opencode-logo.tsx",
+          "sha256": "6e5738559b4ca203b2b469886e692cefcb76679b9225e8807cde72225b4228df"
+        },
+        {
+          "target": "components/opencode/constants/opencode.ts",
+          "sha256": "c905864e8d287540870e7604cd2256a8d022e78823cb544751ca1219754a797f"
+        },
+        {
+          "target": "components/opencode/types/opencode.ts",
+          "sha256": "cf901dd64112084ba2de4157aa7e8bd66b1f5957d8a3e0e205810a96525efa8d"
+        }
+      ]
+    },
+    {
+      "name": "perplexity-model-icon",
+      "url": "https://ui.usenotra.com/r/perplexity-model-icon.json",
+      "files": [
+        {
+          "target": "components/perplexity/components/perplexity-model-icon.tsx",
+          "sha256": "4f81717fc19cf26fe626fe50a8f9c21e4542d0e53c55b3993ad479445ea48072"
+        },
+        {
+          "target": "components/perplexity/components/perplexity-icons.tsx",
+          "sha256": "da78c35b8dcc5585ff841b1fbd9571ff3ba5cd7dbea4a331c3ad93a008267750"
+        },
+        {
+          "target": "components/perplexity/types/perplexity.ts",
+          "sha256": "be8fe6ae60b3a24af79d9dc6f45ea02599ee429f6172caf0f3af7779f7af84c9"
+        }
+      ]
+    },
+    {
+      "name": "shimmer",
+      "url": "https://ui.usenotra.com/r/shimmer.json",
+      "files": [
+        {
+          "target": "components/shimmer/components/shimmer.tsx",
+          "sha256": "901dcfd2f397a3ff2e9021d0accf119631eaec89b0c1a5b3e7cadb1be8e58040"
+        },
+        {
+          "target": "components/shimmer/types/shimmer.ts",
+          "sha256": "45add8b90d2127cfd4c10e24c79810cfa9fe324deb5555c346dc2d8c7f19cf87"
+        }
+      ]
+    },
+    {
+      "name": "step-slider",
+      "url": "https://ui.usenotra.com/r/step-slider.json",
+      "files": [
+        {
+          "target": "components/step-slider/components/step-slider.tsx",
+          "sha256": "a4cd454695b11f528b7398c73b903db7f9afccf68fa5c034997f6e6b55206170"
+        },
+        {
+          "target": "components/step-slider/types/step-slider.ts",
+          "sha256": "86e7f290569cc715af33628a769d1337aad2013e4520e1630b5e0edcc66003cf"
+        },
+        {
+          "target": "components/step-slider/lib/step-slider.ts",
+          "sha256": "db4cb088ccd7130e2dca3bf08ed2d63a52bd2c2934dc3154e0e8e0fd5fcccf88"
+        }
+      ]
+    }
+  ]
+}
