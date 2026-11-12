@@ -114,6 +114,17 @@
     container-type: inline-size;
   }
 
+  /* A very narrow side panel cannot fit both its tabs and the session's floating toolbar on one row. */
+  @container (max-width: 180px) {
+    #review-panel [data-slot="session-review-content"] {
+      padding-block-start: 48px;
+    }
+
+    #review-panel [data-slot="session-toolbar-reserve"] {
+      display: none;
+    }
+  }
+
   /* Like the composer toolbar, fade only clipped content without reserving layout space.
      The fade contracts as overflow clears; the second mask preserves the header divider. */
   #review-panel .session-review-v2-tabs-bar {

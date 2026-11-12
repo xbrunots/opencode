@@ -2218,6 +2218,16 @@ test("Review from a new tab keeps the file browser and preview open", async ({ p
   await expect(tab("README.md")).toHaveCount(1)
 })
 
+test("the side panel add tab remains clickable beside the conversation toolbar on a narrow window", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 900 })
+  await openSession(page, { name: "NarrowReviewControls", seed: { panes: { ses_narrowreviewcontrols: { review: true } } } })
+  const panel = page.locator("#review-panel")
+
+  await expect(panel).toHaveAttribute("aria-hidden", "false")
+  await panel.getByRole("button", { name: "Add tab", exact: true }).click()
+  await expect(panel.getByRole("tab", { name: "New tab", selected: true })).toBeVisible()
+})
+
 for (const direction of ["ltr", "rtl"] as const) {
   test(`review toggle stays at the header edge in ${direction}`, async ({ page }) => {
     await page.setViewportSize({ width: 1000, height: 900 })

@@ -422,7 +422,7 @@ export function PaneTabs(props: {
           </Show>
           {props.end}
           <Show when={props.actions && props.present()}>
-            <div class="size-7 shrink-0" aria-hidden />
+            <div data-slot="session-toolbar-reserve" class="h-7 w-[92px] shrink-0" aria-hidden />
           </Show>
         </div>
       </div>
