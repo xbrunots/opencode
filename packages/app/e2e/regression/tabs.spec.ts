@@ -2778,6 +2778,8 @@ test("projects can be grouped, dragged and retained after reload", async ({ page
     .filter({ has: page.getByRole("button", { name: "Group project", exact: true }) })
   await expect(row).toBeVisible()
   await expect(row.locator('[data-folder-state="open"]')).toBeVisible()
+  await expect(row.locator('[data-slot="session-branch-tag"]').first()).toHaveText("main")
+  await expect(page.getByRole("banner").locator('[data-slot="session-branch-tag"]').first()).toHaveText("main")
   await row.getByRole("button", { name: "Group project", exact: true }).click()
   await expect(row.locator('[data-folder-state="closed"]')).toBeVisible()
   await row.getByRole("button", { name: "Group project", exact: true }).click()
