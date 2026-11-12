@@ -1,0 +1,88 @@
+:root {
+  --overlay-glass-bg: rgb(255 255 255 / 90%);
+  --overlay-glass-fg: #171717;
+  --overlay-glass-border: rgb(23 23 23 / 12%);
+  --overlay-glass-shadow: 0 12px 36px -12px rgb(0 0 0 / 24%);
+  --overlay-glass-blur: 20px;
+  --overlay-solid-bg: #ffffff;
+}
+
+.dark {
+  --overlay-glass-bg: rgb(30 30 32 / 90%);
+  --overlay-glass-fg: #f0f0f0;
+  --overlay-glass-border: rgb(255 255 255 / 14%);
+  --overlay-glass-shadow: 0 12px 36px -12px rgb(0 0 0 / 60%);
+  --overlay-solid-bg: #1e1e20;
+}
+
+:is(
+  [data-slot="dropdown-menu-content"],
+  [data-slot="dropdown-menu-sub-content"],
+  [data-slot="popover-content"],
+  [data-slot="dialog-content"],
+  [data-slot="sheet-content"],
+  [data-slot="tooltip-content"],
+  [data-slot="hover-card-content"],
+  [data-slot="context-menu-content"],
+  [data-slot="chatgpt-activity"],
+  [data-sonner-toast]
+) {
+  color: var(--overlay-glass-fg);
+  background-color: var(--overlay-glass-bg);
+  background-image: none;
+  border-color: var(--overlay-glass-border);
+  box-shadow: var(--overlay-glass-shadow);
+  -webkit-backdrop-filter: blur(var(--overlay-glass-blur));
+  backdrop-filter: blur(var(--overlay-glass-blur));
+}
+
+[data-slot="tooltip-content"] {
+  --tooltip-arrow: var(--overlay-glass-bg);
+}
+
+[data-slot="popover-content"] .bg-chatgpt-popover {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+:is([data-slot="dialog-overlay"], [data-slot="sheet-overlay"]) {
+  background-color: rgb(0 0 0 / 20%);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :is(
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"],
+    [data-slot="popover-content"],
+    [data-slot="dialog-content"],
+    [data-slot="sheet-content"],
+    [data-slot="tooltip-content"],
+    [data-slot="hover-card-content"],
+    [data-slot="context-menu-content"],
+    [data-slot="chatgpt-activity"],
+    [data-sonner-toast]
+  ) {
+    background-color: var(--overlay-solid-bg);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :is(
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"],
+    [data-slot="popover-content"],
+    [data-slot="dialog-content"],
+    [data-slot="sheet-content"],
+    [data-slot="tooltip-content"],
+    [data-slot="hover-card-content"],
+    [data-slot="context-menu-content"],
+    [data-slot="chatgpt-activity"],
+    [data-sonner-toast]
+  ) {
+    background-color: var(--overlay-solid-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

@@ -3,11 +3,7 @@
 import { cn } from "cn";
 import { useEffect, useRef } from "react";
 
-import {
-  CODEX_BULLET_BLINK_MS,
-  CODEX_ROW_CLASS,
-  CODEX_SHIMMER_MS,
-} from "../constants/codex";
+import { CODEX_BULLET_BLINK_MS, CODEX_ROW_CLASS } from "../constants/codex";
 import type { CodexInterruptedProps, CodexWorkingProps } from "../types/codex";
 
 export const CodexWorking = ({
@@ -16,23 +12,20 @@ export const CodexWorking = ({
   label = "Working",
   ...props
 }: CodexWorkingProps) => {
-  const labelRef = useRef<HTMLSpanElement>(null);
   const bulletRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return;
     }
-    const shimmer = labelRef.current?.animate(
-      [{ backgroundPosition: "100% 0" }, { backgroundPosition: "0% 0" }],
-      { duration: CODEX_SHIMMER_MS, iterations: Number.POSITIVE_INFINITY }
-    );
     const blink = bulletRef.current?.animate(
       [{ opacity: 1 }, { opacity: 0.35 }, { opacity: 1 }],
-      { duration: CODEX_BULLET_BLINK_MS, iterations: Number.POSITIVE_INFINITY }
+      {
+        duration: CODEX_BULLET_BLINK_MS,
+        iterations: Number.POSITIVE_INFINITY,
+      }
     );
     return () => {
-      shimmer?.cancel();
       blink?.cancel();
     };
   }, []);
@@ -48,14 +41,8 @@ export const CodexWorking = ({
         •
       </span>
       <p className="min-w-0 truncate">
-        <span
-          className="bg-[linear-gradient(90deg,var(--codex-dim)_35%,var(--codex-fg)_50%,var(--codex-dim)_65%)] bg-size-[300%_100%] bg-clip-text bg-position-[100%_0] text-transparent"
-          ref={labelRef}
-        >
-          {label}
-        </span>{" "}
-        ({elapsed} • <span className="text-codex-fg font-bold">esc</span> to
-        interrupt)
+        <span className="text-codex-dim">{label}</span> ({elapsed} •{" "}
+        <span className="text-codex-fg font-bold">esc</span> to interrupt)
       </p>
     </div>
   );

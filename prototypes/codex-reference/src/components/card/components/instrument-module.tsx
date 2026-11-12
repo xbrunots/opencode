@@ -241,7 +241,7 @@ export function InstrumentEmpty({
       {preview ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 [mask-image:linear-gradient(to_bottom,transparent_0%,black_24%,black_70%,transparent_100%)] opacity-40 select-none"
+          className="pointer-events-none absolute inset-0 opacity-40 select-none"
         >
           {preview}
         </div>

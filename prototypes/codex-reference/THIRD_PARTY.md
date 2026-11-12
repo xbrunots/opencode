@@ -15,3 +15,6 @@ Os componentes de conversa, menus, logos de provedores, seletor de esforço, bot
 Adaptações locais: Composer com rascunho controlado, textarea e slots de anexos/modelo; textos de interface em português; logos de provedores combinados ao seletor de modelos do workspace; normalização do tipo `strokeWidth` do Spinner para compatibilidade com Hugeicons. A estrutura e os tokens dos componentes foram preservados. O layout de projetos/worktrees, o diff e a simulação local compõem esses elementos para o OpenCodex.
 
 A documentação do Notra disponibiliza os componentes para copiar e instalar. Os JSONs recebidos não incluem uma declaração própria de licença; este projeto preserva a origem sem atribuir uma licença inexistente ao Notra. As licenças das dependências npm permanecem nos respectivos pacotes. Logos e nomes de modelos pertencem aos seus titulares; o catálogo de modelos da demonstração é ilustrativo.
+
+
+Adaptações de material: gradientes dos componentes foram removidos a pedido do usuário; shimmer usa pulso de opacidade, overlays usam tint e backdrop blur, e a estrela Gemini preserva seu path com preenchimento azul sólido. O painel de ferramentas e o resumo de contexto compõem os controles Notra existentes.

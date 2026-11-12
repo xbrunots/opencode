@@ -13,14 +13,14 @@ const depthVariants = cva("relative", {
   variants: {
     variant: {
       default:
-        "border-primary/60 text-primary-foreground bg-linear-to-b from-[color-mix(in_oklab,var(--color-primary),black_8%)] to-[color-mix(in_oklab,var(--color-primary),black_20%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_1px_2px_rgba(0,0,0,0.18)] [corner-shape:squircle] hover:brightness-110 supports-[corner-shape:squircle]:rounded-[0.75rem]",
+        "border-primary bg-primary text-primary-foreground shadow-sm [corner-shape:squircle] hover:bg-primary/90 supports-[corner-shape:squircle]:rounded-[0.75rem]",
       outline:
-        "border-border from-background to-muted text-foreground aria-expanded:from-secondary aria-expanded:to-secondary dark:from-input dark:to-muted bg-linear-to-b shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_2px_rgba(0,0,0,0.06)] [corner-shape:squircle] hover:brightness-[0.97] supports-[corner-shape:squircle]:rounded-[0.75rem] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.4)] dark:hover:brightness-125",
+        "border-border bg-background text-foreground shadow-sm aria-expanded:bg-secondary hover:bg-muted [corner-shape:squircle] supports-[corner-shape:squircle]:rounded-[0.75rem]",
       secondary:
-        "border-foreground/60 from-foreground/85 to-foreground text-background hover:from-foreground/70 hover:to-foreground/85 bg-linear-to-b shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_1px_2px_rgba(0,0,0,0.18)] [corner-shape:squircle] supports-[corner-shape:squircle]:rounded-[0.75rem]",
+        "border-foreground bg-foreground text-background shadow-sm hover:bg-foreground/90 [corner-shape:squircle] supports-[corner-shape:squircle]:rounded-[0.75rem]",
       ghost: "",
       destructive:
-        "border-destructive/60 from-destructive focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 bg-linear-to-b to-[color-mix(in_oklab,var(--color-destructive),black_12%)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_1px_2px_rgba(0,0,0,0.18)] [corner-shape:squircle] hover:brightness-110 supports-[corner-shape:squircle]:rounded-[0.75rem] dark:from-[color-mix(in_oklab,var(--color-destructive),black_20%)] dark:to-[color-mix(in_oklab,var(--color-destructive),black_30%)]",
+        "border-destructive bg-destructive text-white shadow-sm focus-visible:border-destructive/40 focus-visible:ring-destructive/20 hover:bg-destructive/90 [corner-shape:squircle] supports-[corner-shape:squircle]:rounded-[0.75rem]",
       link: "text-foreground",
     },
   },

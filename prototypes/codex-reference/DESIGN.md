@@ -6,16 +6,16 @@ Uma experiência de desenvolvimento familiar, precisa e cuidada, expressa pela c
 
 A solicitação do usuário define Notra UI como sistema visual. Foram instalados os arquivos reais do registro oficial, com seus tokens, keyframes, componentes e dependências Base UI. O bloco ChatGPT fornece Thread, Message, Reasoning, Search, Activity, Source Chip, Actions, App Call, Thinking e Composer. Sidebar, Icon Tabs, Dropdown Menu, Button, Tooltip, Sonner, Step Slider e Model Icon completam a experiência.
 
-Não aplicar outra identidade por cima desses elementos. O CSS próprio trata da composição, dos painéis e das necessidades de projetos/worktrees. Os elementos de profundidade nos botões e menus pertencem ao Notra e foram preservados por solicitação explícita.
+Não aplicar outra identidade por cima desses elementos. O CSS próprio trata da composição, dos painéis e das necessidades de projetos/worktrees. Os componentes Notra receberam a direção de material solicitada: nenhuma superfície ou marca usa gradiente. Chat e controles têm cores sólidas; menus, popovers, diálogos e o resumo flutuante usam tint translúcido e blur de 20 px, com fallback opaco.
 
 ## Tokens e composição
 
 - Conversa: tokens Notra ChatGPT. Escuro `--chatgpt-bg: #212121`, texto `#ececec`, superfície/composer `#303030`; claro fundo `#ffffff`, texto `#0d0d0d`, bubble `#f4f4f4`.
 - Shell escuro: sidebar `#111111`, popover `#252525`, border `#ffffff12`; claro sidebar `#f7f7f7`, popover `#ffffff`, border `#e5e5e5`.
 - Tipografia: Inter Variable local no shell; stack original ChatGPT no thread. Corpo de conversa 16 px, navegação 12–14 px, metadados 10–12 px. Código usa fonte monospace.
-- Sidebar: 270 px inicial, redimensionamento nativo do Notra entre 240 e 400 px; rail de 48 px. Barra superior 59 px, linha de abas 49 px, coluna de leitura e composer com máximo de 48rem. Revisão lateral de 350 px.
-- Abaixo de 1100 px, a revisão sobrepõe o conteúdo. Abaixo de 780 px, sidebar vira sheet e os modos paralelos formam uma coluna; ilhas deixam o arraste livre. A biblioteca posiciona e limita os overlays.
-- Logos: Model Icon oficial Notra com vetores dos provedores. Modelos de uma mesma família compartilham sua marca; os nomes do catálogo são ilustrativos.
+- Sidebar: 284 px inicial, redimensionamento nativo do Notra entre 240 e 400 px; rail de 48 px. Barra superior 59 px, linha de abas 49 px, coluna de leitura e composer com máximo de 48rem. Painel de ferramentas com abas, navegador e recursos da conversa, ocupando 48% do workspace em desktop. O resumo flutuante preserva uma coluna própria em telas largas.
+- Abaixo de 1100 px, o painel de ferramentas sobrepõe o conteúdo; no mobile ocupa a largura disponível. Abaixo de 780 px, sidebar vira sheet e os modos paralelos formam uma coluna; ilhas deixam o arraste livre. A biblioteca posiciona e limita os overlays.
+- Logos: Model Icon oficial Notra com vetores dos provedores. Modelos de uma mesma família compartilham sua marca; os nomes do catálogo são ilustrativos. A estrela Gemini usa azul sólido para respeitar a proibição de gradientes.
 
 ## Interação e movimento
 
@@ -28,3 +28,8 @@ O movimento serve a transições e feedback: tempos de 150–200 ms nos controle
 Typecheck, build e percurso funcional em Chromium passaram. As capturas verificam os dois temas em desktop/mobile e os estados de modelos, esforço, atividade e revisão. A revisão visual independente retornou `ship` para o protótipo, sem achados materiais; o escopo e as limitações funcionais estão no README. Capturas distribuídas em `previews/`.
 
 O detector estático apontou somente o uso de Inter como fonte recorrente. A fonte foi mantida por coerência com a família de componentes escolhida para esta interface operacional; não houve achado funcional ou visual material associado.
+
+
+A navegação expressa projeto → worktree → conversa por guias de 1 px, recuos e disclosures independentes. A rail recolhida renderiza somente um grupo compacto de ações e projetos: não reaproveita a árvore expandida e não duplica seu controle na barra superior.
+
+O painel direito preserva abas, terminal, histórico do navegador e configurações demonstrativas por conversa. O resumo do topo apresenta alterações, subagentes, fontes, artefatos, MCPs e skills e abre a seção correspondente.

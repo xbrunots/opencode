@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./materials.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -102,7 +103,6 @@
   --chatgpt-slider-dot: #a3a3a3;
   --chatgpt-slider-dot-fill: rgb(255 255 255 / 60%);
   --chatgpt-pro: #7c3aed;
-  --chatgpt-pro-gradient: linear-gradient(90deg, #2b3fd6 0%, #6a5be2 25%, #b58cf5 50%, #6a5be2 75%, #2b3fd6 100%);
   --shell: var(--table-shell);
   --shell-border: var(--table-shell-border);
   --codex-bg: #ffffff;
@@ -230,7 +230,6 @@
   --chatgpt-slider-dot: #8c8c8c;
   --chatgpt-slider-dot-fill: rgb(255 255 255 / 55%);
   --chatgpt-pro: #b794f6;
-  --chatgpt-pro-gradient: linear-gradient(90deg, #2b3fd6 0%, #6a5be2 25%, #b58cf5 50%, #6a5be2 75%, #2b3fd6 100%);
   --shell: var(--table-shell);
   --shell-border: var(--table-shell-border);
   --codex-bg: #0f0f0f;
@@ -290,7 +289,7 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --animate-shimmer: shimmer var(--shimmer-duration, 1.7s) linear infinite;
+  --animate-status-pulse: status-pulse var(--status-pulse-duration, 1.7s) ease-in-out infinite;
   --animate-button-swap-in: button-swap-in 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
   --animate-button-swap-out: button-swap-out 360ms cubic-bezier(0.45, 0, 0.25, 1) both;
   --animate-button-dot: button-dot 1s ease-in-out infinite;
@@ -404,16 +403,16 @@
   --font-codex: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --shell-border: var(--shell-border);
   --shell: var(--shell);
-  --chatgpt-pro-gradient: var(--chatgpt-pro-gradient);
   --chatgpt-menu-shadow: var(--chatgpt-menu-shadow);
   --chatgpt-composer-shadow: var(--chatgpt-composer-shadow);
   --table-card-shadow: var(--table-card-shadow);
-  @keyframes shimmer {
-    from {
-      background-position: 100% 0;
+  @keyframes status-pulse {
+    0%,
+    100% {
+      opacity: 0.6;
     }
-    to {
-      background-position: 0% 0;
+    50% {
+      opacity: 1;
     }
   }
   @keyframes button-swap-in {

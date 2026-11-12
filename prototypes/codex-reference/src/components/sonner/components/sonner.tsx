@@ -21,9 +21,9 @@ const statusTokens = cn(
 );
 
 const toastClassName = cn(
-  "group/toast border-border bg-background from-background to-muted/60 text-popover-foreground flex w-(--width) items-center gap-2.5 rounded-[0.875rem] border bg-linear-to-b p-3 text-sm [corner-shape:squircle]",
+  "group/toast border-border bg-background text-popover-foreground flex w-(--width) items-center gap-2.5 rounded-[0.875rem] border p-3 text-sm [corner-shape:squircle]",
   "shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_2px_rgba(0,0,0,0.06),0_8px_24px_-8px_rgba(0,0,0,0.14)]",
-  "dark:border-input dark:bg-muted dark:from-input dark:to-muted dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-8px_rgba(0,0,0,0.6)]",
+  "dark:border-input dark:bg-muted dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-8px_rgba(0,0,0,0.6)]",
   "*:transition-opacity data-[expanded=false]:data-[front=false]:*:opacity-0"
 );
 

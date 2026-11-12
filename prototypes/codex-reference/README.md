@@ -37,7 +37,10 @@ python -m http.server 8791 --bind 127.0.0.1 --directory prototypes/codex-referen
 - Logos em cada modelo, nas abas, no seletor e na identificação da resposta. As famílias OpenAI, Anthropic, Google e xAI usam os vetores do Notra Model Icon.
 - Seletor de esforço com o Step Slider do Notra; agente e permissões por conversa.
 - Raciocínio expansível, pesquisa, atividade, fontes, citação, app call e ações da resposta.
-- Revisão de três arquivos com snippets distintos e estado de conclusão; terminal com comandos de exemplo.
+- Painel direito com abas de ferramentas: navegador com histórico, terminal com comandos de exemplo, arquivos reais em leitura, diff demonstrativo, subagentes, fontes, artefatos com download, MCPs e skills da conversa.
+- Resumo flutuante no topo no modo foco, com acesso direto a cada recurso e controle para abrir/fechar.
+- Árvore projeto → worktree → conversa com guias e expansão independente; rail compacta sem ícones duplicados.
+- Sem gradientes; superfícies do chat sólidas e overlays com glass/blur em ambos os temas.
 - Ferramentas: MCPs, skills, plugins e conexões demonstrativas.
 - Foco, grade e ilhas com arraste e redimensionamento em desktop; tema claro/escuro no menu do workspace.
 
@@ -49,6 +52,9 @@ python -m http.server 8791 --bind 127.0.0.1 --directory prototypes/codex-referen
 | Alt+1 / Alt+2 / Alt+3 | Foco / grade / ilhas |
 | Alt+seta esquerda/direita em uma aba | Reordenar |
 | Esc | Fechar menu ou sheet |
+| Ctrl/Cmd+T / Ctrl/Cmd+W dentro do painel | Nova guia / fechar guia |
+| Ctrl/Cmd+L dentro do navegador | Focar endereço |
+| Setas / Home / End nas guias de ferramentas | Selecionar guia |
 
 ## Verificação realizada
 
@@ -61,7 +67,7 @@ python -m http.server 8791 --bind 127.0.0.1 --directory prototypes/codex-referen
 
 ## Limites
 
-É um protótipo de interface independente. Conversas, respostas, catálogo de modelos, arquivos e diffs são ilustrativos. O streaming é simulado e não chama modelos. Os anexos têm prévia local, sem upload ou anotação; após enviar, a conversa registra seus nomes. Criar projetos/worktrees não altera o sistema de arquivos. O terminal responde a `help`, `pwd`, `ls`, `git status`, `git branch` e `clear` sem executar processos. MCPs, plugins e conexões não acionam serviços externos. O estado das conversas reinicia ao recarregar; somente o tema e a preferência da sidebar persistem. Firefox, Safari e integração com o aplicativo instalado não foram validados.
+É um protótipo de interface independente. Conversas, respostas, catálogo de modelos e diffs são ilustrativos. O visualizador de arquivos mostra fontes reais incluídas no build em modo de leitura. O navegador incorpora URLs HTTP(S) e oferece abertura externa para sites que bloqueiam iframe; a prévia local é ilustrativa. O streaming é simulado e não chama modelos. Os anexos têm prévia local, sem upload ou anotação; após enviar, a conversa registra seus nomes. Criar projetos/worktrees não altera o sistema de arquivos. O terminal responde a `help`, `pwd`, `ls`, `git status`, `git branch` e `clear` sem executar processos. MCPs, plugins e conexões não acionam serviços externos. As abas e os recursos do painel mantêm estado separado por conversa durante a sessão. O estado das conversas reinicia ao recarregar; somente o tema e a preferência da sidebar persistem. Firefox, Safari e integração com o aplicativo instalado não foram validados.
 
 ## Origem
 

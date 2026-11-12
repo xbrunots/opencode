@@ -5,9 +5,7 @@ import {
   ArrowDown01Icon,
   ArrowRight01Icon,
   Cancel01Icon,
-  CheckmarkCircle02Icon,
   CommandLineIcon,
-  File01Icon,
   Folder01Icon,
   GitBranchIcon,
   GridViewIcon,
@@ -17,6 +15,9 @@ import {
   Moon02Icon,
   PlusSignIcon,
   Settings01Icon,
+  SearchIcon,
+  SidebarRight01Icon,
+  SlidersHorizontalIcon,
 } from "@hugeicons/core-free-icons"
 import { Toaster } from "@/components/sonner/components/sonner"
 import { toast } from "sonner"
@@ -59,18 +60,19 @@ import { IconTabs, IconTabsList, IconTabsTrigger } from "@/components/icon-tabs/
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/tooltip/components/tooltip"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field"
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { WorkspaceChat, ModelLogo, WORKSPACE_INITIAL_MESSAGES, WORKSPACE_MODELS } from "@/features/chat"
 import type { ChatSession } from "@/features/chat"
+import { ToolPanel } from "@/features/tool-panel"
+import type { ToolKind } from "@/features/tool-panel"
+import { ConversationContext } from "@/features/conversation-context"
 
 type Session = ChatSession & { project: string; branch: string; time: string }
 type Project = { id: string; name: string; branches: string[] }
 type Layout = "focus" | "grid" | "islands"
-type Panel = "search" | "tools" | "project" | "worktree" | "terminal" | null
+type Panel = "search" | "tools" | "project" | "worktree" | null
 
 function Icon({ icon, ...props }: ComponentProps<typeof HugeiconsIcon>) {
   return <HugeiconsIcon icon={icon} size={18} strokeWidth={1.6} {...props} />
@@ -80,14 +82,26 @@ function IconAction({
   icon,
   label,
   onClick,
+  pressed,
 }: {
   icon: ComponentProps<typeof HugeiconsIcon>["icon"]
   label: string
   onClick: () => void
+  pressed?: boolean
 }) {
   return (
     <Tooltip>
-      <TooltipTrigger render={<Button size="icon-sm" variant="ghost" aria-label={label} onClick={onClick} />}>
+      <TooltipTrigger
+        render={
+          <Button
+            size="icon-sm"
+            variant={pressed ? "secondary" : "ghost"}
+            aria-label={label}
+            aria-pressed={pressed}
+            onClick={onClick}
+          />
+        }
+      >
         <Icon icon={icon} />
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
@@ -221,14 +235,14 @@ export default function App() {
   const [tabs, setTabs] = useState(["workspace", "review"])
   const [active, setActive] = useState("workspace")
   const [layout, setLayout] = useState<Layout>("focus")
-  const [review, setReview] = useState(false)
+  const [toolPanelOpen, setToolPanelOpen] = useState(false)
+  const [sessionTools, setSessionTools] = useState<Record<string, ToolKind>>({})
+  const [contextOpen, setContextOpen] = useState(() => window.innerWidth >= 1180)
   const [panel, setPanel] = useState<Panel>(null)
   const [query, setQuery] = useState("")
   const [name, setName] = useState("")
   const [toolTab, setToolTab] = useState<keyof typeof toolCatalog>("mcps")
   const [tools, setTools] = useState(toolCatalog)
-  const [terminalLines, setTerminalLines] = useState<string[]>(["Terminal de demonstração. Digite help para começar."])
-  const [command, setCommand] = useState("")
   const [formError, setFormError] = useState("")
   const timers = useRef(new Map<string, ReturnType<typeof setInterval>>())
   const dragging = useRef<string | null>(null)
@@ -241,6 +255,7 @@ export default function App() {
     localStorage.setItem("opencodex-notra-theme", theme)
   }, [theme])
   const session = sessions.find((item) => item.id === active)
+  const activeTool = sessionTools[active] || "home"
   const selectedProject = projects.find((item) => item.id === session?.project) || projects[0]
   const openSessions = tabs.flatMap((id) => sessions.filter((item) => item.id === id))
   const searchResults = sessions.filter((item) =>
@@ -411,28 +426,20 @@ export default function App() {
     setPanel(value)
   }
 
-  function terminalSubmit() {
-    const text = command.trim()
-    const commands: Record<string, string> = {
-      help: "help · pwd · ls · git status · git branch · clear",
-      pwd: `/Projects/${selectedProject.name}`,
-      ls: "src/  components.json  package.json  README.md",
-      "git status": "On branch notra-workspace\n3 arquivos alterados (demonstração)",
-      "git branch": `* ${session?.branch || "main"}\n  dev`,
-    }
-    const result = commands[text]
-    setTerminalLines((items) =>
-      text === "clear"
-        ? []
-        : [...items, `› ${text}`, result || "Comando indisponível nesta demonstração. Digite help."],
-    )
-    setCommand("")
+  function selectTool(tool: ToolKind, id = active) {
+    setSessionTools((previous) => ({ ...previous, [id]: tool }))
+  }
+
+  function openTool(tool: ToolKind, id = active) {
+    selectTool(tool, id)
+    setToolPanelOpen(true)
+    setContextOpen(false)
   }
 
   return (
     <>
       <Toaster theme={theme === "dark" ? "dark" : "light"} />
-      <SidebarProvider defaultWidth={270} className="workspace-shell" mobileBreakpoint={780}>
+      <SidebarProvider defaultWidth={284} className="workspace-shell" mobileBreakpoint={780}>
         <WorkspaceSidebar
           projects={projects}
           sessions={sessions}
@@ -483,7 +490,9 @@ export default function App() {
               </DropdownMenu>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <IconAction icon={CommandLineIcon} label="Abrir terminal" onClick={() => newPanel("terminal")} />
+              <span className="toolbar-quick-terminal">
+                <IconAction icon={CommandLineIcon} label="Abrir terminal" onClick={() => openTool("terminal")} />
+              </span>
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={<Button size="icon-sm" variant="ghost" aria-label="Layout do workspace" />}
@@ -507,16 +516,25 @@ export default function App() {
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button
-                size="sm"
-                variant={review ? "secondary" : "outline"}
-                aria-pressed={review}
-                onClick={() => setReview((value) => !value)}
-              >
-                <Icon icon={File01Icon} />
-                <span className="review-button-label">Revisar</span>
-                {session?.messages.some((message) => message.review) && <span className="review-count">3</span>}
-              </Button>
+              <IconAction
+                icon={SlidersHorizontalIcon}
+                label={contextOpen && layout === "focus" ? "Fechar contexto da conversa" : "Abrir contexto da conversa"}
+                pressed={contextOpen && layout === "focus"}
+                onClick={() => {
+                  setLayout("focus")
+                  setContextOpen((value) => !value)
+                }}
+              />
+              <span className="toolbar-action-divider" />
+              <IconAction
+                icon={SidebarRight01Icon}
+                label={toolPanelOpen ? "Fechar painel de ferramentas" : "Abrir painel de ferramentas"}
+                pressed={toolPanelOpen}
+                onClick={() => {
+                  setToolPanelOpen((value) => !value)
+                  setContextOpen(false)
+                }}
+              />
             </div>
           </header>
           <div className="workspace-tabs-row">
@@ -581,7 +599,13 @@ export default function App() {
             </IconTabs>
             <IconAction icon={PlusSignIcon} label="Nova aba" onClick={() => create()} />
           </div>
-          <div className="workspace-content">
+          <div
+            className={cn(
+              "workspace-content",
+              toolPanelOpen && "has-tool-panel",
+              contextOpen && layout === "focus" && "has-context",
+            )}
+          >
             <main
               className={cn(
                 "workspace-conversations",
@@ -613,7 +637,7 @@ export default function App() {
                       onAgentChange={(value) => update(item.id, { agent: value })}
                       onOpenReview={() => {
                         setActive(item.id)
-                        setReview(true)
+                        openTool("changes", item.id)
                       }}
                       compact={layout !== "focus"}
                     />
@@ -632,14 +656,27 @@ export default function App() {
                 </Empty>
               )}
             </main>
-            {review && (
-              <aside className="workspace-review" aria-label="Painel de revisão">
-                <ReviewPanel
-                  hasChanges={Boolean(session?.messages.some((item) => item.review))}
-                  onClose={() => setReview(false)}
-                />
-              </aside>
+            {contextOpen && layout === "focus" && session && (
+              <ConversationContext
+                session={session}
+                project={selectedProject.name}
+                onOpenTool={openTool}
+                onClose={() => setContextOpen(false)}
+              />
             )}
+            <aside className="workspace-tools-panel" aria-label="Painel de ferramentas" hidden={!toolPanelOpen}>
+              <ToolPanel
+                sessionId={session?.id || "empty"}
+                sessionTitle={session?.title || "Workspace"}
+                project={selectedProject.name}
+                branch={session?.branch || "main"}
+                hasChanges={Boolean(session?.messages.some((item) => item.review))}
+                busy={Boolean(session?.busy)}
+                activeTool={activeTool}
+                onActiveToolChange={selectTool}
+                onClose={() => setToolPanelOpen(false)}
+              />
+            </aside>
           </div>
         </SidebarInset>
         <Sheet
@@ -648,10 +685,7 @@ export default function App() {
             if (!value) setPanel(null)
           }}
         >
-          <SheetContent
-            side={panel === "terminal" ? "bottom" : "right"}
-            className={panel === "terminal" ? "workspace-terminal-sheet" : "workspace-settings-sheet"}
-          >
+          <SheetContent side="right" className="workspace-settings-sheet">
             <SheetHeader>
               <SheetTitle>
                 {
@@ -660,18 +694,15 @@ export default function App() {
                     tools: "Ferramentas do workspace",
                     project: "Novo projeto",
                     worktree: "Nova worktree",
-                    terminal: "Terminal",
                   }[panel || "search"]
                 }
               </SheetTitle>
               <SheetDescription>
-                {panel === "terminal"
-                  ? "Terminal demonstrativo. Nenhum comando é executado no computador."
-                  : panel === "tools"
-                    ? "Seus modelos, conexões e recursos em um só lugar."
-                    : panel === "search"
-                      ? "Encontre uma ideia em qualquer projeto."
-                      : "Organize uma nova frente de trabalho neste protótipo."}
+                {panel === "tools"
+                  ? "Seus modelos, conexões e recursos em um só lugar."
+                  : panel === "search"
+                    ? "Encontre uma ideia em qualquer projeto."
+                    : "Organize uma nova frente de trabalho neste protótipo."}
               </SheetDescription>
             </SheetHeader>
             {panel === "search" && (
@@ -816,36 +847,6 @@ export default function App() {
                 </Button>
               </form>
             )}
-            {panel === "terminal" && (
-              <div className="sheet-body terminal-body">
-                <ScrollArea className="min-h-0 flex-1">
-                  <div className="terminal-lines">
-                    {terminalLines.map((line, index) => (
-                      <pre key={index}>{line}</pre>
-                    ))}
-                  </div>
-                </ScrollArea>
-                <form
-                  className="flex items-center gap-2"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    terminalSubmit()
-                  }}
-                >
-                  <Icon icon={CommandLineIcon} />
-                  <Input
-                    autoFocus
-                    aria-label="Comando do terminal"
-                    value={command}
-                    placeholder="help"
-                    onChange={(event) => setCommand(event.target.value)}
-                  />
-                  <Button type="submit" variant="outline">
-                    Executar
-                  </Button>
-                </form>
-              </div>
-            )}
           </SheetContent>
         </Sheet>
       </SidebarProvider>
@@ -855,7 +856,7 @@ export default function App() {
 
 function MobileSidebarTrigger() {
   const sidebar = useSidebar()
-  return sidebar.isMobile || !sidebar.open ? <SidebarTrigger /> : null
+  return sidebar.isMobile ? <SidebarTrigger aria-label="Abrir navegação" /> : null
 }
 
 function WorkspaceSidebar({
@@ -878,117 +879,209 @@ function WorkspaceSidebar({
   onTheme: () => void
 }) {
   const sidebar = useSidebar()
+  const compact = !sidebar.isMobile && !sidebar.open
   function open(id: string) {
     onOpen(id)
     if (sidebar.isMobile) sidebar.setOpenMobile(false)
   }
   return (
-    <Sidebar collapsible="icon" className="workspace-sidebar">
+    <Sidebar
+      collapsible="icon"
+      className="workspace-sidebar"
+      data-compact={compact}
+      mobileTitle="Navegação do workspace"
+      mobileDescription="Projetos, worktrees e conversas"
+    >
       <SidebarHeader>
-        <div className="brand-row">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton size="lg" tooltip="OpenCodex" onClick={() => onCreate()}>
-                <Icon icon={CommandLineIcon} />
-                <SidebarLabel className="brand-name">OpenCodex</SidebarLabel>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-          <SidebarTrigger />
-        </div>
-      </SidebarHeader>
-      <div className="sidebar-search-wrap">
-        <SidebarSearch label="Buscar conversas" shortcut="Ctrl K" onClick={() => onPanel("search")} />
-      </div>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                tooltip="Nova conversa"
-                onClick={() => {
-                  onCreate()
-                  sidebar.setOpenMobile(false)
-                }}
-              >
-                <Icon icon={PlusSignIcon} />
-                <SidebarLabel>Nova conversa</SidebarLabel>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton tooltip="Skills e ferramentas" onClick={onTools}>
-                <Icon icon={Layers01Icon} />
-                <SidebarLabel>Skills e ferramentas</SidebarLabel>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel className="project-group-label">
-            <span>Projetos</span>
-            <Button size="icon-xs" variant="ghost" aria-label="Adicionar projeto" onClick={() => onPanel("project")}>
-              <Icon icon={PlusSignIcon} />
-            </Button>
-          </SidebarGroupLabel>
-          <SidebarMenu>
-            {projects.map((project) => (
-              <SidebarMenuItem key={project.id}>
-                <Collapsible defaultOpen>
-                  <CollapsibleTrigger render={<SidebarMenuButton tooltip={project.name} className="project-row" />}>
-                    <Icon icon={Folder01Icon} />
-                    <SidebarLabel>{project.name}</SidebarLabel>
-                    <Icon icon={ArrowDown01Icon} className="ml-auto project-chevron" />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {project.branches.map((branch) => (
-                        <SidebarMenuSubItem key={branch}>
-                          <div className="sidebar-branch">
-                            <Icon icon={GitBranchIcon} />
-                            <span>{branch}</span>
-                            <Button
-                              size="icon-xs"
-                              variant="ghost"
-                              aria-label={`Nova conversa em ${branch}`}
-                              onClick={() => {
-                                onCreate(project.id, branch)
-                                sidebar.setOpenMobile(false)
-                              }}
-                            >
-                              <Icon icon={PlusSignIcon} />
-                            </Button>
-                          </div>
-                          <SidebarMenu>
-                            {sessions
-                              .filter((item) => item.project === project.id && item.branch === branch)
-                              .map((item) => (
-                                <SidebarMenuSubItem key={item.id}>
-                                  <SidebarMenuSubButton
-                                    isActive={item.id === active}
-                                    render={<button onClick={() => open(item.id)} />}
-                                  >
-                                    <span
-                                      className={cn(
-                                        "sidebar-session-state",
-                                        item.busy && "is-running",
-                                        item.id === active && "is-current",
-                                      )}
-                                    />
-                                    <span className="truncate">{item.title}</span>
-                                    <span className="session-age">{item.time}</span>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))}
-                          </SidebarMenu>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </Collapsible>
+        {compact ? (
+          <div className="compact-brand">
+            <SidebarTrigger aria-label="Expandir navegação" />
+          </div>
+        ) : (
+          <div className="brand-row">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton size="lg" tooltip="OpenCodex" onClick={() => onCreate()}>
+                  <Icon icon={CommandLineIcon} />
+                  <SidebarLabel className="brand-name">OpenCodex</SidebarLabel>
+                </SidebarMenuButton>
               </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+            </SidebarMenu>
+            <SidebarTrigger aria-label="Recolher navegação" />
+          </div>
+        )}
+      </SidebarHeader>
+      {!compact && (
+        <div className="sidebar-search-wrap">
+          <SidebarSearch label="Buscar conversas" shortcut="Ctrl K" onClick={() => onPanel("search")} />
+        </div>
+      )}
+      <SidebarContent>
+        {compact ? (
+          <div className="compact-navigation">
+            <SidebarMenu>
+              {[
+                { label: "Buscar conversas", icon: SearchIcon, action: () => onPanel("search") },
+                { label: "Nova conversa", icon: PlusSignIcon, action: () => onCreate() },
+                { label: "Skills e ferramentas", icon: Layers01Icon, action: onTools },
+              ].map((item) => (
+                <SidebarMenuItem key={item.label}>
+                  <SidebarMenuButton tooltip={item.label} aria-label={item.label} onClick={item.action}>
+                    <Icon icon={item.icon} />
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+            <div className="compact-divider" />
+            <SidebarMenu aria-label="Projetos">
+              {projects.map((project) => (
+                <SidebarMenuItem key={project.id}>
+                  <SidebarMenuButton
+                    tooltip={project.name}
+                    aria-label={`Abrir projeto ${project.name}`}
+                    isActive={sessions.some((item) => item.id === active && item.project === project.id)}
+                    onClick={() => {
+                      const target = sessions.find((item) => item.project === project.id)
+                      if (target) open(target.id)
+                      else onCreate(project.id, project.branches[0])
+                    }}
+                  >
+                    <Icon icon={Folder01Icon} />
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Adicionar projeto"
+                  aria-label="Adicionar projeto"
+                  onClick={() => onPanel("project")}
+                >
+                  <Icon icon={PlusSignIcon} />
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </div>
+        ) : (
+          <>
+            <SidebarGroup>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    tooltip="Nova conversa"
+                    onClick={() => {
+                      onCreate()
+                      sidebar.setOpenMobile(false)
+                    }}
+                  >
+                    <Icon icon={PlusSignIcon} />
+                    <SidebarLabel>Nova conversa</SidebarLabel>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton tooltip="Skills e ferramentas" onClick={onTools}>
+                    <Icon icon={Layers01Icon} />
+                    <SidebarLabel>Skills e ferramentas</SidebarLabel>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+            <SidebarGroup>
+              <SidebarGroupLabel className="project-group-label">
+                <span>Projetos</span>
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label="Adicionar projeto"
+                  onClick={() => onPanel("project")}
+                >
+                  <Icon icon={PlusSignIcon} />
+                </Button>
+              </SidebarGroupLabel>
+              <SidebarMenu>
+                {projects.map((project) => (
+                  <SidebarMenuItem key={project.id}>
+                    <Collapsible defaultOpen>
+                      <CollapsibleTrigger render={<SidebarMenuButton tooltip={project.name} className="project-row" />}>
+                        <Icon icon={Folder01Icon} />
+                        <SidebarLabel>{project.name}</SidebarLabel>
+                        <Icon icon={ArrowDown01Icon} className="ml-auto project-chevron" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub className="project-worktrees">
+                          {project.branches.map((branch) => (
+                            <SidebarMenuSubItem key={branch} className="worktree-node">
+                              <Collapsible defaultOpen>
+                                <div
+                                  className={cn(
+                                    "sidebar-branch",
+                                    sessions.some(
+                                      (item) =>
+                                        item.id === active && item.project === project.id && item.branch === branch,
+                                    ) && "current-branch",
+                                  )}
+                                >
+                                  <CollapsibleTrigger
+                                    render={<button className="worktree-toggle" aria-label={`Worktree ${branch}`} />}
+                                  >
+                                    <Icon icon={ArrowDown01Icon} className="worktree-chevron" />
+                                    <Icon icon={GitBranchIcon} />
+                                    <span>{branch}</span>
+                                    <span className="worktree-count" title="Conversas nesta worktree">
+                                      {
+                                        sessions.filter((item) => item.project === project.id && item.branch === branch)
+                                          .length
+                                      }
+                                    </span>
+                                  </CollapsibleTrigger>
+                                  <Button
+                                    size="icon-xs"
+                                    variant="ghost"
+                                    aria-label={`Nova conversa em ${branch}`}
+                                    onClick={() => {
+                                      onCreate(project.id, branch)
+                                      sidebar.setOpenMobile(false)
+                                    }}
+                                  >
+                                    <Icon icon={PlusSignIcon} />
+                                  </Button>
+                                </div>
+                                <CollapsibleContent>
+                                  <SidebarMenu className="worktree-conversations" aria-label={`Conversas em ${branch}`}>
+                                    {sessions
+                                      .filter((item) => item.project === project.id && item.branch === branch)
+                                      .map((item) => (
+                                        <SidebarMenuSubItem key={item.id}>
+                                          <SidebarMenuSubButton
+                                            isActive={item.id === active}
+                                            render={<button onClick={() => open(item.id)} />}
+                                          >
+                                            <span
+                                              className={cn(
+                                                "sidebar-session-state",
+                                                item.busy && "is-running",
+                                                item.id === active && "is-current",
+                                              )}
+                                            />
+                                            <Icon icon={Message01Icon} className="tree-conversation-icon" />
+                                            <span className="truncate">{item.title}</span>
+                                            <span className="session-age">{item.time}</span>
+                                          </SidebarMenuSubButton>
+                                        </SidebarMenuSubItem>
+                                      ))}
+                                  </SidebarMenu>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <SidebarUserMenu name="Meu workspace" email="Local · projeto pessoal">
@@ -1073,141 +1166,5 @@ function SessionPane({
       )}
       {children}
     </section>
-  )
-}
-
-function ReviewPanel({ hasChanges, onClose }: { hasChanges: boolean; onClose: () => void }) {
-  const [file, setFile] = useState("thread.tsx")
-  const [reviewed, setReviewed] = useState(false)
-  const snippets: Record<string, string[]> = {
-    "thread.tsx": [
-      "export function Conversation() {",
-      "  return (",
-      "-   <LegacyConversation />",
-      "+   <ChatgptThread",
-      "+     autoScroll",
-      "+     footer={<ChatgptComposer />}",
-      "+   >",
-      "+     <Messages />",
-      "+   </ChatgptThread>",
-      "  )",
-      "}",
-    ],
-    "workspace.tsx": [
-      "export function Workspace() {",
-      "  return (",
-      "-   <LegacySidebar />",
-      "+   <SidebarProvider>",
-      "+     <Sidebar />",
-      "+     <SidebarInset>",
-      "+       <Conversations />",
-      "+     </SidebarInset>",
-      "+   </SidebarProvider>",
-      "  )",
-      "}",
-    ],
-    "tokens.css": [
-      ":root {",
-      "- --surface: #111214;",
-      "+ --background: var(--chatgpt-bg);",
-      "+ --foreground: var(--chatgpt-fg);",
-      "+ --popover: var(--chatgpt-popover);",
-      "+ --border: var(--chatgpt-border);",
-      "}",
-      "",
-      "@media (prefers-reduced-motion: reduce) {",
-      "+ * { scroll-behavior: auto; }",
-      "}",
-    ],
-  }
-  return (
-    <>
-      <div className="review-heading">
-        <span>Revisão</span>
-        <IconAction icon={Cancel01Icon} label="Fechar revisão" onClick={onClose} />
-      </div>
-      {hasChanges ? (
-        <>
-          <div className="review-summary">
-            <div>
-              <strong>3 arquivos alterados</strong>
-              <span>
-                <span className="diff-add">+148</span>
-                <span className="diff-remove">−32</span>
-              </span>
-            </div>
-            <p>
-              notra-workspace <Icon icon={GitBranchIcon} />
-            </p>
-          </div>
-          <div className="review-files">
-            {[
-              { name: "thread.tsx", path: "src/features/chat", add: 86, del: 18 },
-              { name: "workspace.tsx", path: "src", add: 42, del: 10 },
-              { name: "tokens.css", path: "src/styles", add: 20, del: 4 },
-            ].map((item) => (
-              <Button
-                variant="ghost"
-                key={item.name}
-                className={cn("review-file", file === item.name && "selected")}
-                onClick={() => setFile(item.name)}
-              >
-                <Icon icon={File01Icon} />
-                <span>
-                  <strong>{item.name}</strong>
-                  <small>{item.path}</small>
-                </span>
-                <span className="file-stat">
-                  <span className="diff-add">+{item.add}</span>
-                  <span className="diff-remove">−{item.del}</span>
-                </span>
-              </Button>
-            ))}
-          </div>
-          <div className="diff-heading">
-            <span>{file}</span>
-            <Badge variant="outline">Modificado</Badge>
-          </div>
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="code-diff">
-              {snippets[file].map((line, index) => (
-                <div
-                  key={index}
-                  className={line.startsWith("+") ? "added" : line.startsWith("-") ? "removed" : undefined}
-                >
-                  <span>{index + 1}</span>
-                  <code>{line}</code>
-                </div>
-              ))}
-            </div>
-            <div className="review-check">
-              <Icon icon={CheckmarkCircle02Icon} />
-              <span>
-                Pronto para explorar<small>Alterações de exemplo deste protótipo</small>
-              </span>
-            </div>
-          </ScrollArea>
-          <div className="review-footer">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setReviewed(true)
-                toast("Revisão marcada como concluída", { description: "Estado demonstrativo deste workspace." })
-              }}
-            >
-              <Icon icon={CheckmarkCircle02Icon} />
-              {reviewed ? "Revisado" : "Marcar como revisado"}
-            </Button>
-          </div>
-        </>
-      ) : (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>Sem alterações</EmptyTitle>
-            <EmptyDescription>Os arquivos alterados nesta conversa aparecerão aqui.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      )}
-    </>
   )
 }

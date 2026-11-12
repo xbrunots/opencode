@@ -1,6 +1,29 @@
 .workspace-chat {
   min-width: 0;
 }
+.workspace-chat [data-slot="chatgpt-thread"],
+.workspace-chat [data-slot="chatgpt-reasoning"],
+.workspace-chat [data-slot="chatgpt-app-call"] {
+  background-color: var(--chatgpt-bg);
+  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.workspace-chat [data-slot="chatgpt-message"][data-from="user"] > div {
+  background-color: var(--chatgpt-bubble);
+  background-image: none;
+}
+.workspace-chat [data-slot="chatgpt-composer"] [data-slot="input-group"],
+.workspace-chat .workspace-attachment,
+.workspace-chat-revision > [data-slot="button"] {
+  background-color: var(--chatgpt-composer);
+  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.workspace-chat-revision > [data-slot="button"]:hover {
+  background-color: var(--chatgpt-hover);
+}
 .workspace-message-copy {
   white-space: pre-wrap;
 }

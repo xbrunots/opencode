@@ -2,7 +2,7 @@
 
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 import { cn } from "cn";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useState } from "react";
 
 import { nearestStepIndex, stepRatio } from "../lib/step-slider";
 import type { StepSliderProps } from "../types/step-slider";
@@ -10,19 +10,6 @@ import type { StepSliderProps } from "../types/step-slider";
 const STOP_UNDER_THUMB = 0.01;
 
 const stopCenter = (ratio: number) => `calc(1rem + ${ratio} * (100% - 2rem))`;
-
-const SWEEP_FROM = -60;
-const SWEEP_TO = 160;
-const SWEEP_KEYFRAMES: Keyframe[] = [
-  { maskPosition: `${SWEEP_FROM}% 0` },
-  { maskPosition: `${SWEEP_TO}% 0` },
-];
-const SWEEP_TIMING: KeyframeAnimationOptions = {
-  duration: 900,
-  easing: "ease-out",
-};
-const SWEEP_PAST_FILL = (100 - SWEEP_FROM) / (SWEEP_TO - SWEEP_FROM);
-const SWEEP_BANDS = [0, 1] as const;
 
 const defaultFormatLabel = (value: number) => value;
 
@@ -55,37 +42,6 @@ export const StepSlider = ({
     lastIndex
   );
   const ratio = lastIndex > 0 ? position / lastIndex : 0;
-
-  const sweepBands = useRef<(HTMLSpanElement | null)[]>([]);
-  const sweeps = useRef<(Animation | undefined)[]>([]);
-  const activeSweep = useRef(0);
-
-  useEffect(() => {
-    const active = sweeps.current[activeSweep.current];
-    const isRunning = active?.playState === "running";
-    const progress = active?.effect?.getComputedTiming().progress ?? 1;
-    if (isRunning && progress < SWEEP_PAST_FILL) {
-      return;
-    }
-
-    const next = isRunning ? 1 - activeSweep.current : activeSweep.current;
-    const band = sweepBands.current[next];
-    if (!band?.animate) {
-      return;
-    }
-    sweeps.current[next]?.cancel();
-    sweeps.current[next] = band.animate(SWEEP_KEYFRAMES, SWEEP_TIMING);
-    activeSweep.current = next;
-  }, [current]);
-
-  useEffect(
-    () => () => {
-      for (const sweep of sweeps.current) {
-        sweep?.cancel();
-      }
-    },
-    []
-  );
 
   const majorStepSet = majorSteps ? new Set(majorSteps) : null;
 
@@ -132,21 +88,9 @@ export const StepSlider = ({
         <SliderPrimitive.Control className="relative h-full cursor-pointer touch-none select-none data-disabled:cursor-not-allowed data-disabled:opacity-50">
           <SliderPrimitive.Track className="absolute inset-0 h-full">
             <SliderPrimitive.Indicator
-              className="box-content overflow-hidden rounded-full bg-linear-to-b from-violet-500 to-violet-600 pe-4 shadow-[inset_0_0.0625rem_0_#FFFFFF33] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+              className="box-content overflow-hidden rounded-full bg-chatgpt-slider-fill pe-4 transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
               data-slot="step-slider-indicator"
-            >
-              <span className="absolute inset-0 bg-[radial-gradient(circle,#FFFFFF2E_0.75px,transparent_1.25px)] bg-size-[0.375rem_0.375rem] bg-center" />
-              {SWEEP_BANDS.map((band) => (
-                <span
-                  className="absolute inset-0 bg-[radial-gradient(circle,#FFFFFFE6_0.9px,transparent_1.4px)] [mask-image:linear-gradient(90deg,transparent,#000_50%,transparent)] bg-size-[0.375rem_0.375rem] bg-center [mask-size:30%_100%] [mask-position:-60%_0] [mask-repeat:no-repeat] motion-reduce:hidden"
-                  data-slot="step-slider-sweep"
-                  key={band}
-                  ref={(element) => {
-                    sweepBands.current[band] = element;
-                  }}
-                />
-              ))}
-            </SliderPrimitive.Indicator>
+            ></SliderPrimitive.Indicator>
 
             {steps.map((step, stepIndex) => {
               const stopPosition = stepRatio(stepIndex, steps.length);
@@ -182,7 +126,7 @@ export const StepSlider = ({
             }}
           >
             {/* The face scales on its own so Base UI keeps measuring the full thumb. */}
-            <span className="block size-full rounded-full bg-linear-to-b from-white to-[#F2F2F2] shadow-[0_0.0625rem_0.25rem_#28282840,0_0_0_0.0625rem_#1E1E1E0D] transition-[box-shadow] duration-200 ease-out group-has-focus-visible/thumb:ring-[0.1875rem] group-has-focus-visible/thumb:ring-violet-500/40" />
+            <span className="block size-full rounded-full bg-white shadow-[0_0.0625rem_0.25rem_#28282840,0_0_0_0.0625rem_#1E1E1E0D] transition-[box-shadow] duration-200 ease-out group-has-focus-visible/thumb:ring-[0.1875rem] group-has-focus-visible/thumb:ring-chatgpt-focus/40" />
           </SliderPrimitive.Thumb>
         </SliderPrimitive.Control>
       </div>
