@@ -3,6 +3,7 @@ import type { OpenMarkdownPreview, ReadMarkdownPreview } from "../context/markdo
 import { markdownPreviewActions } from "./markdown-preview-actions"
 import { markdownPreviewAnnotation } from "./markdown-preview-annotation"
 import { checksum } from "@opencode/util/encode"
+import { safeHtmlPreview } from "./safe-html-preview"
 
 type MediaReference = { kind: "youtube" | "video" | "html" | "html-code" | "website"; source: string; local: boolean }
 
@@ -33,11 +34,12 @@ export function markdownMediaReference(source: string): MediaReference | undefin
   if (/\.html?$/i.test(path)) return { kind: "html", source: path, local: true }
 }
 
-/** Preview reads start on request; local HTML keeps its origin only for element picking and cannot run scripts. */
+/** Load visible previews automatically while keeping generated documents in an opaque origin. */
 export function createMarkdownReferencedMedia() {
   let cleanup: (() => void) | undefined
   let reader: ReadMarkdownPreview | undefined
   let activeSession: string | undefined
+  let activeServer: string | undefined
   return {
     update(
       root: HTMLElement,
@@ -45,6 +47,7 @@ export function createMarkdownReferencedMedia() {
       enabled: boolean,
       open?: OpenMarkdownPreview,
       sessionID?: string,
+      serverID?: string,
     ) {
       const previous = root.querySelector<HTMLElement>("[data-markdown-media-previews]")
       const entries = new Map<string, MediaReference>()
@@ -70,12 +73,14 @@ export function createMarkdownReferencedMedia() {
         previous.dataset.sources === key &&
         reader === read &&
         activeSession === sessionID
+        && activeServer === serverID
       )
         return
       cleanup?.()
       cleanup = undefined
       reader = read
       activeSession = sessionID
+      activeServer = serverID
       previous?.remove()
       if (!parent || entries.size === 0) return
       const container = document.createElement("div")
@@ -83,7 +88,17 @@ export function createMarkdownReferencedMedia() {
       container.dataset.sources = key
       const controller = new AbortController()
       const urls: string[] = []
+      const observer = root.isConnected && typeof IntersectionObserver !== "undefined"
+        ? new IntersectionObserver((items) => {
+            items.forEach((item) => {
+              if (!item.isIntersecting) return
+              observer?.unobserve(item.target)
+              item.target.dispatchEvent(new Event("preview-visible"))
+            })
+          }, { rootMargin: "200px" })
+        : undefined
       cleanup = () => {
+        observer?.disconnect()
         controller.abort()
         urls.forEach((url) => URL.revokeObjectURL(url))
       }
@@ -111,15 +126,18 @@ export function createMarkdownReferencedMedia() {
               open,
             ),
           )
-        button.addEventListener("click", async () => {
+        const load = async () => {
+          if (button.disabled || controller.signal.aborted) return
           button.disabled = true
+          card.setAttribute("aria-busy", "true")
           button.textContent = "Carregando…"
           try {
             const blob = entry.kind === "html-code" ? new Blob([entry.source], { type: "text/html" }) : entry.local ? await read?.(entry.source, controller.signal) : undefined
             if (controller.signal.aborted) return
             if (entry.local && !blob) throw new Error("Arquivo indisponível")
-            const src = blob ? URL.createObjectURL(blob) : entry.source
-            if (blob) urls.push(src)
+            const html = entry.kind === "html" || entry.kind === "html-code"
+            const src = blob && !html ? URL.createObjectURL(blob) : entry.source
+            if (blob && !html) urls.push(src)
             if (entry.kind === "video") {
               const video = document.createElement("video")
               video.controls = true
@@ -130,18 +148,17 @@ export function createMarkdownReferencedMedia() {
               viewer.append(video)
               button.remove()
               card.append(viewer)
-              if (sessionID) card.append(markdownPreviewAnnotation(viewer, entry.source, sessionID))
+              if (sessionID) card.append(markdownPreviewAnnotation(viewer, entry.source, sessionID, undefined, serverID))
               return
             }
             const frame = document.createElement("iframe")
             frame.title = entry.kind === "youtube" ? "Vídeo do YouTube" : entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source
-            frame.setAttribute(
-              "sandbox",
-              entry.kind === "html" || entry.kind === "html-code" ? "allow-same-origin" : "allow-scripts allow-presentation",
-            )
+            frame.setAttribute("sandbox", html ? "" : "allow-scripts allow-presentation")
             frame.setAttribute("referrerpolicy", "no-referrer")
             frame.allowFullscreen = true
-            frame.src = entry.kind === "youtube" ? `https://www.youtube-nocookie.com/embed/${entry.source}` : src
+            if (html && blob) frame.srcdoc = safeHtmlPreview(await blob.text())
+            else frame.src = entry.kind === "youtube" ? `https://www.youtube-nocookie.com/embed/${entry.source}` : src
+            if (controller.signal.aborted) return
             const viewer = document.createElement("div")
             viewer.dataset.previewViewer = ""
             viewer.append(frame)
@@ -154,15 +171,22 @@ export function createMarkdownReferencedMedia() {
                   entry.kind === "youtube" ? `https://www.youtube.com/watch?v=${entry.source}` : entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source,
                   sessionID,
                   entry.kind === "html" || entry.kind === "html-code" ? frame : undefined,
+                  serverID,
                 ),
               )
           } catch (error) {
             if (controller.signal.aborted) return
             button.disabled = false
             button.textContent = error instanceof Error ? `${error.message} Tentar novamente` : "Não foi possível carregar. Tentar novamente"
+          } finally {
+            card.removeAttribute("aria-busy")
           }
-        })
+        }
+        button.addEventListener("click", load)
+        card.addEventListener("preview-visible", load, { once: true })
         container.append(card)
+        if (observer) observer.observe(card)
+        else void load()
       })
       parent.append(container)
     },

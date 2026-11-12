@@ -5,6 +5,7 @@ import { Slash } from "@opencode/ui/slash"
 import { SessionProgressIndicatorV2 } from "@opencode/session-ui/v2/session-progress-indicator-v2"
 import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
+import { ProviderModelIcon } from "@/providers/models/provider-group"
 import { formatKeybind } from "@/shell/commands/command"
 import { formatElapsed } from "./activity-chips"
 
@@ -14,7 +15,7 @@ export type SubagentStatus = "running" | "succeeded" | "failed" | "interrupted"
 // the run's state and duration, the agent, model and variant, and the way back.
 export function SubagentBar(props: {
   agent?: string
-  model?: { provider?: string; name: string; variant?: string }
+  model?: { id?: string; providerID?: string; provider?: string; name: string; variant?: string }
   status?: SubagentStatus
   started: number
   ended?: number
@@ -81,7 +82,16 @@ export function SubagentBar(props: {
                 </Match>
                 <Match when={part === "model" && props.model}>
                   {(model) => (
-                    <span data-slot="subagent-model" class="flex min-w-0">
+                    <span data-slot="subagent-model" class="flex min-w-0 items-center gap-1">
+                      <Show when={model().providerID}>
+                        {(providerID) => (
+                          <ProviderModelIcon
+                            provider={{ id: providerID(), name: model().provider ?? providerID() }}
+                            model={model()}
+                            class="size-3.5 shrink-0"
+                          />
+                        )}
+                      </Show>
                       <Show when={model().provider}>
                         <span class="shrink-0">{model().provider}</span>
                         <Slash gap={4} />

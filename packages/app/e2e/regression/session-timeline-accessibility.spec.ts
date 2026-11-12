@@ -5,9 +5,28 @@ import {
   setupTimeline,
   shell,
   textPart,
+  toolPart,
   userID,
   userMessage,
 } from "../utils/timeline"
+
+test("image generation shows the model family logo", async ({ page }) => {
+  await setupTimeline(page, {
+    messages: [
+      userMessage(),
+      assistantMessage([
+        toolPart("prt_image_model", "experimental_image_generate", "completed", { prompt: "A small bird" }, {
+          metadata: { model: "opencode/claude-opus-4-6#max" },
+        }),
+      ]),
+    ],
+    seedHistory: true,
+  })
+  await page.getByRole("button", { name: "Used 1 experimental_image_generate", exact: true }).click()
+  const model = page.locator('[data-slot="image-generation-model"]')
+  await expect(model).toContainText("opencode/claude-opus-4-6#max")
+  await expect(model.locator('span[aria-hidden="true"][style*="mask-image"]')).toBeVisible()
+})
 
 test("space activates a focused timeline button instead of scrolling", async ({ page }) => {
   const shellID = "prt_space_button_shell"
@@ -91,6 +110,13 @@ for (const visible of [false, true]) {
     await assistant.hover()
 
     const meta = [user.locator('[data-slot="user-message-meta"]'), assistant.locator('[data-slot="text-part-meta"]')]
+
+    if (visible) {
+      await user.hover()
+      await expect(meta[0].locator('span[aria-hidden="true"][style*="mask-image"]')).toBeVisible()
+      await assistant.hover()
+      await expect(meta[1].locator('span[aria-hidden="true"][style*="mask-image"]')).toBeVisible()
+    }
 
     for (const item of meta) {
       // A delivered message keeps its hidden Pending label in the DOM, so read only the rendered text.

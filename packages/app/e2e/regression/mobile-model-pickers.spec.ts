@@ -5,6 +5,25 @@ import { openWithDirection } from "../utils/direction"
 import { mockOpenCodeServer } from "../utils/mock-server"
 import { expectAppVisible } from "../utils/waits"
 
+test("model dialog shows model family logos in grouped and recent results", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await openPickerSession(page, "ltr", true, { a: "Claude Sonnet", b: "Gemini Pro" })
+  const model = page.locator('[data-component="composer"] [data-action="composer-model"]')
+  const dialog = page.getByRole("dialog", { name: "Select model", exact: true })
+  await page.getByRole("textbox", { name: "Prompt", exact: true }).click()
+  await model.click()
+  const claude = dialog.locator('[data-option-key="opencode:mobile-a"]')
+  const gemini = dialog.locator('[data-option-key="opencode:mobile-b"]')
+  await expect(claude.locator('span[aria-hidden="true"][style*="mask-image"]')).toBeVisible()
+  await expect(gemini.locator('span[aria-hidden="true"][style*="mask-image"]')).toBeVisible()
+  await dialog.screenshot({ path: testInfo.outputPath("model-logos.png") })
+  await gemini.click()
+  await expect(dialog).toBeHidden()
+  await model.click()
+  await expect(dialog.getByText("Recent", { exact: true })).toBeVisible()
+  await expect(dialog.locator('[data-option-key="opencode:mobile-b"] span[aria-hidden="true"][style*="mask-image"]')).toBeVisible()
+})
+
 for (const direction of ["ltr", "rtl"] as const) {
   for (const paid of [true, false]) {
     test(`mobile model and variant pickers use drawers with ${paid ? "paid" : "free"} models in ${direction}`, async ({
@@ -352,7 +371,7 @@ async function openDesktopPicker(page: Page, direction: "ltr" | "rtl") {
   }
 }
 
-async function openPickerSession(page: Page, direction: "ltr" | "rtl", paid: boolean) {
+async function openPickerSession(page: Page, direction: "ltr" | "rtl", paid: boolean, names?: Record<string, string>) {
   await mockOpenCodeServer(page, {
     ...fixture,
     sessions: fixture.sessions.map((session) => ({
@@ -369,7 +388,7 @@ async function openPickerSession(page: Page, direction: "ltr" | "rtl", paid: boo
               `mobile-${id}`,
               {
                 id: `mobile-${id}`,
-                name: `Mobile Model ${id.toUpperCase()}`,
+                name: names?.[id] ?? `Mobile Model ${id.toUpperCase()}`,
                 cost: { input: paid ? 1 : 0, output: paid ? 1 : 0 },
                 limit: { context: id === "c" ? 262_144 : 1_000_000 },
                 capabilities: {

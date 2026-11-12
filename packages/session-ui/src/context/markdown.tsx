@@ -63,6 +63,7 @@ const context = createContext<{
   readonly readPreview?: ReadMarkdownPreview
   readonly openPreview?: OpenMarkdownPreview
   readonly previewSession?: string
+  readonly previewServer?: string
   readonly openLocalFile?: OpenMarkdownLocalFile
   readonly localFileExists?: MarkdownLocalFileExists
   readonly openSession?: (sessionID: string) => void
@@ -77,6 +78,7 @@ export function MarkdownProvider(
     readPreview?: ReadMarkdownPreview
     openPreview?: OpenMarkdownPreview
     previewSession?: string
+    previewServer?: string
     openLocalFile?: OpenMarkdownLocalFile
     localFileExists?: MarkdownLocalFileExists
     openSession?: (id: string) => void
@@ -102,6 +104,9 @@ export function MarkdownProvider(
         },
         get previewSession() {
           return props.previewSession ?? parent?.previewSession
+        },
+        get previewServer() {
+          return props.previewServer ?? parent?.previewServer
         },
         get openLocalFile() {
           return props.openLocalFile

@@ -143,6 +143,7 @@ export function ProjectSessionRow(props: {
         <Show when={props.session.model}>
           {(model) => (
             <span
+              data-slot="sidebar-session-model-icon"
               class="absolute start-2 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center"
               aria-hidden="true"
             >

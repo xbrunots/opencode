@@ -53,6 +53,7 @@ export async function mountMarkdown(options: {
   streaming?: boolean
   cached?: boolean
   images?: boolean
+  fixtureImages?: boolean
   previews?: boolean
   synchronousFiles?: boolean
   localFileExists?: MarkdownLocalFileExists
@@ -98,9 +99,18 @@ export async function mountMarkdown(options: {
           }}
         >
           <MarkdownProvider
-            readImage={(path, signal) =>
-              options.images ? readLocalImage(api, "C:/project", path, signal) : Promise.resolve(undefined)
-            }
+            readImage={(path, signal) => {
+              if (options.fixtureImages) {
+                const width = path.includes("wide") ? 2400 : 60
+                return Promise.resolve(
+                  new Blob(
+                    [`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="120"><rect width="100%" height="100%" fill="#777"/></svg>`],
+                    { type: "image/svg+xml" },
+                  ),
+                )
+              }
+              return options.images ? readLocalImage(api, "C:/project", path, signal) : Promise.resolve(undefined)
+            }}
             readPreview={options.previews ? async () => new Blob([
               '<style>body{margin:0} #target{width:100%;height:180px;background:#ddd}</style><div id="target">Hello</div><script>parent.document.body.dataset.previewScript = "ran"</script>',
             ], { type: "text/html" }) : undefined}

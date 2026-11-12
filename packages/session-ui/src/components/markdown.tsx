@@ -1089,7 +1089,7 @@ export function Markdown(
     }
 
     syncMarkdownReferencedImages(container, !!readImage && mode() !== "streaming", markdown?.openPreview)
-    referencedMedia.update(container, markdown?.readPreview, mode() !== "streaming", markdown?.openPreview, markdown?.previewSession)
+    referencedMedia.update(container, markdown?.readPreview, mode() !== "streaming", markdown?.openPreview, markdown?.previewSession, markdown?.previewServer)
     images?.update(container)
     previewImages(container)
     container.querySelectorAll<HTMLImageElement>("img[data-markdown-favicon]").forEach((image) => {

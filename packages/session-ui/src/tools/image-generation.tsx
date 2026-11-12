@@ -1,6 +1,7 @@
 import { createEffect, createResource, createSignal, For, onCleanup, Show } from "solid-js"
 import { useI18n } from "@opencode/ui/context/i18n"
 import { MorphLoader } from "@opencode/ui/morph-loader"
+import { ProviderIcon } from "@opencode/ui/provider-icon"
 import { useData } from "../context"
 import type { ToolProps } from "./tool-renderer"
 import "./image-generation.css"
@@ -13,6 +14,13 @@ export function ImageGenerationTool(props: ToolProps) {
   const prompt = () => (typeof props.input.prompt === "string" ? props.input.prompt : "")
   const jobID = () => (typeof props.metadata.jobID === "string" ? props.metadata.jobID : undefined)
   const model = () => (typeof props.metadata.model === "string" ? props.metadata.model : undefined)
+  const modelIdentity = () => {
+    const ref = model()
+    if (!ref) return undefined
+    const separator = ref.indexOf("/")
+    if (separator <= 0 || separator === ref.length - 1) return undefined
+    return { providerID: ref.slice(0, separator), id: ref.slice(separator + 1).split("#", 1)[0]! }
+  }
   const [tick, setTick] = createSignal(0)
   const [job] = createResource(
     () => {
@@ -57,7 +65,18 @@ export function ImageGenerationTool(props: ToolProps) {
         <strong>{label()}</strong>
       </div>
       <Show when={prompt()}><p data-slot="image-generation-prompt">{prompt()}</p></Show>
-      <Show when={model()}><p data-slot="image-generation-model">{model()}</p></Show>
+      <Show when={model()}>
+        <p data-slot="image-generation-model" class="flex items-center gap-1.5">
+          <Show when={modelIdentity()}>
+            {(identity) =>
+              data.modelIcon?.(identity(), "size-3.5 shrink-0") ?? (
+                <ProviderIcon id={identity().providerID} class="size-3.5 shrink-0" aria-hidden="true" />
+              )
+            }
+          </Show>
+          <span>{model()}</span>
+        </p>
+      </Show>
     </div>
   )
 }

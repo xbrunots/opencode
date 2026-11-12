@@ -13,6 +13,7 @@ import {
 import { Option, Schema } from "effect"
 import type { McpServer, SessionMessageInfo } from "@opencode/client/promise"
 import { turnSources } from "@opencode/session-ui/sources"
+import { htmlGenerationActivity } from "@opencode/session-ui/html-activity"
 import { Icon } from "@opencode/ui/icon"
 import { IconButton } from "@opencode/ui/icon-button"
 import { FileIcon } from "@opencode/ui/file-icon"
@@ -39,6 +40,7 @@ import { useTabs } from "@/shell/tabs/tabs"
 import { useRoutedSessionTargetParams, useSessionTargetFocused, useSessionTargetFloating } from "@/session/target"
 import { useOpenSessionRoute } from "@/session/session-identity-header"
 import "./conversation-context.css"
+import "./html-activity.css"
 
 type ContextFile = { key: string; name: string; href?: string; data?: string; mime?: string }
 type ContextSkill = { id: string; name: string; text?: string; count: number; automatic?: boolean }
@@ -167,6 +169,14 @@ export function ConversationContext() {
   const info = () => data.session.get(params.id)
   const directory = () => info()?.location.directory
   const messages = () => data.session.message.list(params.id)
+  const htmlActivity = createMemo(() => {
+    if (data.session.status(params.id) !== "running") return undefined
+    const history = messages()
+    const latestUser = history.findLastIndex((message) => message.type === "user")
+    return htmlGenerationActivity(history.slice(latestUser + 1).flatMap((message) =>
+      message.type === "assistant" ? message.content.filter((part) => part.type === "tool") : [],
+    ))
+  })
   const project = () => {
     const current = info()
     return current ? server.ctx.projects.forSession(current) : undefined
@@ -489,7 +499,17 @@ export function ConversationContext() {
                 count={children().length}
                 icon="branch-out"
                 empty={language.t("context.noAgents")}
+                hasActivity={!!htmlActivity()}
               >
+                <Show when={htmlActivity()}>
+                  {(activity) => (
+                    <div class="conversation-context-item conversation-context-html-activity" role="status">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 14.2 8l5.4-2.2-2.2 5.4 5.1 2.2-5.4 2.1 2.1 5.2-5.2-2.2L12 23l-2.1-5.3-5.3 2.2 2.2-5.3L1.5 12.5 7 10.4 4.8 5.2 10 7.4z" fill="currentColor" /></svg>
+                      <span title={activity().path}>HTML · {getFilename(activity().path)}</span>
+                      <small>{language.t("context.visualActivity")}</small>
+                    </div>
+                  )}
+                </Show>
                 <For each={children()}>
                   {(child) => (
                     <button
@@ -807,16 +827,16 @@ export function ConversationContext() {
   )
 }
 
-function ContextSection(props: ParentProps<{ title: string; count: number | undefined; icon: string; empty: string }>) {
+function ContextSection(props: ParentProps<{ title: string; count: number | undefined; icon: string; empty: string; hasActivity?: boolean }>) {
   return (
-    <details class="conversation-context-section" open={(props.count ?? 0) > 0}>
+    <details class="conversation-context-section" open={(props.count ?? 0) > 0 || props.hasActivity}>
       <summary>
         <Icon name={props.icon} />
         <span>{props.title}</span>
         <b>{props.count ?? "—"}</b>
         <Icon name="chevron-down" class="conversation-context-chevron" />
       </summary>
-      <Show when={(props.count ?? 0) > 0} fallback={<p class="conversation-context-empty">{props.empty}</p>}>
+      <Show when={(props.count ?? 0) > 0 || props.hasActivity} fallback={<p class="conversation-context-empty">{props.empty}</p>}>
         {props.children}
       </Show>
     </details>

@@ -1,3 +1,5 @@
+import { htmlToolPath } from "../../tools/html-activity"
+import { HtmlGenerationCard } from "../../tools/html-generation"
 import { useI18n } from "@opencode/ui/context/i18n"
 import { createMemo, Match, Show, Switch, type Component } from "solid-js"
 import { Dynamic } from "solid-js/web"
@@ -33,7 +35,7 @@ const tools = new Map<string, Component<ToolProps>>([
  * One call. A call that failed shows as an error card. One the user stopped (`stopped`, from the rules) shows as one
  * that ran does, a shell saying it was stopped on its row. `tool` is the tool's current name, from the rules.
  */
-export function ToolDisplay(props: ToolProps & { id: string; error?: string; stopped?: boolean }) {
+export function ToolDisplay(props: ToolProps & { id: string; error?: string; stopped?: boolean; suppressHtmlActivity?: boolean }) {
   const data = useData()
   const i18n = useI18n()
 
@@ -113,6 +115,9 @@ export function ToolDisplay(props: ToolProps & { id: string; error?: string; sto
             <Dynamic component={render()} {...props} />
           </Match>
         </Switch>
+        <Show when={!props.suppressHtmlActivity && (props.status === "running" || props.status === "streaming") && htmlToolPath(props.tool, props.input)}>
+          {(path) => <HtmlGenerationCard path={path()} />}
+        </Show>
       </div>
     </Show>
   )

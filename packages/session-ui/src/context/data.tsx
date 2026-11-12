@@ -7,6 +7,7 @@ import type {
 } from "@opencode/client/promise"
 import { createSimpleContext } from "@opencode/ui/context"
 import { PreloadMultiFileDiffResult } from "@pierre/diffs/ssr"
+import type { JSX } from "solid-js"
 
 export type SessionSummary = Pick<SessionInfo, "id" | "parentID" | "title" | "time">
 
@@ -79,6 +80,7 @@ export const {
     turnDiff?: TurnDiffSource
     readMedia?: ReadMediaUrlFn
     peekMedia?: PeekMediaUrlFn
+    modelIcon?: (model: { providerID: string; id: string; name?: string }, className?: string) => JSX.Element
     imageJob?: (sessionID: string, jobID: string) => Promise<"running" | "completed" | "error" | "cancelled" | undefined>
     imageJobStatus?: (sessionID: string, jobID: string) => "completed" | "error" | "cancelled" | undefined
     onNavigateToSession?: NavigateToSessionFn
@@ -114,6 +116,7 @@ export const {
       },
       readMedia: props.readMedia,
       peekMedia: props.peekMedia,
+      modelIcon: props.modelIcon,
       imageJob: props.imageJob,
       imageJobStatus: props.imageJobStatus,
     }

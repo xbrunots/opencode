@@ -701,6 +701,8 @@ export function createNextTimelineRowRenderer(input: {
         return {
           label: i18n.t("ui.timeline.notice.agentSwitched", { agent: capitalizeAgent(value.agent) }),
           providerID: undefined,
+          modelID: undefined,
+          modelName: undefined,
           variant: undefined,
         }
 
@@ -711,6 +713,8 @@ export function createNextTimelineRowRenderer(input: {
 
       return {
         providerID: value.model.providerID,
+        modelID: value.model.id,
+        modelName: match?.models?.[value.model.id]?.name ?? value.model.id,
         variant: variantOnly ? undefined : value.model.variant,
         label: variantOnly
           ? variant === "default"
@@ -889,7 +893,19 @@ export function createNextTimelineRowRenderer(input: {
             >
               {(switched) => (
                 <div data-slot="session-timeline-notice" data-type={message()?.type} class={`w-full ${inset()}`}>
-                  <Separator label={switched().label} providerID={switched().providerID} variant={switched().variant} />
+                  <Separator
+                    label={switched().label}
+                    providerID={switched().providerID}
+                    variant={switched().variant}
+                    icon={(() => {
+                      const current = switched()
+                      if (!current.providerID || !current.modelID) return undefined
+                      return data.modelIcon?.(
+                        { providerID: current.providerID, id: current.modelID, name: current.modelName },
+                        "size-3.5 shrink-0",
+                      )
+                    })()}
+                  />
                 </div>
               )}
             </Show>

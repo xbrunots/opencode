@@ -10,6 +10,47 @@ import { readFile } from "node:fs/promises"
 
 test.use({ viewport: { width: 1440, height: 900 } })
 
+test("an artifact annotation keeps the draft and identifies a point in the active conversation", async ({ page }) => {
+  await openSession(page, {
+    name: "ArtifactAnnotation",
+    fileList: () => [],
+    fileContent: () => ({ content: '<!doctype html><body style="height: 2000px"><p>Preview content</p><script>document.body.dataset.ready = "yes"</script></body>' }),
+    pageMessages: () => ({
+      items: [{
+        id: "msg_artifact_annotation",
+        type: "assistant",
+        agent: "build",
+        model: { id: "test", providerID: "opencode" },
+        content: [{ type: "text", text: "[Open animation](effect.html)" }],
+        time: { created: 1, completed: 2 },
+      }],
+    }),
+  })
+
+  const composer = page.locator('[data-component="composer-editor"][contenteditable="true"]')
+  await composer.fill("Existing draft")
+  await page.getByRole("link", { name: "Open animation", exact: true }).click()
+  const panel = page.locator("#review-panel")
+  const frame = panel.locator('iframe[title="effect.html"]')
+  await expect(frame).toHaveAttribute("sandbox", "")
+  const body = frame.contentFrame().locator("body")
+  await expect(body).toContainText("Preview content")
+  await expect(body).not.toHaveAttribute("data-ready", "yes")
+  await expect.poll(() => body.evaluate(() => {
+    window.scrollTo(0, 500)
+
+    return window.scrollY
+  })).toBeGreaterThan(0)
+
+  await panel.getByRole("button", { name: "Comment on preview" }).click()
+  await panel.getByRole("button", { name: "Select a point in the preview" }).click({ position: { x: 100, y: 100 } })
+  await panel.getByLabel("What would you like to change?").fill("Move this title")
+  await panel.getByRole("button", { name: "Add to message" }).click()
+  await expect(composer).toContainText("Existing draft")
+  await expect(composer).toContainText("[Preview: effect.html;")
+  await expect(composer).toContainText("Move this title")
+})
+
 test("review toggle shows its tooltip with the side panel open or closed", async ({ page }) => {
   await openSession(page, {
     name: "ReviewTooltip",
@@ -1601,6 +1642,12 @@ test("video files stream into the viewer behind a loading state, open into the p
   const inlineBounds = (await stage.boundingBox())!
   expect(inlineBounds.width).toBeLessThan(1000)
 
+  await panel.getByRole("button", { name: "Comment on preview" }).click()
+  await panel.getByRole("button", { name: "Select a point in the preview" }).click({ position: { x: 2, y: 2 } })
+  await expect(panel.getByText("Select a point inside the media")).toBeVisible()
+  await expect(panel.getByRole("button", { name: "Add to message" })).toBeDisabled()
+  await panel.getByRole("button", { name: "Cancel", exact: true }).click()
+
   await video.evaluate((element) => {
     element.dataset.e2eProbe = "retained"
   })
@@ -1628,6 +1675,17 @@ test("video files stream into the viewer behind a loading state, open into the p
   await video.click()
   await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(0)
   expect(await page.evaluate(() => document.fullscreenElement)).toBeNull()
+
+  await fullscreen.click()
+  await expect(preview).toHaveAttribute("data-stage", "rest")
+  await preview.getByRole("button", { name: "Add a comment to the video" }).click()
+  await preview.getByRole("button", { name: "Select a point in the video" }).click()
+  await preview.getByLabel("Comment on this point").fill("Change this frame")
+  await preview.getByRole("button", { name: "Add to message" }).click()
+  const composer = page.locator('[data-component="composer-editor"][contenteditable="true"]')
+  await expect(composer).toContainText(file)
+  await expect(composer).toContainText("time:")
+  await expect(composer).toContainText("Change this frame")
 })
 
 test("review file navigation focuses the arrow for the keyboard direction", async ({ page }) => {

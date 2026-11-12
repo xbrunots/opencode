@@ -2,6 +2,37 @@ import { expect, sourceURL, story } from "../../stories/playwright/story"
 
 const fixture = sourceURL(new URL("./markdown.fixture.tsx", import.meta.url))
 
+story("image thumbnails crop wide images to one quarter of the chat width", async ({ page, mount }) => {
+  await mount("components-markdown--complete-response")
+  await page.evaluate(async (fixture) => {
+    const { mountMarkdown } = await import(fixture)
+    await mountMarkdown({ text: "`wide.png` `portrait.png`", fixtureImages: true })
+  }, fixture)
+  const harness = page.getByTestId("markdown-fixture")
+  const gallery = harness.locator("[data-markdown-image-gallery]")
+  const wide = gallery.getByRole("button", { name: "wide.png" })
+  const portrait = gallery.getByRole("button", { name: "portrait.png" })
+  await expect(wide).toBeVisible()
+  await expect(portrait).toBeVisible()
+  for (const width of [500, 280]) {
+    await harness.evaluate((node, value) => {
+      node.style.width = `${value}px`
+    }, width)
+    const bounds = await gallery.boundingBox()
+    const wideBounds = await wide.boundingBox()
+    const portraitBounds = await portrait.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(wideBounds).not.toBeNull()
+    expect(portraitBounds).not.toBeNull()
+    expect(wideBounds!.width).toBeLessThanOrEqual(bounds!.width * 0.25 + 1)
+    expect(wideBounds!.height).toBe(120)
+    expect(portraitBounds!.width).toBeLessThanOrEqual(bounds!.width * 0.25 + 1)
+    await expect(wide).toHaveCSS("object-fit", "cover")
+  }
+  await wide.click()
+  await expect(page.getByRole("dialog")).toBeVisible()
+})
+
 story("HTML blocks retain their code and fit narrow and wide chat views", async ({ page, mount }, testInfo) => {
   await mount("components-markdown--complete-response")
   await page.evaluate(async (fixture) => {
@@ -9,9 +40,9 @@ story("HTML blocks retain their code and fit narrow and wide chat views", async 
     await mountMarkdown({ text: "```html\n<h1 id=\"target\">Exemplo</h1>\n```", previews: true })
   }, fixture)
   const harness = page.getByTestId("markdown-fixture")
-  await harness.getByText("Visualizar HTML").click()
   await expect(harness.locator("pre code")).toContainText("Exemplo")
-  await expect(harness.locator("iframe")).toHaveAttribute("sandbox", "allow-same-origin")
+  await harness.locator("[data-markdown-media]").scrollIntoViewIfNeeded()
+  await expect(harness.locator("iframe")).toHaveAttribute("sandbox", "")
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 800 })
     const iframe = await harness.locator("iframe").boundingBox()

@@ -5,6 +5,7 @@ import { useNavigate } from "@solidjs/router"
 import { useQuery } from "@tanstack/solid-query"
 import { createEffect, createMemo, createSignal, on, onCleanup, untrack, type ParentProps } from "solid-js"
 import { useProviders } from "@/providers/catalog/providers"
+import { ProviderModelIcon } from "@/providers/models/provider-group"
 import { LocalProvider } from "@/providers/models/selection"
 import type { ServerConnection } from "@/runtime/server/registry"
 import { sessionHref } from "@/shell/routes/session"
@@ -268,6 +269,13 @@ export function SessionUIProvider(
         shellOutput={(input) => serverSDK.api.shell.output(input)}
         readMedia={(uri, mime, signal) => serverSDK.media.load(uri, mime, signal)}
         peekMedia={(uri, mime) => serverSDK.media.peek(uri, mime)}
+        modelIcon={(model, className) => (
+          <ProviderModelIcon
+            provider={providers.all().get(model.providerID) ?? { id: model.providerID, name: model.providerID }}
+            model={model}
+            class={className}
+          />
+        )}
         imageJob={async (sessionID, jobID) => {
           const result = await serverSDK.api.experimental.job.list({ sessionID, kind: "image" })
           return result.find((job) => job.id === jobID)?.status
@@ -285,6 +293,7 @@ export function SessionUIProvider(
         backgroundCompaction={backgroundCompaction()}
       >
         <MarkdownProvider
+          previewServer={props.server}
           readImage={readImage()}
           readPreview={(path, signal) => readLocalPreview(serverSDK.api, directory(), path, signal, { server: serverSDK.http, fetch: platform.fetch })}
           openSession={openReferencedSession}

@@ -23,6 +23,7 @@ import { Loader } from "@opencode/ui/loader"
 import { showToast } from "@opencode/ui/toast"
 import { Markdown } from "@opencode/session-ui/markdown"
 import { MarkdownProvider, useMarkdown } from "@opencode/session-ui/context/markdown"
+import { safeHtmlPreview } from "@opencode/session-ui/safe-html-preview"
 import { artifactKind } from "@opencode/util/artifact"
 import { getDirectory, getFilename } from "@opencode/util/path"
 import { createKeyed, usePlugin, type FileContent, type MountedSession, type SessionScreen } from "@opencode/plugin/gui"
@@ -38,6 +39,7 @@ import {
 import { FileViewer } from "@opencode/plugin/gui/file"
 import { uuid } from "@opencode/util/uuid"
 import { ArtifactToolbar } from "./artifact-toolbar"
+import { ArtifactAnnotation } from "./artifact-view-annotation"
 import {
   createArtifactViewerState,
   createVideoOverlayState,
@@ -177,6 +179,7 @@ export default function ArtifactView(props: {
         html={kind() === "html"}
       />
       <Show when={selectArtifactShowingPreview(viewerState(), props.path, props.content)} fallback={props.source}>
+        <ArtifactAnnotation sessionID={props.session.id} serverID={props.session.server.id} path={props.path}>
         <Switch
           fallback={
             <ArtifactBinary
@@ -190,7 +193,7 @@ export default function ArtifactView(props: {
             <ArtifactImage path={props.path} content={props.content} {...media} />
           </Match>
           <Match when={kind() === "video"}>
-            <ArtifactVideo path={props.path} content={props.content} {...media} />
+            <ArtifactVideo path={props.path} content={props.content} sessionID={props.session.id} serverID={props.session.server.id} {...media} />
           </Match>
           <Match when={kind() === "audio"}>
             <ArtifactAudio path={props.path} content={props.content} {...media} />
@@ -217,6 +220,7 @@ export default function ArtifactView(props: {
             )}
           </Match>
         </Switch>
+        </ArtifactAnnotation>
       </Show>
     </div>
   )
@@ -505,7 +509,7 @@ function ImageStage(props: MediaProps & { src: string }) {
   )
 }
 
-function ArtifactVideo(props: MediaProps) {
+function ArtifactVideo(props: MediaProps & { sessionID: string; serverID: string }) {
   const source = createMediaSource(() => props.content)
 
   return (
@@ -515,7 +519,7 @@ function ArtifactVideo(props: MediaProps) {
   )
 }
 
-function VideoStage(props: MediaProps & { src: string }) {
+function VideoStage(props: MediaProps & { src: string; sessionID: string; serverID: string }) {
   const ctx = usePlugin()
   const dialog = useDialog()
   const [overlay, setOverlay] = createSignal(createVideoOverlayState())
@@ -579,7 +583,7 @@ function VideoStage(props: MediaProps & { src: string }) {
       () => {
         onCleanup(() => dispatch({ type: "preview.returned", attempt }))
 
-        return <ImagePreview src={el.currentSrc} alt={getFilename(props.path)} video={el} />
+        return <ImagePreview src={el.currentSrc} alt={getFilename(props.path)} video={el} sessionID={props.sessionID} serverID={props.serverID} reference={props.path} />
       },
       // A preview that closes before it borrowed the video, or never mounts, leaves it in place.
       back,
@@ -717,19 +721,20 @@ function ArtifactAudio(props: MediaProps) {
 
 function ArtifactFrame(props: { path: string; content: FileContent; kind: "pdf" | "html" }) {
   const source = createMediaSource(() => props.content)
-  // PDF Open Parameters: start with the thumbnail pane closed and the page fitted to the pane width.
-  const src = () => (props.kind === "pdf" ? `${source().src}#navpanes=0&view=FitH` : source().src)
 
   return (
-    <iframe
-      class="block h-full w-full flex-1 border-0 bg-white"
-      title={getFilename(props.path)}
-      src={src()}
-      // The PDF viewer is Chromium's own and does not run in a sandboxed frame. HTML runs as an
-      // opaque origin: no app storage, cookies, or credentialed requests reach it.
-      sandbox={props.kind === "html" ? "allow-scripts allow-popups allow-forms allow-modals" : undefined}
-      referrerPolicy="no-referrer"
-    />
+    <Show
+      when={props.kind === "html"}
+      fallback={<iframe class="block h-full w-full flex-1 border-0 bg-white" title={getFilename(props.path)} src={`${source().src}#navpanes=0&view=FitH`} referrerPolicy="no-referrer" />}
+    >
+      <iframe
+        class="block h-full w-full flex-1 border-0 bg-white"
+        title={getFilename(props.path)}
+        srcdoc={safeHtmlPreview(props.content.content)}
+        sandbox=""
+        referrerPolicy="no-referrer"
+      />
+    </Show>
   )
 }
 

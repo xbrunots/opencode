@@ -4,6 +4,7 @@ export function markdownPreviewAnnotation(
   source: string,
   sessionID: string,
   html?: HTMLIFrameElement,
+  serverID?: string,
 ) {
   const action = document.createElement("button")
   action.type = "button"
@@ -46,7 +47,7 @@ export function markdownPreviewAnnotation(
       const delivered = new CustomEvent("opencode:image-annotation", {
         cancelable: true,
         detail: {
-          sessionID, src: source, x, y, comment,
+          serverID, sessionID, src: source, x, y, comment,
           ...(element ? { element } : {}),
           ...(viewer.querySelector("video") ? { time: viewer.querySelector("video")!.currentTime } : {}),
         },
@@ -65,8 +66,13 @@ export function markdownPreviewAnnotation(
 }
 
 function previewElement(frame: HTMLIFrameElement, x: number, y: number) {
-  // Access is available only for the local script-disabled HTML frame; navigation to another origin is opaque.
-  const node = frame.contentDocument?.elementFromPoint?.(x, y)
+  // Opaque sandboxed frames do not expose their DOM; their coordinates remain available.
+  let node: Element | null | undefined
+  try {
+    node = frame.contentDocument?.elementFromPoint?.(x, y)
+  } catch {
+    return
+  }
   if (!node) return
   const segments: string[] = []
   let current: Element | null = node

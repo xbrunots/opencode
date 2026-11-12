@@ -149,8 +149,7 @@
     inset-block-start: calc(50% - 1px);
     block-size: 2px;
     pointer-events: none;
-    -webkit-mask-image: repeating-linear-gradient(to right, transparent 0 3px, #000 3px 17px, transparent 17px 22px);
-    mask-image: repeating-linear-gradient(to right, transparent 0 3px, #000 3px 17px, transparent 17px 22px);
+    overflow: hidden;
   }
 
   [data-slot="question-progress"]:has(:disabled) [data-slot="question-progress-track"] {
@@ -266,9 +265,7 @@
     position: absolute;
     inset: 0;
     z-index: -1;
-    background:
-      linear-gradient(var(--v2-question-answer-bg-selected), var(--v2-question-answer-bg-selected)),
-      var(--v2-background-bg-layer-01);
+    background: var(--v2-background-bg-layer-03);
     clip-path: inset(0 0 100% round 6px);
     pointer-events: none;
 
@@ -573,4 +570,213 @@
       }
     }
   }
+}
+
+/* One solid surface for both question layouts. The question remains the anchor while answers change. */
+[data-component="dock-prompt"][data-kind="question"]:is([data-variant="experimental"], :not([data-variant])) {
+  --question-choice-surface: var(--v2-background-bg-layer-02);
+  --question-choice-selected: var(--v2-background-bg-layer-03);
+
+  background: var(--v2-background-bg-layer-01);
+  border: 1px solid var(--v2-border-border-base);
+  border-radius: 16px;
+  box-shadow: none;
+  overflow: hidden;
+
+  [data-slot="question-body"] {
+    gap: 18px;
+    padding: 16px 18px 12px;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  [data-slot="question-header"] {
+    gap: 8px;
+    padding-inline: 0;
+  }
+
+  [data-slot="question-header-top"] {
+    min-block-size: 24px;
+  }
+
+  [data-slot="question-header-title"] {
+    font-size: 12px;
+    font-weight: 530;
+    line-height: 20px;
+    color: var(--v2-text-text-muted);
+  }
+
+  [data-slot="question-text"] {
+    font-size: 15px;
+    font-weight: 530;
+    line-height: 22px;
+    letter-spacing: -0.01em;
+  }
+
+  [data-slot="question-hint"] {
+    margin-block-start: 2px;
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--v2-text-text-muted);
+  }
+
+  [data-slot="question-options-list"],
+  [data-slot="question-options"]:not(:has([data-slot="question-options-list"])) {
+    gap: 6px;
+  }
+
+  [data-slot="question-details-frame"],
+  [data-slot="question-options"] {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  [data-slot="question-option"] {
+    gap: 12px;
+    min-block-size: 46px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: var(--question-choice-surface);
+    box-shadow: none;
+    animation: question-choice-arrive 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    transition:
+      background-color 180ms ease,
+      border-color 180ms ease,
+      transform 180ms ease;
+
+    &::before {
+      display: none;
+    }
+
+    &[data-picked="true"] {
+      background: var(--question-choice-selected);
+      border-color: var(--v2-border-border-strong);
+      box-shadow: none;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--v2-border-border-focus);
+      outline-offset: -2px;
+    }
+
+    &:active:not([data-disabled="true"]) {
+      transform: scale(0.995);
+    }
+  }
+
+  [data-slot="question-option"][data-custom="true"] {
+    block-size: 46px;
+    min-block-size: 46px;
+    max-block-size: 46px;
+    padding-inline: 12px;
+  }
+
+  [data-slot="question-option-main"] {
+    gap: 2px;
+  }
+
+  [data-slot="option-label"] {
+    font-size: 13px;
+    font-weight: 530;
+    line-height: 20px;
+  }
+
+  [data-slot="option-description"] {
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--v2-text-text-muted);
+  }
+
+  [data-slot="question-option-key"],
+  [data-slot="question-option-box"] {
+    transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  }
+
+  [data-slot="question-option-key"][data-picked="true"] {
+    color: #171717;
+    background: #f5f5f5;
+
+    &::before {
+      background: #f5f5f5;
+    }
+  }
+
+  [data-slot="question-custom-toggle"]:focus-visible {
+    outline: 2px solid var(--v2-border-border-focus);
+    outline-offset: 2px;
+  }
+
+  [data-slot="question-footer"] {
+    margin: 0;
+    padding: 12px 18px 16px;
+    border: 0;
+    border-block-start: 1px solid var(--v2-border-border-base);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  [data-slot="question-footer"] :is(
+    [data-slot="question-advance"] [data-component="button-v2"],
+    [data-component="button-v2"][data-variant="contrast"]
+  ) {
+    min-block-size: 36px;
+    padding-inline: 15px;
+    border: 0;
+    border-radius: 9px;
+    background: #f5f5f5;
+    color: #171717;
+    text-shadow: none;
+    box-shadow: none;
+    transition: background-color 160ms ease, transform 160ms ease, opacity 160ms ease;
+
+    &:hover:not(:disabled) {
+      background: #dedede;
+    }
+
+    &:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    [data-slot="question-option"]:hover:not([data-disabled="true"]):not([data-picked="true"]) {
+      background: var(--question-choice-selected);
+      border-color: var(--v2-border-border-base);
+    }
+  }
+
+  @media (max-width: 480px) {
+    [data-slot="question-body"] { padding-inline: 12px; }
+    [data-slot="question-footer"] { padding-inline: 12px; }
+  }
+}
+
+[data-component="session-question-dock"]:has([data-component="dock-prompt"][data-kind="question"]) {
+  animation: question-panel-arrive 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes question-panel-arrive {
+  from { opacity: 0.82; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes question-choice-arrive {
+  from { opacity: 0.84; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) [data-component="session-question-dock"]:has([data-component="dock-prompt"][data-kind="question"]),
+  :root:not([data-motion="full"]) [data-component="dock-prompt"][data-kind="question"] [data-slot="question-option"] {
+    animation: none;
+    transition: none;
+  }
+}
+
+:root[data-motion="reduce"] [data-component="session-question-dock"]:has([data-component="dock-prompt"][data-kind="question"]),
+:root[data-motion="reduce"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-option"] {
+  animation: none;
+  transition: none;
 }

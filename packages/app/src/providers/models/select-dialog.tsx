@@ -358,9 +358,11 @@ function ModelDrawer(props: {
 }) {
   const language = useLanguage()
   const [drawer, setDrawer] = createSignal(createModelDrawerState())
+  const [returningFocus, setReturningFocus] = createSignal(false)
   let closeTimer: ReturnType<typeof setTimeout> | undefined
 
   const dispatch = (event: ModelDrawerEvent) => {
+    if (event.type === "opened") setReturningFocus(true)
     const next = transitionModelDrawer(untrack(drawer), event)
     setDrawer(next.state)
     next.effects.forEach((effect) => {
@@ -390,7 +392,7 @@ function ModelDrawer(props: {
 
   return (
     <>
-      <div ref={trigger} class="min-w-0">
+      <div ref={trigger} class="min-w-0" data-expanded={returningFocus() ? "" : undefined}>
         {props.trigger({
           "aria-haspopup": "dialog",
           get "aria-expanded"() {
@@ -409,7 +411,9 @@ function ModelDrawer(props: {
             initialFocus={() => content}
             returnFocus={() => trigger?.querySelector("button") ?? undefined}
             onFinalFocus={(event) => {
-              if (!selectDrawerRestoreTrigger(drawer())) event.preventDefault()
+              event.preventDefault()
+              if (selectDrawerRestoreTrigger(drawer())) trigger?.querySelector("button")?.focus()
+              setReturningFocus(false)
             }}
             onContentPresentChange={(present) => {
               if (!present) dispatch({ type: "hidden" })
@@ -950,6 +954,7 @@ export function DialogSelectModel(props: { provider?: string; model?: ModelState
             <Icon name="check" size="small" />
           </Show>
         </span>
+        <ProviderModelIcon provider={item().provider} model={item()} class="shrink-0 text-v2-icon-icon-base" />
         <span data-slot="model-dialog-name">
           <span class="min-w-0 truncate">
             <SearchHighlight text={item().name} />

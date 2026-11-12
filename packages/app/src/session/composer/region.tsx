@@ -54,6 +54,7 @@ import { SessionLocationMissing } from "./location-missing"
 import { SessionPluginPills } from "./plugin-pills"
 import { createTimelineActions, type TimelineActionsView, type TimelinePendingActions } from "./timeline-actions"
 import type { MountedSession, SessionScreen } from "@opencode/plugin/gui"
+import { matchesAnnotationTarget } from "./annotation-target"
 
 export function createActiveSessionRegion(input: {
   session: SessionModel
@@ -65,6 +66,7 @@ export function createActiveSessionRegion(input: {
   const command = useCommand()
   const data = useData()
   const server = useServerSDK()
+  const serverID = useServer().key
   const dialog = useDialog()
   const language = useLanguage()
   const local = useLocal()
@@ -78,8 +80,8 @@ export function createActiveSessionRegion(input: {
 
   makeEventListener(window, "opencode:image-annotation", (event: Event) => {
     if (!(event instanceof CustomEvent) || !input.visible()) return
-    const note = event.detail as { sessionID: string; src: string; alt?: string; element?: string; time?: number; x: number; y: number; comment: string }
-    if (note.sessionID !== input.session.identity.sessionID()) return
+    const note = event.detail as { serverID: string; sessionID: string; src: string; alt?: string; element?: string; time?: number; x: number; y: number; comment: string }
+    if (!matchesAnnotationTarget(note, { serverID, sessionID: input.session.identity.sessionID() })) return
     event.preventDefault()
     event.stopImmediatePropagation()
     const source = note.src.startsWith("blob:") || note.src.startsWith("data:") ? note.alt || "attached image" : note.src
@@ -564,6 +566,8 @@ export function ActiveSessionComposerRegion(props: {
     const label = modelLabels().get(composerModelLabelKey(ref.providerID, ref.id))
 
     return {
+      id: ref.id,
+      providerID: ref.providerID,
       provider: label
         ? label.provider
         : composerProviderName(

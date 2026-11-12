@@ -23,7 +23,7 @@ describe("markdown media previews", () => {
   beforeAll(() => GlobalRegistrator.register())
   afterAll(() => GlobalRegistrator.unregister())
 
-  test("reads a referenced HTML file only on request and renders it in a script-disabled sandbox", async () => {
+  test("automatically reads referenced HTML in a static opaque sandbox", async () => {
     const root = document.createElement("div")
     root.innerHTML = "<div><code>out/index.html</code></div>"
     const calls: string[] = []
@@ -36,14 +36,13 @@ describe("markdown media previews", () => {
       },
       true,
     )
-    expect(calls).toEqual([])
-    root.querySelector<HTMLButtonElement>("button")!.click()
-    await Promise.resolve()
-    await Promise.resolve()
+    expect(calls).toEqual(["out/index.html"])
+    await new Promise((resolve) => setTimeout(resolve, 0))
     const frame = root.querySelector("iframe")
     expect(calls).toEqual(["out/index.html"])
-    expect(frame?.getAttribute("sandbox")).toBe("allow-same-origin")
-    expect(frame?.src).toStartWith("blob:")
+    expect(frame?.getAttribute("sandbox")).toBe("")
+    expect(frame?.srcdoc).toContain("Preview")
+    expect(frame?.srcdoc).not.toContain("<script>")
     previews.dispose()
   })
 
@@ -64,12 +63,11 @@ describe("markdown media previews", () => {
       true,
       (source, local, destination) => opened.push(`${source}:${local}:${destination}`),
       "session-123",
+      "server-123",
     )
     root.querySelector<HTMLButtonElement>("[data-markdown-preview-actions] button")!.click()
     expect(opened).toEqual(["out/demo.html:true:panel"])
-    root.querySelector<HTMLButtonElement>("[data-markdown-media] > button")!.click()
-    await Promise.resolve()
-    await Promise.resolve()
+    await new Promise((resolve) => setTimeout(resolve, 0))
     root.querySelector<HTMLButtonElement>("[data-markdown-media] > button")!.click()
     const layer = root.querySelector<HTMLElement>("[data-preview-annotation-layer]")!
     layer.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect
@@ -77,7 +75,7 @@ describe("markdown media previews", () => {
     root.querySelector<HTMLTextAreaElement>("textarea")!.value = "Ajustar aqui"
     root.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
     expect(comments).toEqual([
-      { sessionID: "session-123", src: "out/demo.html", x: 25, y: 75, comment: "Ajustar aqui" },
+      { serverID: "server-123", sessionID: "session-123", src: "out/demo.html", x: 25, y: 75, comment: "Ajustar aqui" },
     ])
     previews.dispose()
     window.removeEventListener("opencode:image-annotation", listener)
@@ -88,9 +86,7 @@ describe("markdown media previews", () => {
     root.innerHTML = "<div><code>out/demo.html</code></div>"
     const previews = createMarkdownReferencedMedia()
     previews.update(root, async () => new Blob(["test"], { type: "text/html" }), true, undefined, "missing-session")
-    root.querySelector<HTMLButtonElement>("[data-markdown-media] > button")!.click()
-    await Promise.resolve()
-    await Promise.resolve()
+    await new Promise((resolve) => setTimeout(resolve, 0))
     root.querySelector<HTMLButtonElement>("[data-markdown-media] > button")!.click()
     const layer = root.querySelector<HTMLElement>("[data-preview-annotation-layer]")!
     layer.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect
@@ -104,14 +100,13 @@ describe("markdown media previews", () => {
     previews.dispose()
   })
 
-  test("renders HTML code blocks in a script-disabled preview while keeping their source", async () => {
+  test("automatically renders HTML code blocks in an opaque sandbox while keeping their source", async () => {
     const root = document.createElement("div")
     root.innerHTML = '<div><pre><code class="language-html">&lt;h1&gt;Example&lt;/h1&gt;</code></pre></div>'
     const previews = createMarkdownReferencedMedia()
     previews.update(root, undefined, true, undefined, "session-123")
-    root.querySelector<HTMLButtonElement>("[data-markdown-media] > button")!.click()
-    await Promise.resolve()
-    expect(root.querySelector("iframe")?.getAttribute("sandbox")).toBe("allow-same-origin")
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(root.querySelector("iframe")?.getAttribute("sandbox")).toBe("")
     expect(root.querySelector("pre code")?.textContent).toBe("<h1>Example</h1>")
     previews.dispose()
   })
@@ -122,7 +117,6 @@ describe("markdown media previews", () => {
     const previews = createMarkdownReferencedMedia()
     previews.update(root, async () => { throw new Error("O arquivo excede o limite de 32 MiB") }, true)
     const button = root.querySelector<HTMLButtonElement>("[data-markdown-media] > button")!
-    button.click()
     await Promise.resolve()
     await Promise.resolve()
     expect(button.textContent).toContain("32 MiB")

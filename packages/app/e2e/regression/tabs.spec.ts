@@ -2766,7 +2766,9 @@ test("projects can be grouped, dragged and retained after reload", async ({ page
   await mockWorkspace(page, {
     name: "Group project",
     directory: "C:/OpenCode/GroupProject",
-    sessions: [{ id: "ses_group_project", title: "Group conversation" }],
+    sessions: [
+      { id: "ses_group_project", title: "Group conversation", model: { id: "claude-opus-4-6", providerID: "opencode" } },
+    ],
     seed: {
       tabs: ["ses_group_project"],
       settings: { appearance: { tabLayout: "vertical" }, general: { sidebarOrganize: "projects" } },
@@ -2780,6 +2782,11 @@ test("projects can be grouped, dragged and retained after reload", async ({ page
   await expect(row.locator('[data-folder-state="open"]')).toBeVisible()
   await expect(row.locator("summary").getByText("main", { exact: true })).toBeVisible()
   await expect(row.getByTitle("Group conversation", { exact: true })).toHaveText("Group conversation")
+  const branchIcon = await row.locator('[data-slot="sidebar-branch-icon"]').first().boundingBox()
+  const modelIcon = await row.locator('[data-slot="sidebar-session-model-icon"]').first().boundingBox()
+  expect(branchIcon).not.toBeNull()
+  expect(modelIcon).not.toBeNull()
+  expect(branchIcon!.x).toBeLessThanOrEqual(modelIcon!.x + 1)
   await expect(page.getByRole("banner").getByText("main", { exact: true })).toHaveCount(0)
   await row.getByRole("button", { name: "Group project", exact: true }).click()
   await expect(row.locator('[data-folder-state="closed"]')).toBeVisible()

@@ -1232,7 +1232,17 @@ function ProviderSteps(props: { provider: string; controller: ProviderDialogCont
                     onClick={() => props.controller.dispatch({ type: "model.selected", modelKey: modelKey(model) })}
                   >
                     <div data-slot="settings-row-copy">
-                      <div data-slot="settings-row-title">
+                      <div data-slot="settings-row-title" class="flex items-center gap-2">
+                        <ProviderModelIcon
+                          provider={
+                            groups().find((group) => group.provider.id === model.providerID)?.provider ?? {
+                              id: model.providerID,
+                              name: model.providerID,
+                            }
+                          }
+                          model={model}
+                          class="shrink-0"
+                        />
                         <span class="min-w-0 truncate">{model.name}</span>
                       </div>
                     </div>

@@ -1,3 +1,5 @@
+import { htmlGenerationActivity } from "../../tools/html-activity"
+import { HtmlGenerationCard } from "../../tools/html-generation"
 import type { SessionMessageAssistantTool } from "@opencode/client/promise"
 import { AnimatedNumber } from "@opencode/ui/animated-number"
 import { Badge } from "@opencode/ui/badge"
@@ -52,6 +54,7 @@ export function ContextGroup(props: {
 }) {
   const i18n = useI18n()
   const tools = createMemo(() => props.parts.filter((part) => part.type === "tool"))
+  const htmlActivity = createMemo(() => htmlGenerationActivity(tools()))
   const reasoning = createMemo(() => props.parts.flatMap((part) => (part.type === "reasoning" ? [part] : [])))
   const thoughtsOnly = createMemo(() => reasoning().length > 0 && reasoning().length === props.parts.length)
   const activity = createMemo(() => activityLabel(tools(), i18n))
@@ -242,6 +245,7 @@ export function ContextGroup(props: {
             </Index>
           </div>
         </BasicTool>
+        <Show when={htmlActivity()}>{(activity) => <HtmlGenerationCard path={activity().path} />}</Show>
       </div>
     </Show>
   )
@@ -265,6 +269,7 @@ function GroupItem(props: {
     <Switch
       fallback={
         <ToolDisplay
+          suppressHtmlActivity
           id={tool().id}
           tool={name()}
           input={currentToolInput(tool())}

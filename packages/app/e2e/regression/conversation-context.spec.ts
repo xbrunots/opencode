@@ -3,6 +3,23 @@ import type { SessionMessageInfo } from "@opencode/client/promise"
 import { pageMessagesFrom } from "../utils/app"
 import { openSession } from "../utils/workspace"
 
+test("conversation context sits 16 pixels from the workspace edge", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const id = "ses_context_edge"
+  await openSession(page, {
+    name: "ContextEdge",
+    sessions: [{ id, title: "Context edge" }],
+    seed: { tabs: [id] },
+  })
+  const card = page.getByRole("region", { name: "Conversation context", exact: true })
+  await expect(card).toBeVisible()
+  await expect.poll(async () => {
+    const box = await card.boundingBox()
+
+    return box ? Math.abs(1440 - box.x - box.width - 16) : Number.POSITIVE_INFINITY
+  }).toBeLessThanOrEqual(1)
+})
+
 test("shows the recorded motion evaluator only in conversation context", async ({ page }) => {
   const id = "ses_motion_context"
   const history: SessionMessageInfo[] = [

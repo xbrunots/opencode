@@ -741,6 +741,8 @@ export function createSessionTimelineRowRenderer(input: {
 
       return {
         providerID: value.model.providerID,
+        modelID: value.model.id,
+        modelName: match?.models?.[value.model.id]?.name ?? value.model.id,
         variant: variantOnly ? undefined : value.model.variant,
         label: variantOnly
           ? variant === "default"
@@ -898,7 +900,15 @@ export function createSessionTimelineRowRenderer(input: {
             >
               {(model) => (
                 <div data-slot="session-timeline-notice" data-type="model-switched" class={`w-full py-2 ${inset()}`}>
-                  <TimelineSeparator label={model().label} providerID={model().providerID} variant={model().variant} />
+                  <TimelineSeparator
+                    label={model().label}
+                    providerID={model().providerID}
+                    variant={model().variant}
+                    icon={data.modelIcon?.(
+                      { providerID: model().providerID, id: model().modelID, name: model().modelName },
+                      "size-3.5 shrink-0",
+                    )}
+                  />
                 </div>
               )}
             </Show>

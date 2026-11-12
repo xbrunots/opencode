@@ -1,0 +1,6 @@
+.conversation-context-html-activity { min-width: 0; }
+.conversation-context-html-activity svg { width: 15px; height: 15px; flex: none; color: #8cc7aa; animation: html-agent-turn 4s linear infinite; }
+.conversation-context-html-activity span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conversation-context-html-activity small { margin-left: auto; white-space: nowrap; font-size: 10px; color: var(--text-weak); }
+@keyframes html-agent-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .conversation-context-html-activity svg { animation: none; } }

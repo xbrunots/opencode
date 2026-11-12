@@ -1,6 +1,6 @@
 import { hasProviderIcon, ProviderIcon } from "@opencode/ui/provider-icon"
 import { Tooltip } from "@opencode/ui/tooltip"
-import { Show } from "solid-js"
+import { Show, type JSX } from "solid-js"
 
 /**
  * A divider with its label, such as a model switch or Interrupted. Rows are spaced by block, so it is only as tall as its
@@ -11,6 +11,7 @@ export function Separator(props: {
   value?: string
   tooltip?: string
   providerID?: string
+  icon?: JSX.Element
   variant?: string
 }) {
   const label = () => (
@@ -29,8 +30,12 @@ export function Separator(props: {
     <div class="flex h-4 w-full items-center gap-3 text-v2-text-text-faint">
       <span class="h-px min-w-0 flex-1 bg-v2-border-border-base" />
       <span class="flex min-w-0 items-center gap-1 text-[13px] font-[440] leading-text-compact tracking-[-0.04px]">
-        <Show when={props.providerID && hasProviderIcon(props.providerID) ? props.providerID : undefined}>
-          {(providerID) => <ProviderIcon id={providerID()} class="text-v2-icon-icon-faint" aria-hidden="true" />}
+        <Show when={props.icon} fallback={
+          <Show when={props.providerID && hasProviderIcon(props.providerID) ? props.providerID : undefined}>
+            {(providerID) => <ProviderIcon id={providerID()} class="text-v2-icon-icon-faint" aria-hidden="true" />}
+          </Show>
+        }>
+          {props.icon}
         </Show>
         <span class="flex min-w-0 items-center gap-1.5">
           <Show when={props.tooltip} fallback={label()}>

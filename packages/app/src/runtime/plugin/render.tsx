@@ -170,6 +170,7 @@ export function PluginLinks(props: ParentProps<{ session: MountedSession; active
       openLocalFile={(href) => void host.links.open({ href, session: props.session })}
       localFileExists={localFileExists}
       previewSession={props.session.id}
+      previewServer={props.session.server.id}
       openPreview={(source, local, destination) => {
         if (destination === "panel") {
           host.links.open({ href: source, origin: local ? undefined : "browser", session: props.session })

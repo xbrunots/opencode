@@ -66,6 +66,8 @@ export interface ImagePreviewProps {
   video?: HTMLVideoElement
   /** Enables comments that are routed to this conversation's composer. */
   sessionID?: string
+  /** Server that owns the conversation, to distinguish matching IDs on different connections. */
+  serverID?: string
   /** Durable path or media reference when the rendered source is a temporary blob URL. */
   reference?: string
 }
@@ -110,7 +112,27 @@ export function ImagePreview(props: ImagePreviewProps) {
   // its shadow travel above the dialog in place of the real one.
   const [flight, setFlight] = createSignal(INITIAL_PREVIEW_FLIGHT_STATE)
   const [zoom, setZoom] = createSignal(INITIAL_PREVIEW_ZOOM_STATE)
-  const [annotation, setAnnotation] = createSignal<{ x: number; y: number; left: number; top: number; text: string; error?: boolean }>()
+  const [annotation, setAnnotation] = createSignal<{ x: number; y: number; left: number; top: number; text: string; time?: number; error?: boolean }>()
+  const [markingVideo, setMarkingVideo] = createSignal(false)
+  const [videoMarkBox, setVideoMarkBox] = createSignal<{ left: number; top: number; width: number; height: number }>()
+  createEffect(() => {
+    if (!props.video) return
+    const video = props.video
+    const marking = markingVideo() || !!annotation()
+
+    if (marking) {
+      video.style.zIndex = "49"
+      video.style.pointerEvents = "none"
+    } else {
+      video.style.removeProperty("z-index")
+      video.style.removeProperty("pointer-events")
+    }
+
+    onCleanup(() => {
+      video.style.removeProperty("z-index")
+      video.style.removeProperty("pointer-events")
+    })
+  })
   // What the view shows the controls and the stylesheet, written only when it changes rather than on every frame.
   const [shown, setShown] = createStore({ zoomed: false, ownsEscape: false, level: 100 })
 
@@ -593,6 +615,7 @@ export function ImagePreview(props: ImagePreviewProps) {
   const mark = (left: number, top: number) => {
     if (!props.sessionID || !interactive()) return
     const bounds = image.getBoundingClientRect()
+
     if (!bounds.width || !bounds.height) return
     setAnnotation({
       x: Math.max(0, Math.min(100, ((left - bounds.left) / bounds.width) * 100)),
@@ -600,6 +623,7 @@ export function ImagePreview(props: ImagePreviewProps) {
       left,
       top,
       text: "",
+      time: props.video?.currentTime,
     })
   }
 
@@ -741,6 +765,7 @@ export function ImagePreview(props: ImagePreviewProps) {
         }}
         onPointerDown={(event: PointerEvent) => {
           const target = event.target
+
           if (target instanceof Element && target.closest('[data-slot="image-preview-annotation"]')) return
           const body = target instanceof Node && viewport.contains(target)
           press(event, body ? "viewport" : "content", target === content || target === viewport)
@@ -815,13 +840,18 @@ export function ImagePreview(props: ImagePreviewProps) {
                 onSubmit={(event) => {
                   event.preventDefault()
                   const comment = point().text.trim()
+
                   if (!comment || !props.sessionID) return
+
                   const delivered = new CustomEvent("opencode:image-annotation", {
                     cancelable: true,
-                    detail: { sessionID: props.sessionID, src: props.reference ?? props.src, alt: props.alt, x: point().x, y: point().y, comment },
+                    detail: { sessionID: props.sessionID, serverID: props.serverID, src: props.reference ?? props.src, alt: props.alt, x: point().x, y: point().y, time: point().time, comment },
                   })
+
                   window.dispatchEvent(delivered)
+
                   if (!delivered.defaultPrevented) return setAnnotation({ ...point(), error: true })
+
                   setAnnotation(undefined)
                   dialog.close()
                 }}
@@ -846,6 +876,21 @@ export function ImagePreview(props: ImagePreviewProps) {
           )}
         </Show>
         <div data-slot="image-preview-controls">
+          <Show when={props.video && props.sessionID}>
+            <IconButton
+              icon={<Icon name="comment" />}
+              variant="ghost"
+              aria-label={i18n.t("ui.imagePreview.commentOnVideo")}
+              aria-pressed={markingVideo()}
+              onClick={() => {
+                if (markingVideo()) return setMarkingVideo(false)
+                ease(FIT_VIEW)
+                const rect = image.getBoundingClientRect()
+                setVideoMarkBox({ left: rect.left, top: rect.top, width: rect.width, height: rect.height })
+                setMarkingVideo(true)
+              }}
+            />
+          </Show>
           <IconButton
             data-slot="image-preview-zoom-out"
             icon={<Icon name="minus" />}
@@ -880,6 +925,20 @@ export function ImagePreview(props: ImagePreviewProps) {
             aria-label={i18n.t("ui.common.close")}
           />
         </div>
+      <Show when={markingVideo() && videoMarkBox()}>
+        {(box) => (
+          <button
+            type="button"
+            aria-label={i18n.t("ui.imagePreview.selectVideoPoint")}
+            style={{ position: "fixed", "z-index": 52, left: `${box().left}px`, top: `${box().top}px`, width: `${box().width}px`, height: `${box().height}px`, cursor: "crosshair", "pointer-events": "auto", background: "transparent", border: "none" }}
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect()
+              mark(event.detail === 0 ? rect.left + rect.width / 2 : event.clientX, event.detail === 0 ? rect.top + rect.height / 2 : event.clientY)
+              setMarkingVideo(false)
+            }}
+          />
+        )}
+      </Show>
       </Kobalte.Content>
       <div data-slot="image-preview-surface" ref={surface} />
       <Show when={!props.video}>

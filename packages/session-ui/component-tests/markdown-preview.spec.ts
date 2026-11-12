@@ -3,7 +3,7 @@ import { expect, sourceURL, story } from "../../stories/playwright/story"
 const fixture = sourceURL(new URL("./markdown.fixture.tsx", import.meta.url))
 
 story(
-  "local HTML preview stays script-disabled and sends the clicked element to the conversation",
+  "local HTML preview is isolated and sends the clicked coordinates to the conversation",
   async ({ page, mount }) => {
     await mount("components-markdown--complete-response")
     await page.evaluate(async (fixture) => {
@@ -15,10 +15,9 @@ story(
       await mountMarkdown({ text: "`out/index.html`", previews: true })
     }, fixture)
     const harness = page.getByTestId("markdown-fixture")
-    await harness.getByText("Visualizar HTML").click()
     const frame = harness.locator("iframe")
-    await expect(frame).toHaveAttribute("sandbox", "allow-same-origin")
-    await expect(frame.contentFrame().locator("#target")).toBeVisible()
+    await expect(frame).toHaveAttribute("sandbox", "")
+    await expect(frame.contentFrame().locator("body")).toContainText("Hello")
     await harness.getByText("Comentar ponto").click()
     await harness.locator("[data-preview-annotation-layer]").click({ position: { x: 50, y: 50 } })
     await harness.getByLabel("Comentário sobre a prévia").fill("Ajuste este elemento")
@@ -27,7 +26,6 @@ story(
     expect(JSON.parse(result!)).toMatchObject({
       sessionID: "fixture-session",
       src: "out/index.html",
-      element: "div#target",
       comment: "Ajuste este elemento",
     })
     await expect(page.locator("body")).not.toHaveAttribute("data-preview-script", "ran")
@@ -36,3 +34,26 @@ story(
     await expect(page.locator("body")).toHaveAttribute("data-preview-open", "out/index.html:true:panel")
   },
 )
+
+story("HTML previews do not execute scripts, navigate, or load remote resources", async ({ page, mount }) => {
+  await mount("components-markdown--complete-response")
+  const requests: string[] = []
+  await page.route("https://preview-leak.invalid/**", (route) => {
+    requests.push(route.request().url())
+    return route.abort()
+  })
+  await page.evaluate(async (fixture) => {
+    const { mountMarkdown } = await import(fixture)
+    await mountMarkdown({
+      text: "```html\n<meta http-equiv=\"refresh\" content=\"0;url=https://preview-leak.invalid/redirect\"><div id=\"animated\">before</div><img src=\"https://preview-leak.invalid/image\"><script>fetch('https://preview-leak.invalid/fetch');location.href='https://preview-leak.invalid/navigation'</script>\n```",
+      previews: true,
+    })
+  }, fixture)
+  const harness = page.getByTestId("markdown-fixture")
+  await harness.locator("[data-markdown-media]").scrollIntoViewIfNeeded()
+  const frame = harness.locator("iframe")
+  await expect(frame).toHaveAttribute("sandbox", "")
+  await expect(frame.contentFrame().locator("#animated")).toHaveText("before")
+  await expect(frame.contentFrame().locator("meta[http-equiv=refresh]")).toHaveCount(0)
+  expect(requests).toEqual([])
+})

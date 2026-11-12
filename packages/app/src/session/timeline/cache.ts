@@ -142,6 +142,7 @@ export function createTimelineCache(
                 sessionHref: data.sessionHref,
                 readMedia: data.readMedia,
                 peekMedia: data.peekMedia,
+                modelIcon: data.modelIcon,
                 get imageJob() {
                   return active() ? data.imageJob : undefined
                 },

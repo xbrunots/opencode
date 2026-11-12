@@ -1,5 +1,6 @@
 import { Show, type Component, type JSX } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
+import { ProviderModelIcon } from "./provider-group"
 
 type InputKey = "text" | "image" | "audio" | "video" | "pdf"
 
@@ -9,6 +10,7 @@ type ModelInfo = {
   id: string
   name: string
   provider: {
+    id?: string
     name: string
   }
   capabilities?: {
@@ -124,7 +126,19 @@ export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?
   if (props.v2) {
     return (
       <div class="flex w-[180px] flex-col gap-2">
-        <ModelTooltipRow name={language.t("model.tooltip.model")} value={name()} />
+        <ModelTooltipRow
+          name={language.t("model.tooltip.model")}
+          value={
+            <span class="inline-flex max-w-full items-center gap-1.5 align-middle">
+              <ProviderModelIcon
+                provider={{ id: props.model.provider.id ?? "", name: props.model.provider.name }}
+                model={props.model}
+                class="shrink-0"
+              />
+              <span class="min-w-0 truncate">{name()}</span>
+            </span>
+          }
+        />
         <ModelTooltipRow name={language.t("model.tooltip.provider")} value={props.model.provider.name} />
         <Show when={inputs()}>
           {(value) => <ModelTooltipRow name={language.t("model.tooltip.inputs")} value={value()} />}
@@ -137,7 +151,14 @@ export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?
 
   return (
     <div class="flex flex-col gap-1 py-1">
-      <div class="text-13-medium">{title()}</div>
+      <div class="flex items-center gap-1.5 text-13-medium">
+        <ProviderModelIcon
+          provider={{ id: props.model.provider.id ?? "", name: props.model.provider.name }}
+          model={props.model}
+          class="shrink-0"
+        />
+        <span>{title()}</span>
+      </div>
       <Show when={inputs()}>
         {(value) => (
           <div class="text-12-regular text-text-invert-base">

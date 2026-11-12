@@ -73,11 +73,13 @@ export function SidebarProjectTree(props: {
           return (
             <details open class="min-w-0">
               <summary
-                class="flex h-7 min-w-0 cursor-pointer list-none items-center gap-2 px-2 text-12-regular text-v2-text-text-muted"
+                class="flex h-7 min-w-0 cursor-pointer list-none items-center gap-2 ps-0 pe-2 text-12-regular text-v2-text-text-muted"
                 onClick={() => layout.home.setSelection({ server: key(), directory })}
               >
                 <Icon name="chevron-down" size="small" />
-                <Icon name="branch" size="small" />
+                <span data-slot="sidebar-branch-icon" class="flex shrink-0">
+                  <Icon name="branch" size="small" />
+                </span>
                 <span class="min-w-0 truncate" title={directory}>
                   {branch() ||
                     (pathKey(directory) === pathKey(props.directory)

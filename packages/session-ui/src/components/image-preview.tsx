@@ -3,11 +3,13 @@ import { useI18n } from "@opencode/ui/context/i18n"
 import { ImagePreview } from "@opencode/ui/image-preview"
 import { useContext } from "solid-js"
 import { DataContext } from "../context"
+import { useMarkdown } from "../context/markdown"
 
 export function createImagePreview() {
   const dialog = useDialog()
   const i18n = useI18n()
   const data = useContext(DataContext)
+  const markdown = useMarkdown()
 
   const open = (event: MouseEvent | KeyboardEvent) => {
     const image = event.currentTarget
@@ -21,7 +23,7 @@ export function createImagePreview() {
     event.stopPropagation()
     const sessionID = data?.sessionID
     const reference = image.dataset.localImage
-    dialog.show(() => <ImagePreview src={src} alt={alt} origin={image} sessionID={sessionID} reference={reference} />)
+    dialog.show(() => <ImagePreview src={src} alt={alt} origin={image} sessionID={sessionID} serverID={markdown?.previewServer} reference={reference} />)
   }
 
   return (root: HTMLElement) => {

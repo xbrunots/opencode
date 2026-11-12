@@ -53,6 +53,7 @@ export const dict = {
   "context.artifacts": "Artifacts",
   "context.mcps": "MCPs used",
   "context.skills": "Skills used",
+  "context.visualActivity": "Visual activity",
   "context.noAgents": "No subagents in this conversation.",
   "context.noSources": "No web sources or attached files recorded.",
   "context.noArtifacts": "No file artifacts returned by tools.",

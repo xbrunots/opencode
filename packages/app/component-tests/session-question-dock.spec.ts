@@ -3,6 +3,33 @@ import type { MotionKnob } from "@opencode/ui/motion-tuning"
 import { expect, sourceURL, story } from "../../stories/playwright/story"
 
 for (const variant of ["classic", "experimental"] as const) {
+  story(`${variant} question remains usable and has a solid white submit action`, async ({ mount, page }, testInfo) => {
+    await page.addInitScript(
+      (enabled) => localStorage.setItem("settings.v3", JSON.stringify({ general: { newQuestionUI: enabled } })),
+      variant === "experimental",
+    )
+    const component = await mount("app-current-session-surface--question-request", { globals: { theme: "dark" } })
+    const question = component.locator('[data-component="dock-prompt"][data-kind="question"]')
+    const focused = question.getByRole("radio", { name: /Focused/ })
+    await expect(focused).toBeFocused()
+    await focused.press("Space")
+    await expect(focused).toBeChecked()
+    await question.getByRole("button", { name: "Next", exact: true }).click()
+    await page.mouse.move(0, 0)
+    const submit = question.getByRole("button", { name: "Submit", exact: true })
+    await expect(submit).toHaveCSS("background-color", "rgb(245, 245, 245)")
+    await expect(submit).toHaveCSS("background-image", "none")
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 850 })
+      await expect(submit).toBeInViewport({ ratio: 1 })
+      const box = await question.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.x).toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1)
+      await question.screenshot({ path: testInfo.outputPath(`question-${variant}-${width}.png`) })
+    }
+  })
+
   story(`${variant} answer cards allow text selection without changing answers`, async ({ mount, page }) => {
     await page.addInitScript(
       (enabled) => localStorage.setItem("settings.v3", JSON.stringify({ general: { newQuestionUI: enabled } })),

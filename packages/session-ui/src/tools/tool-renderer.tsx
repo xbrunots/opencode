@@ -1,3 +1,5 @@
+import { htmlGenerationActivity, htmlToolPath } from "./html-activity"
+import { HtmlGenerationCard } from "./html-generation"
 // Current Session tool presentation grouped by visual family.
 import {
   Component,
@@ -440,6 +442,7 @@ export function CurrentContextToolGroup(props: {
 }) {
   const i18n = useI18n()
   const tools = createMemo(() => props.parts.filter((part) => part.type === "tool"))
+  const htmlActivity = createMemo(() => htmlGenerationActivity(tools()))
 
   const pending = createMemo(
     () => props.busy || tools().some((tool) => tool.state.status === "streaming" || tool.state.status === "running"),
@@ -747,6 +750,7 @@ export function CurrentContextToolGroup(props: {
                                     when={isFileChangeTool(tool())}
                                     fallback={
                                       <ToolDisplay
+                                        suppressHtmlActivity
                                         id={tool().id}
                                         tool={tool().name}
                                         input={currentToolInput(tool())}
@@ -859,6 +863,7 @@ export function CurrentContextToolGroup(props: {
           </Index>
         </div>
       </BasicTool>
+      <Show when={htmlActivity()}>{(activity) => <HtmlGenerationCard path={activity().path} />}</Show>
     </div>
   )
 }
@@ -1348,6 +1353,7 @@ export function ToolDisplay(
   props: ToolProps & {
     id: string
     error?: string
+    suppressHtmlActivity?: boolean
   },
 ) {
   const data = useData()
@@ -1433,6 +1439,9 @@ export function ToolDisplay(
             <Dynamic component={render()} {...props} />
           </Match>
         </Switch>
+        <Show when={!props.suppressHtmlActivity && (props.status === "running" || props.status === "streaming") && htmlToolPath(props.tool, props.input)}>
+          {(path) => <HtmlGenerationCard path={path()} />}
+        </Show>
       </div>
     </Show>
   )

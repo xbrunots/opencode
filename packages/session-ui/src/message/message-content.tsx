@@ -41,6 +41,7 @@ import { Tooltip } from "@opencode/ui/tooltip"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Menu } from "@opencode/ui/menu"
 import { Icon } from "@opencode/ui/icon"
+import { ProviderIcon } from "@opencode/ui/provider-icon"
 import { Button } from "@opencode/ui/button"
 import { TextReveal } from "@opencode/ui/text-reveal"
 import { ReasoningStatus } from "@opencode/ui/reasoning-status"
@@ -96,7 +97,7 @@ import {
 } from "./paced-text-machine"
 import { createCopyFeedback, writeClipboard } from "../components/copy"
 
-type MetaItem = { label: string; variant?: boolean }
+type MetaItem = { label: string; variant?: boolean; model?: { providerID: string; id: string; name: string } }
 
 // The variant follows the model name without a separator, so the model leads.
 function modelItems(data: ReturnType<typeof useData>, model: SessionMessageAssistant["model"]): MetaItem[] {
@@ -105,12 +106,14 @@ function modelItems(data: ReturnType<typeof useData>, model: SessionMessageAssis
   // A prompt held for its Location's catalog names no model yet.
   if (!name) return []
 
-  if (!model.variant || model.variant === "default") return [{ label: name }]
+  const item = { label: name, model: { providerID: model.providerID, id: model.id, name } }
+  if (!model.variant || model.variant === "default") return [item]
 
-  return [{ label: name }, { label: model.variant[0]?.toUpperCase() + model.variant.slice(1), variant: true }]
+  return [item, { label: model.variant[0]?.toUpperCase() + model.variant.slice(1), variant: true }]
 }
 
 function MetaItems(props: { items: MetaItem[]; slot: "user-message" | "text-part" }) {
+  const data = useData()
   return (
     <For each={props.items}>
       {(item, index) => (
@@ -119,6 +122,13 @@ function MetaItems(props: { items: MetaItem[]; slot: "user-message" | "text-part
             <span data-slot={`${props.slot}-meta-separator`} aria-hidden="true">
               {"\u00B7"}
             </span>
+          </Show>
+          <Show when={item.model}>
+            {(model) =>
+              data.modelIcon?.(model(), "size-3.5 shrink-0") ?? (
+                <ProviderIcon id={model().providerID} class="size-3.5 shrink-0" aria-hidden="true" />
+              )
+            }
           </Show>
           <span
             data-slot={`${props.slot}-meta-item`}
@@ -263,7 +273,7 @@ function AttachmentVideo(props: { file: PromptAttachment; src: string; sessionID
   const local = /^(?:[a-z]:[\\/]|\/)/i.test(source)
   let viewer!: HTMLDivElement
   let controls!: HTMLDivElement
-  onMount(() => controls.append(markdownPreviewAnnotation(viewer, source, props.sessionID)))
+  onMount(() => controls.append(markdownPreviewAnnotation(viewer, source, props.sessionID, undefined, markdown?.previewServer)))
   return (
     <div data-slot="user-message-video-card">
       <div ref={viewer} data-slot="user-message-video-viewer">
@@ -317,6 +327,7 @@ export function CurrentUserMessageDisplay(props: {
   const data = useData()
   const dialog = useDialog()
   const i18n = useI18n()
+  const markdown = useMarkdown()
 
   const fold = createDisclosure({
     open: () => props.expanded,
@@ -626,7 +637,7 @@ export function CurrentUserMessageDisplay(props: {
               const src = mediaView().src
               const attachment = file()
               const reference = attachment.source.type === "uri" ? attachment.source.uri : "uri" in attachment ? attachment.uri : attachment.name
-              if (src) return dialog.show(() => <ImagePreview src={src} alt={name()} origin={origin} sessionID={data.sessionID} reference={reference} />)
+              if (src) return dialog.show(() => <ImagePreview src={src} alt={name()} origin={origin} sessionID={data.sessionID} serverID={markdown?.previewServer} reference={reference} />)
               if (mediaView().canRetry) dispatchMedia({ type: "retry.requested", target: mediaTarget() })
             }
 

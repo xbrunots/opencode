@@ -1156,14 +1156,14 @@ function ComposerEditorSelect(props: {
   onSelect: (id: string) => void
 }) {
   const mobile = createMediaQuery("(max-width: 767px)")
-  const [store, setStore] = createStore({ open: false, loaded: false })
+  const [store, setStore] = createStore({ open: false, loaded: false, returningFocus: false })
   const focus = pointerFocusReturn()
   let trigger: HTMLButtonElement | undefined
 
   const setOpen = (open: boolean) => {
     setStore("open", open)
 
-    if (open) setStore("loaded", true)
+    if (open) setStore({ loaded: true, returningFocus: true })
     props.onOpenChange?.(open)
   }
 
@@ -1241,6 +1241,7 @@ function ComposerEditorSelect(props: {
           aria-label={props.title}
           aria-haspopup="dialog"
           aria-expanded={store.open}
+          data-expanded={store.open || store.returningFocus ? "" : undefined}
           onClick={() => setOpen(true)}
         >
           {content()}
@@ -1253,6 +1254,11 @@ function ComposerEditorSelect(props: {
               open={store.open}
               onOpenChange={setOpen}
               returnFocus={() => trigger}
+              onFinalFocus={(event) => {
+                event.preventDefault()
+                trigger?.focus()
+                setStore("returningFocus", false)
+              }}
             >
               <div class="flex flex-col overflow-hidden rounded-lg border border-v2-border-border-base bg-v2-background-bg-layer-02 divide-y divide-v2-border-border-base">
                 <For each={props.options}>
