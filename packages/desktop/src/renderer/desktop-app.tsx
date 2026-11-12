@@ -65,7 +65,9 @@ export function DesktopApp(props: { api: ElectronAPI; version: string }) {
     firstLaunch: props.api.getWindowBootstrap().firstLaunchPending,
   })
 
-  const router = (routerProps: BaseRouterProps) => <DesktopMemoryRouter {...routerProps} windowID={windowState.id} />
+  const router = (routerProps: BaseRouterProps) => (
+    <DesktopMemoryRouter {...routerProps} windowID={windowState.id} initialUrl={initialUrl} />
+  )
 
   function DesktopShell() {
     const pluginServers = usePluginServers()

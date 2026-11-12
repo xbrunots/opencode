@@ -10,7 +10,9 @@ import { getCurrentCli, resolveChannel } from "./utils"
 // installer around that (signed) app. Linux: AppImage, deb and rpm. The release workflow signs afterwards.
 const dir = path.resolve(import.meta.dir, "..")
 
-const out = path.resolve(dir, "../../dist/desktop")
+const out = path.resolve(dir, "../../dist", process.env.OPENCODE_DESKTOP_OUTPUT ?? "desktop")
+if (path.dirname(out) !== path.resolve(dir, "../../dist"))
+  throw new Error("Desktop output must be a directory inside dist/")
 
 const cli = getCurrentCli()
 

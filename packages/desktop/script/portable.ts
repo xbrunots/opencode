@@ -6,7 +6,9 @@ import path from "node:path"
 
 // Assemble only an already-built Windows package. Every run gets a fresh destination and never touches user data.
 const repository = path.resolve(import.meta.dir, "../../..")
-const source = path.join(repository, "dist", "desktop", "app")
+const source = path.resolve(repository, "dist", process.env.OPENCODE_DESKTOP_OUTPUT ?? "desktop", "app")
+if (path.dirname(path.dirname(source)) !== path.join(repository, "dist"))
+  throw new Error("Desktop input must be a directory inside dist/")
 const executables = (await readdir(source)).filter((name) => name.toLowerCase().endsWith(".exe"))
 if (executables.length !== 1)
   throw new Error(`Expected one desktop executable in ${source}, found ${executables.length}`)
