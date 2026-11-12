@@ -1,7 +1,8 @@
 # OpenCodex icons
 
-The Windows ICO and PNG variants in each channel use the user-supplied image stored at
-`packages/ui/src/assets/opencodex.png`. The ICO contains 16, 24, 32, 48, 64, 128 and 256 pixel frames.
+The Windows ICO and PNG variants in each channel render the vector master at
+`packages/ui/src/assets/opencodex.svg`, traced from the user-supplied C logo. The companion PNG is 1024×1024.
+The ICO contains 16, 24, 32, 48, 64, 128 and 256 pixel frames, rendered directly from the vector master.
 Keep its transparent background and original black-and-white artwork. The application and executable name is OpenCodex.
 
 ## Original cross-platform icon tooling

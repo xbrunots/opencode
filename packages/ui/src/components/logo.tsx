@@ -1,6 +1,6 @@
 import { type ComponentProps } from "solid-js"
 
-const logo = new URL("../assets/opencodex.png", import.meta.url).href
+const logo = new URL("../assets/opencodex.svg", import.meta.url).href
 
 export const Mark = (props: { class?: string }) => (
   <svg

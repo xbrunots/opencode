@@ -1,7 +1,6 @@
 import { Splash } from "@opencode/ui/logo"
-import { Wordmark } from "@opencode/ui/wordmark"
 import type { Platform } from "@opencode/app/desktop"
-import { onCleanup, onMount, Show } from "solid-js"
+import { For, onCleanup, onMount } from "solid-js"
 import "./splash.css"
 
 export function LoadingSplash(props: {
@@ -15,14 +14,11 @@ export function LoadingSplash(props: {
   onMount(() => {
     if (!props.drawingPaused) return
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)")
-
     const start = () => {
       if (document.visibilityState !== "visible" || !document.hasFocus()) return
       props.onDrawStart()
-
       if (motion.matches) props.onDrawEnd()
     }
-
     window.addEventListener("focus", start)
     document.addEventListener("visibilitychange", start)
     motion.addEventListener("change", start)
@@ -34,61 +30,50 @@ export function LoadingSplash(props: {
     })
   })
 
-  const titlebarHeight = () => {
-    const zoom = props.platform.webviewZoom?.() ?? 1
-
-    if (props.platform.os === "macos") return `max(36px, ${36 / zoom}px)`
-
-    if (props.platform.os === "windows")
-      return `max(36px, env(titlebar-area-height, ${44 / Math.min(Math.max(zoom, 0.25), 1)}px))`
-
-    return "36px"
-  }
-
   return (
-    <Show
-      when={props.firstLaunch}
-      fallback={
-        <div
-          data-component="startup-splash"
-          class="h-dvh w-screen flex flex-col items-center justify-center"
-          classList={{
-            "bg-v2-background-bg-deep": props.deep,
-            "bg-v2-background-bg-base": !props.deep,
-          }}
-        >
-          <Splash class="size-16 opacity-50 animate-pulse" />
-        </div>
-      }
+    <div
+      data-component={props.firstLaunch ? "first-launch-splash" : "startup-splash"}
+      data-drawing={props.drawingPaused ? "pending" : "running"}
+      data-deep={props.deep || undefined}
+      class="opencodex-splash"
+      aria-hidden="true"
+      onAnimationEnd={(event) => {
+        if (event.animationName === "splash-intro-complete") props.onDrawEnd()
+      }}
     >
-      <div
-        data-component="first-launch-splash"
-        data-drawing={props.drawingPaused ? "pending" : "running"}
-        aria-hidden="true"
-        class="h-dvh w-screen bg-v2-background-bg-base"
-        style={{
-          // Match the default session's titlebar, panel insets, and wordmark position.
-          "padding-block-start": `calc(${titlebarHeight()} + ${props.platform.os === "windows" ? 1 : 8}px)`,
-          "padding-block-end": "8px",
-          "padding-inline": "32px",
-        }}
-        onAnimationEnd={(event) => {
-          if (event.animationName === "first-launch-wordmark-draw") props.onDrawEnd()
-        }}
-      >
-        <div class="relative size-full">
-          <div class="absolute inset-x-0 top-[25.375%]">
-            <div class="mx-auto w-full max-w-[720px]">
-              <Wordmark
-                outline
-                fade={false}
-                muted={false}
-                class="mx-auto block h-auto w-4/5 text-v2-icon-icon-faint opacity-50"
-              />
+      <div class="splash-center">
+        <div class="splash-emblem">
+          <svg class="splash-orbits" viewBox="0 0 240 240" fill="none">
+            <g class="splash-orbit splash-orbit-outer">
+              <circle cx="120" cy="120" r="106" />
+              <path d="M120 14a106 106 0 0 1 106 106" />
+              <circle class="splash-orbit-node" cx="120" cy="14" r="3" />
+            </g>
+            <g class="splash-orbit splash-orbit-inner">
+              <circle cx="120" cy="120" r="86" />
+              <path d="M34 120a86 86 0 0 1 86-86" />
+              <circle class="splash-orbit-node" cx="34" cy="120" r="2" />
+            </g>
+          </svg>
+          <span class="splash-ripple splash-ripple-first" />
+          <span class="splash-ripple splash-ripple-second" />
+          <div class="splash-logo-entrance">
+            <div class="splash-logo-core">
+              <Splash class="splash-logo" />
             </div>
           </div>
         </div>
+        <div class="splash-name">
+          <For each={Array.from("OpenCodex")}>
+            {(letter, index) => <span style={{ "--letter-index": index() }}>{letter}</span>}
+          </For>
+        </div>
+        <div class="splash-activity">
+          <i />
+          <i />
+          <i />
+        </div>
       </div>
-    </Show>
+    </div>
   )
 }

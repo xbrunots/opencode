@@ -1,6 +1,6 @@
 import { type ComponentProps } from "solid-js"
 
-const logo = new URL("../../assets/opencodex.png", import.meta.url).href
+const logo = new URL("../../assets/opencodex.svg", import.meta.url).href
 
 export function Wordmark(
   props: Pick<ComponentProps<"svg">, "class"> & { fade?: boolean; muted?: boolean; outline?: boolean },
@@ -15,16 +15,7 @@ export function Wordmark(
     >
       <g opacity={props.muted === false ? 1 : 0.6}>
         <image href={logo} x="0" y="0" width="129" height="129" />
-        <text
-          x="158"
-          y="91"
-          font-family="inherit"
-          font-size="94"
-          font-weight="600"
-          fill={props.outline ? "none" : "currentColor"}
-          stroke={props.outline ? "currentColor" : undefined}
-          stroke-width={props.outline ? 1 : undefined}
-        >
+        <text x="158" y="91" font-family="inherit" font-size="94" font-weight="600" fill="currentColor">
           OpenCodex
         </text>
       </g>
