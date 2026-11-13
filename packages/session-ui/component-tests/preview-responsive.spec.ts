@@ -58,6 +58,47 @@ story("thumbnail actions escape the scrolling gallery and remain clickable", asy
   await expect(page.locator("body")).toHaveAttribute("data-preview-open", "wide.png:true:panel")
 })
 
+story("preview actions appear at their final position without a flash and respect reduced motion", async ({ page, mount }) => {
+  await page.setViewportSize({ width: 500, height: 400 })
+  await mount("components-markdown--complete-response")
+  await page.evaluate(async (fixture) => {
+    const { mountMarkdown } = await import(fixture)
+    await mountMarkdown({ text: "`wide.png`", fixtureImages: true })
+  }, fixture)
+  const item = page.getByTestId("markdown-fixture").locator("[data-markdown-image-item]")
+  await expect(item.locator("img")).toBeVisible()
+  const frames = await item.evaluate(async (element) => {
+    const trigger = element.querySelector<HTMLElement>("summary")!
+    const menu = element.querySelector<HTMLElement>("[popover]")!
+    const anchor = trigger.getBoundingClientRect()
+    trigger.style.transform = `translateX(${window.innerWidth - anchor.right - 12}px)`
+    trigger.click()
+    const frames: { x: number; y: number; width: number; height: number }[] = []
+    for (let frame = 0; frame < 16; frame++) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      const style = getComputedStyle(menu)
+      if (style.display === "none" || style.visibility !== "visible" || Number(style.opacity) === 0) continue
+      const box = menu.getBoundingClientRect()
+      frames.push({ x: box.x, y: box.y, width: box.width, height: box.height })
+    }
+    return frames
+  })
+  expect(frames.length).toBeGreaterThan(1)
+  const last = frames[frames.length - 1]!
+  for (const frame of frames) {
+    expect(Math.abs(frame.x - last.x)).toBeLessThanOrEqual(1)
+    expect(Math.abs(frame.y - last.y)).toBeLessThanOrEqual(5)
+    expect(frame.x).toBeGreaterThanOrEqual(7)
+    expect(frame.x + frame.width).toBeLessThanOrEqual(493)
+  }
+  await item.locator("details").evaluate((element: HTMLDetailsElement) => { element.open = false })
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await item.getByLabel("Opções de prévia").evaluate((element: HTMLElement) => element.click())
+  const menu = item.locator("[popover]")
+  await expect(menu).toBeVisible()
+  await expect(menu).toHaveCSS("animation-name", "none")
+})
+
 story("preview actions stay inside a small viewport when their anchor moves offscreen", async ({ page, mount }) => {
   await mount("components-markdown--complete-response")
   await page.evaluate(async (fixture) => {
@@ -88,16 +129,19 @@ story("HTML blocks retain their code and fit narrow and wide chat views", async 
   }, fixture)
   const harness = page.getByTestId("markdown-fixture")
   await expect(harness.locator("pre code")).toContainText("Exemplo")
-  await harness.locator("[data-markdown-media]").scrollIntoViewIfNeeded()
-  await expect(harness.locator("iframe")).toHaveAttribute("sandbox", "")
+  const card = harness.locator("[data-html-artifact-card]")
+  await expect(card).toBeVisible()
+  await expect(harness.locator("iframe")).toHaveCount(0)
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 800 })
-    const iframe = await harness.locator("iframe").boundingBox()
-    expect(iframe).not.toBeNull()
-    expect(iframe!.x + iframe!.width).toBeLessThanOrEqual(width + 1)
+    const bounds = await card.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1)
     await harness.scrollIntoViewIfNeeded()
     await harness.screenshot({ path: testInfo.outputPath(`html-${width}.png`) })
   }
+  await card.click()
+  await expect(page.locator("body")).toHaveAttribute("data-preview-inline", '<h1 id="target">Exemplo</h1>')
 })
 
 story("attached video controls and annotations fit narrow and wide chat views", async ({ page, mount }, testInfo) => {

@@ -38,8 +38,10 @@ import { showToast } from "@/shell/notifications/toast"
 import { ProviderModelIcon } from "@/providers/models/provider-group"
 import { DialogMcp } from "@/providers/connect/mcp-dialog"
 import { globalConfigDirectory, serviceConfigFile } from "@opencode/gui-plugins/details/config-file"
+import { PreviewPanel } from "@opencode/gui-plugins/file/preview-panel"
 import { useTabs } from "@/shell/tabs/tabs"
 import { createTabComposerState } from "@/composer/persistence"
+import { SKILL_DRAG_TYPE } from "@/composer/editor/skill-drag"
 import { useRoutedSessionTargetParams, useSessionTargetFocused, useSessionTargetFloating } from "@/session/target"
 import { useOpenSessionRoute } from "@/session/session-identity-header"
 import "./conversation-context.css"
@@ -455,16 +457,29 @@ export function ConversationContext() {
   const openSkill = (skill: ContextSkill) => {
     const dir = directory()
     const catalog = dir ? data.location.skill.list({ directory: dir })?.find((item) => item.id === skill.id) : undefined
-    if (catalog && host.links.open({ href: catalog.path, exact: true, session: attachment.current() })) return
+    const session = attachment.current()
+    const preview = host.context("file")?.use(PreviewPanel)()
+    const text = skill.text ?? catalog?.content ?? language.t("context.detailsUnavailable")
+
+    if (session && preview?.status === "active") {
+      preview.value.open({
+        session,
+        path: catalog?.path ?? `${skill.id}/SKILL.md`,
+        inline: text,
+        kind: "markdown",
+      })
+
+      return
+    }
+
+    if (catalog && host.links.open({ href: catalog.path, exact: true, session })) return
     dialog.show(() => (
       <Dialog>
         <DialogHeader>
           <DialogTitleGroup title={skill.name} />
         </DialogHeader>
         <DialogBody>
-          <div class="conversation-context-skill">
-            {skill.text ?? catalog?.content ?? language.t("context.detailsUnavailable")}
-          </div>
+          <div class="conversation-context-skill">{text}</div>
         </DialogBody>
       </Dialog>
     ))
@@ -707,7 +722,7 @@ export function ConversationContext() {
               >
                 <For each={facts().skills}>
                   {(skill) => (
-                    <button type="button" class="conversation-context-item" disabled={skill.automatic} onClick={() => openSkill(skill)}>
+                    <button type="button" class="conversation-context-item" onClick={() => openSkill(skill)}>
                       <Icon name="post-skill" />
                       <span>{skill.name}</span>
                       <small>×{skill.count}</small>
@@ -867,7 +882,13 @@ export function ConversationContext() {
                           <button
                             type="button"
                             class="conversation-context-item"
+                            draggable
                             title={skill.description ?? skill.name}
+                            onDragStart={(event) => {
+                              event.dataTransfer?.setData(SKILL_DRAG_TYPE, skill.id)
+                              event.dataTransfer?.setData("text/plain", `@${skill.id}`)
+                              if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy"
+                            }}
                             onClick={() => openSkill({ id: skill.id, name: skill.name, text: skill.content, count: 1 })}
                           >
                             <Icon name="post-skill" />

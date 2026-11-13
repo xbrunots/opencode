@@ -22,6 +22,7 @@ export function markdownPreviewActions(source: string, local: boolean, open?: Op
   list.setAttribute("popover", "auto")
   Object.assign(list.style, {
     boxSizing: "border-box",
+    visibility: "hidden",
     minWidth: "min(210px, calc(100vw - 16px))",
     maxWidth: "calc(100vw - 16px)",
     maxHeight: "calc(100vh - 16px)",
@@ -48,11 +49,15 @@ export function markdownPreviewActions(source: string, local: boolean, open?: Op
     if (!menu.open) {
       stopPositioning()
       if (typeof list.hidePopover === "function" && list.matches(":popover-open")) list.hidePopover()
+      delete list.dataset.positioned
+      list.style.visibility = "hidden"
       return
     }
     if (typeof list.showPopover !== "function" || !menu.isConnected) return
     if (!list.matches(":popover-open")) list.showPopover()
     place()
+    list.style.visibility = "visible"
+    list.dataset.positioned = ""
     window.addEventListener("resize", place)
     window.addEventListener("scroll", place, true)
     removal = new MutationObserver(() => { if (!menu.isConnected) stopPositioning() })

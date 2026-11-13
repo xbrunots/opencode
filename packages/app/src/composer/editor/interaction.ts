@@ -28,6 +28,7 @@ import {
   type ComposerSavedDraft,
 } from "../suggestions/machine"
 import { getCursorPosition, setCursorPosition } from "./dom"
+import { SKILL_DRAG_TYPE } from "./skill-drag"
 import { clonePrompt, isAttachment, promptLength } from "../prompt-parts"
 import type { ComposerDelivery, ComposerQueue } from "../adapter"
 import { isCommentItem } from "../state"
@@ -820,6 +821,26 @@ export function createComposerEditor(input: {
     onDrop(event: DragEvent) {
       event.preventDefault()
       dispatch({ type: "drag.leave" })
+
+      const skillID = event.dataTransfer?.getData(SKILL_DRAG_TYPE)
+      const skill = skillID ? input.context().find((item) => item.kind === "skill" && item.mention?.type === "skill" && item.mention.id === skillID) : undefined
+      if (skill?.mention?.type === "skill") {
+        event.stopPropagation()
+        const range = document.caretRangeFromPoint?.(event.clientX, event.clientY)
+
+        if (range && editor?.contains(range.startContainer)) {
+          const selection = window.getSelection()
+          selection?.removeAllRanges()
+          selection?.addRange(range)
+        }
+
+        const cursor = editor ? getCursorPosition(editor) : undefined
+        draft.addMention(skill.mention, cursor === undefined ? undefined : { start: cursor, end: cursor })
+        dispatch(DRAFT_EDITED)
+        restoreFocus()
+
+        return
+      }
 
       if (attachments) {
         event.stopPropagation()

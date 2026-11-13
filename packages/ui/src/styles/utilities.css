@@ -6,6 +6,11 @@
   }
 }
 
+/* Kobalte mounts portal content before Floating UI has measured its final placement. */
+[data-popper-positioner]:not([style*="translate3d"]) {
+  visibility: hidden;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

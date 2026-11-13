@@ -900,6 +900,55 @@ test("the file tree follows a folder the review closes and lists a recreated fol
   await expect(file).toBeVisible()
 })
 
+test("opening a file closes its tree while allowing it to be reopened", async ({ page }) => {
+  const directory = "C:/OpenCode/FileTreeOnOpen"
+  await openSession(page, {
+    name: "FileTreeOnOpen",
+    fileList: (path) => (path ? [] : [fileNode(directory, "notes.txt"), fileNode(directory, "vector.svg")]),
+    fileContent: (path) => ({
+      type: "text",
+      content: path === "vector.svg"
+        ? '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80"/></svg>'
+        : "An existing file",
+    }),
+    seed: { storage: { "opencode.global.dat:review-panel-v2": { sidebarOpened: true } } },
+    pageMessages: () => ({
+      items: [{
+        id: "msg_file_tree_on_open",
+        type: "assistant",
+        agent: "build",
+        model: { id: "test", providerID: "opencode" },
+        content: [{ type: "text", text: "[Open notes](notes.txt) [Open image](vector.svg)" }],
+        time: { created: 1, completed: 2 },
+      }],
+    }),
+  })
+
+  const link = page.getByRole("link", { name: "Open notes", exact: true })
+  const panel = page.locator("#review-panel")
+  const toggle = panel.getByRole("button", { name: "Toggle file tree", exact: true })
+  await link.click()
+  await expect(panel.getByRole("tab", { name: "notes.txt", exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+
+  await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  await link.click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+
+  await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  await page.getByRole("link", { name: "Open image", exact: true }).click()
+  await expect(panel.getByRole("tab", { name: "vector.svg", exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(panel.getByRole("img", { name: "vector.svg", exact: true })).toHaveJSProperty("naturalWidth", 120)
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+
+  await openFileLauncher(panel)
+  await expect(panel.getByRole("treeitem", { name: "notes.txt", exact: true })).toBeVisible()
+  await panel.getByRole("treeitem", { name: "notes.txt", exact: true }).click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+})
+
 test("rereads a file each time an artifact link opens it", async ({ page }) => {
   // Enough lines to scroll the code view, ending in the draft's name.
   const draft = (name: string) => [...Array.from({ length: 200 }, (_, index) => `item ${index + 1}`), name].join("\n")

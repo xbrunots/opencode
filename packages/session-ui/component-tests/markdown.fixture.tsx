@@ -121,8 +121,9 @@ export async function mountMarkdown(options: {
               queueMicrotask(fallback)
               return () => { document.body.dataset.nativePreviewDisposed = "true" }
             } : undefined}
-            openPreview={(source, local, destination) => {
+            openPreview={(source, local, destination, inline) => {
               document.body.dataset.previewOpen = `${source}:${local}:${destination}`
+              document.body.dataset.previewInline = inline
             }}
             localFileExists={(path) =>
               options.localFileExists?.(path) ??

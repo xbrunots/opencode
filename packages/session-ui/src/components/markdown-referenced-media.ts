@@ -3,7 +3,6 @@ import type { OpenMarkdownPreview, ReadMarkdownPreview, RenderMarkdownPreview } 
 import { markdownPreviewActions } from "./markdown-preview-actions"
 import { markdownPreviewAnnotation } from "./markdown-preview-annotation"
 import { checksum } from "@opencode/util/encode"
-import { safeHtmlPreview } from "./safe-html-preview"
 
 type MediaReference = { kind: "youtube" | "video" | "html" | "html-code" | "artifact" | "website"; source: string; local: boolean }
 
@@ -64,7 +63,7 @@ export function createMarkdownReferencedMedia() {
             node instanceof HTMLAnchorElement ? (node.dataset.localLink ?? node.getAttribute("href")) : node.textContent
           if (!source) return
           const entry = markdownMediaReference(source)
-          if (entry && (!entry.local || read || (renderPreview && (entry.kind === "html" || entry.kind === "artifact"))))
+          if (entry && (!entry.local || read || ((renderPreview || open) && (entry.kind === "html" || entry.kind === "artifact"))))
             entries.set(`${entry.kind}:${entry.source}`, entry)
         })
       if (enabled)
@@ -97,7 +96,6 @@ export function createMarkdownReferencedMedia() {
       container.dataset.sources = key
       const controller = new AbortController()
       const urls: string[] = []
-      const mounts: (() => void)[] = []
       const observer = root.isConnected && typeof IntersectionObserver !== "undefined"
         ? new IntersectionObserver((items) => {
             items.forEach((item) => {
@@ -110,80 +108,103 @@ export function createMarkdownReferencedMedia() {
       cleanup = () => {
         observer?.disconnect()
         controller.abort()
-        mounts.forEach((dispose) => dispose())
         urls.forEach((url) => URL.revokeObjectURL(url))
       }
       entries.forEach((entry) => {
         const card = document.createElement("div")
         card.dataset.markdownMedia = entry.kind
+        if (entry.kind === "html" || entry.kind === "html-code" || entry.kind === "artifact" || entry.kind === "website") {
+          const button = document.createElement("button")
+          button.type = "button"
+          button.dataset.htmlArtifactCard = ""
+          button.disabled = !open
+          const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+          icon.setAttribute("viewBox", "0 0 24 24")
+          icon.setAttribute("aria-hidden", "true")
+          icon.innerHTML = '<path d="M8 8 4 12l4 4m8-8 4 4-4 4m-3-11-2 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+          const content = document.createElement("span")
+          const label = document.createElement("strong")
+          label.textContent = entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source
+          const hint = document.createElement("span")
+          hint.textContent = "Abrir no painel direito"
+          content.append(label, hint)
+          const arrow = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+          arrow.setAttribute("aria-hidden", "true")
+          arrow.setAttribute("viewBox", "0 0 24 24")
+          arrow.innerHTML = '<path d="M7 17 17 7M8 7h9v9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+          button.append(icon, content, arrow)
+          button.addEventListener("click", () => open?.(
+            entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source,
+            entry.local,
+            "panel",
+            entry.kind === "html-code" ? entry.source : undefined,
+          ))
+          card.append(button)
+          const actions = entry.kind === "artifact" && open
+            ? markdownPreviewActions(entry.source, entry.local, open)
+            : undefined
+          if (actions) card.append(actions)
+          container.append(card)
+          if (entry.kind === "artifact" && read) {
+            const loadMedia = async () => {
+              try {
+                const blob = await read(entry.source, controller.signal, sessionID)
+                if (!blob || controller.signal.aborted || (!blob.type.startsWith("image/") && !blob.type.startsWith("video/"))) return
+                const src = URL.createObjectURL(blob)
+                urls.push(src)
+                const viewer = document.createElement("div")
+                viewer.dataset.previewViewer = ""
+                if (blob.type.startsWith("image/")) {
+                  const image = document.createElement("img")
+                  image.src = src
+                  image.alt = entry.source
+                  viewer.append(image)
+                } else {
+                  const video = document.createElement("video")
+                  video.controls = true
+                  video.preload = "metadata"
+                  video.src = src
+                  viewer.append(video)
+                }
+                card.replaceChildren(viewer)
+                if (sessionID) card.append(markdownPreviewAnnotation(viewer, entry.source, sessionID, undefined, serverID))
+                if (actions) card.append(actions)
+              } catch {
+                // Keep the card available: opening the panel reports an unavailable artifact.
+              }
+            }
+            card.addEventListener("preview-visible", () => void loadMedia(), { once: true })
+            if (observer) observer.observe(card)
+            else void loadMedia()
+          }
+          return
+        }
         const button = document.createElement("button")
         button.type = "button"
-        button.textContent =
-          entry.kind === "youtube"
-            ? "Reproduzir vídeo do YouTube"
-            : entry.kind === "video"
-              ? "Visualizar vídeo"
-              : entry.kind === "html" || entry.kind === "html-code" || entry.kind === "artifact"
-                ? "Visualizar HTML"
-                : "Visualizar site"
+        button.textContent = entry.kind === "youtube" ? "Reproduzir vídeo do YouTube" : "Visualizar vídeo"
         const name = document.createElement("span")
-        name.textContent = entry.kind === "youtube" ? `YouTube · ${entry.source}` : entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source
+        name.textContent = entry.kind === "youtube" ? `YouTube · ${entry.source}` : entry.source
         card.append(name, button)
-        const native = !!renderPreview && (entry.kind === "html" || entry.kind === "artifact" || entry.kind === "html-code")
-        if ((open && entry.kind !== "html-code" && entry.kind !== "artifact") || native)
+        if (open)
           card.append(
             markdownPreviewActions(
               entry.kind === "youtube" ? `https://www.youtube.com/watch?v=${entry.source}` : entry.source,
               entry.local,
-              entry.kind === "html-code" || entry.kind === "artifact" ? undefined : open,
-              native ? () => card.querySelector('[data-slot="artifact-annotation-stage"]')?.dispatchEvent(new Event("opencode-preview-edit")) : undefined,
+              open,
             ),
           )
-        const load = async (staticOnly = false) => {
+        const load = async () => {
           if (button.disabled || controller.signal.aborted) return
           button.disabled = true
           card.setAttribute("aria-busy", "true")
-          if (!staticOnly && renderPreview && (entry.kind === "html" || entry.kind === "artifact" || entry.kind === "html-code")) {
-            const viewer = document.createElement("div")
-            viewer.dataset.previewViewer = ""
-            let dispose: (() => void) | undefined
-            dispose = renderPreview(viewer, entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source, () => queueMicrotask(() => {
-              if (controller.signal.aborted) return
-              dispose?.()
-              viewer.remove()
-              button.disabled = false
-              card.append(button)
-              void load(true)
-            }), entry.kind === "html-code" ? entry.source : undefined)
-            if (dispose) {
-              mounts.push(dispose)
-              button.remove()
-              card.append(viewer)
-              card.removeAttribute("aria-busy")
-              return
-            }
-          }
           button.textContent = "Carregando…"
           try {
-            const blob = entry.kind === "html-code" ? new Blob([entry.source], { type: "text/html" }) : entry.local ? await read?.(entry.source, controller.signal, sessionID) : undefined
+            const blob = entry.local ? await read?.(entry.source, controller.signal, sessionID) : undefined
             if (controller.signal.aborted) return
             if (entry.local && !blob) throw new Error("Arquivo indisponível")
-            const html = entry.kind === "html" || entry.kind === "html-code" || (entry.kind === "artifact" && blob?.type === "text/html")
-            const src = blob && !html ? URL.createObjectURL(blob) : entry.source
-            if (blob && !html) urls.push(src)
-            if (entry.kind === "artifact" && blob?.type.startsWith("image/")) {
-              const image = document.createElement("img")
-              image.src = src
-              image.alt = entry.source
-              const viewer = document.createElement("div")
-              viewer.dataset.previewViewer = ""
-              viewer.append(image)
-              button.remove()
-              card.append(viewer)
-              if (sessionID) card.append(markdownPreviewAnnotation(viewer, entry.source, sessionID, undefined, serverID))
-              return
-            }
-            if (entry.kind === "video" || (entry.kind === "artifact" && blob?.type.startsWith("video/"))) {
+            const src = blob ? URL.createObjectURL(blob) : entry.source
+            if (blob) urls.push(src)
+            if (entry.kind === "video") {
               const video = document.createElement("video")
               video.controls = true
               video.preload = "metadata"
@@ -197,12 +218,11 @@ export function createMarkdownReferencedMedia() {
               return
             }
             const frame = document.createElement("iframe")
-            frame.title = entry.kind === "youtube" ? "Vídeo do YouTube" : entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source
-            frame.setAttribute("sandbox", html || entry.kind === "artifact" ? "" : "allow-scripts allow-presentation")
+            frame.title = entry.kind === "youtube" ? "Vídeo do YouTube" : entry.source
+            frame.setAttribute("sandbox", "allow-scripts allow-presentation")
             frame.setAttribute("referrerpolicy", "no-referrer")
             frame.allowFullscreen = true
-            if (html && blob) frame.srcdoc = safeHtmlPreview(await blob.text())
-            else frame.src = entry.kind === "youtube" ? `https://www.youtube-nocookie.com/embed/${entry.source}` : src
+            frame.src = entry.kind === "youtube" ? `https://www.youtube-nocookie.com/embed/${entry.source}` : src
             if (controller.signal.aborted) return
             const viewer = document.createElement("div")
             viewer.dataset.previewViewer = ""
@@ -213,9 +233,9 @@ export function createMarkdownReferencedMedia() {
               card.append(
                 markdownPreviewAnnotation(
                   viewer,
-                  entry.kind === "youtube" ? `https://www.youtube.com/watch?v=${entry.source}` : entry.kind === "html-code" ? "Bloco HTML da conversa" : entry.source,
+                  entry.kind === "youtube" ? `https://www.youtube.com/watch?v=${entry.source}` : entry.source,
                   sessionID,
-                  entry.kind === "html" || entry.kind === "html-code" || entry.kind === "artifact" ? frame : undefined,
+                  undefined,
                   serverID,
                 ),
               )

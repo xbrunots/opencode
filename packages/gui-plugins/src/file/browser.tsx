@@ -441,6 +441,19 @@ export default function FileBrowser(props: {
   const shared = useShared()
   const id = () => props.tab().id
   const placeholder = () => !isFileTab(id())
+  // Each foreground file open starts with its tree closed, even when it selects the same tab again.
+  // Keep the launcher open and allow the user to expand the tree after the request is handled.
+  createKeyed(
+    () => {
+      if (!panel.visible() || !panel.sidebar.transition() || placeholder()) return
+      const request = shared.collapseRequest()
+      return { id: id(), request: request?.session === props.session.key ? request.sequence : 0 }
+    },
+    () => {
+      if (untrack(panel.sidebar.opened)) panel.sidebar.toggle()
+    },
+    { equals: (previous, next) => previous.id === next.id && previous.request === next.request },
+  )
   const empty = new Map<string, ChangeKind>()
   const changes = () => current(shared.changes())
 

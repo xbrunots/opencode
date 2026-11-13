@@ -79,6 +79,7 @@ import tabStyles from "./tabs.css?inline"
 import { onIdle, BuiltinPanel, BuiltinSlot, type BuiltinPanelTab } from "@opencode/plugin/gui/builtin"
 import { Browser } from "@opencode/plugin/gui/browser"
 import { Changes } from "@opencode/plugin/gui/review"
+import { setupPreviewPanel } from "./preview-panel"
 
 const OPEN = "open"
 
@@ -114,6 +115,7 @@ type LinkCheck = {
 type LinkChecks = { state: LinkExistsState; inFlight: Map<number, LinkCheck> }
 
 const setup: Plugin.Setup<typeof File> = (ctx) => {
+  setupPreviewPanel(ctx)
   const sessions = ctx.sessions
   const layout = ctx.layout
   const storage = ctx.storage
@@ -121,6 +123,9 @@ const setup: Plugin.Setup<typeof File> = (ctx) => {
   const [handoff, setHandoff] = storage.memory<Handoff>("handoff", { initial: { sessions: {} } })
   const preference = desktop ? ctx.stores.app : undefined
   const [openInApp, setOpenInApp] = createSignal(createOpenInAppState())
+  const [collapseRequest, setCollapseRequest] = createSignal<{ session: string; sequence: number }>()
+  const collapseSidebar = (session: MountedSession) =>
+    setCollapseRequest((request) => ({ session: session.key, sequence: (request?.sequence ?? 0) + 1 }))
   const openInAppTimers = new Map<number, ReturnType<typeof setTimeout>>()
 
   const [machines, setMachines] = createStore({ linkOpen: createLinkOpenState(), picker: createPickerState() })
@@ -239,6 +244,8 @@ const setup: Plugin.Setup<typeof File> = (ctx) => {
 
     if (!screen) return
 
+    if (!options?.background) collapseSidebar(session)
+
     // Not batched: the mobile tab strip must register the new tab before it leaves the browser, or Kobalte falls back
     // to the first tab and reselects it.
     layout.open(key(screen.file, path), session, options)
@@ -290,6 +297,7 @@ const setup: Plugin.Setup<typeof File> = (ctx) => {
   const shared: FileShared = {
     changes: ctx.use(Changes),
     browser: ctx.use(Browser),
+    collapseRequest,
     filter: {
       get: (session) => pickerFilterText(machines.picker, session),
       set: (session, value) => dispatchPicker({ type: "filter.changed", sessionKey: session, text: value }),
@@ -842,6 +850,7 @@ const setup: Plugin.Setup<typeof File> = (ctx) => {
       return
     }
 
+    if (!effect.background) collapseSidebar(routed)
     batch(() => {
       applySelection(routed, screen.file, effect.path, effect.selection)
       layout.open(key(screen.file, effect.path), routed, { background: effect.background })

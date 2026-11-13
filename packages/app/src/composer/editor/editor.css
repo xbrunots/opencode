@@ -8,6 +8,26 @@
   font-weight: var(--font-weight-medium);
 }
 
+[data-component="composer-editor"] [data-reference-type="skill"] {
+  color: var(--syntax-type);
+}
+
+[data-component="composer-editor"] [data-reference-type="mcp"] {
+  color: var(--syntax-string);
+}
+
+[data-component="composer-editor"] [data-reference-type="agent"] {
+  color: var(--syntax-keyword);
+}
+
+[data-component="composer-editor"] [data-reference-type="directory"] {
+  color: var(--syntax-constant);
+}
+
+[data-component="composer-editor"] [data-reference-type="reference"] {
+  color: var(--syntax-property);
+}
+
 /* Leave space around a caret revealed by native keyboard navigation. */
 [data-component="composer-scroll"],
 [data-slot="composer-content"][data-history-preview] {

@@ -29,46 +29,48 @@ describe("markdown media previews", () => {
   beforeAll(() => GlobalRegistrator.register())
   afterAll(() => GlobalRegistrator.unregister())
 
-  test("mounts an interactive artifact preview and disposes it with the message", async () => {
+  test("shows an artifact card without mounting an active HTML preview", async () => {
     const root = document.createElement("div")
     root.innerHTML = "<div><code>/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/</code></div>"
     const previews = createMarkdownReferencedMedia()
     const mounted: string[] = []
-    let disposed = false
-    previews.update(root, async () => new Blob(["<h1>fallback</h1>"], { type: "text/html" }), true, undefined, "session", "server", (target, source) => {
+    const opened: unknown[] = []
+    previews.update(root, async () => new Blob(["<h1>fallback</h1>"], { type: "text/html" }), true, (...args) => opened.push(args), "session", "server", (_target, source) => {
       mounted.push(source)
-      target.textContent = "Interactive preview"
-      return () => { disposed = true }
+      return () => undefined
     })
-    expect(mounted).toEqual(["/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/"])
-    expect(root.querySelector("[data-preview-viewer]")?.textContent).toBe("Interactive preview")
+    await Promise.resolve()
+    expect(mounted).toEqual([])
+    expect(root.querySelector("iframe")).toBeNull()
+    root.querySelector<HTMLButtonElement>("[data-html-artifact-card]")!.click()
+    expect(opened).toEqual([["/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/", true, "panel", undefined]])
     previews.dispose()
-    expect(disposed).toBe(true)
   })
 
-  test("mounts local HTML and published artifacts with a native renderer even without a fallback reader", () => {
+  test("opens local HTML and published artifacts as cards without a fallback reader", () => {
     const root = document.createElement("div")
     root.innerHTML = "<div><code>effect.html</code><code>/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/</code></div>"
     const previews = createMarkdownReferencedMedia()
-    const mounted: string[] = []
-    previews.update(root, undefined, true, undefined, "session", "server", (_target, source) => {
-      mounted.push(source)
-      return () => undefined
-    })
-    expect(mounted).toEqual(["effect.html", "/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/"])
+    const opened: unknown[] = []
+    previews.update(root, undefined, true, (...args) => opened.push(args), "session", "server")
+    root.querySelectorAll<HTMLButtonElement>("[data-html-artifact-card]").forEach((button) => button.click())
+    expect(opened).toEqual([
+      ["effect.html", true, "panel", undefined],
+      ["/api/experimental/artifacts/art_1d19dc7fd001M70eVATBxuLPkT/view/", true, "panel", undefined],
+    ])
+    expect(root.querySelector("iframe")).toBeNull()
     previews.dispose()
   })
 
-  test("passes inline HTML to the native preview without inventing a file path", () => {
+  test("opens inline HTML through the panel without mounting or inventing a file path", () => {
     const root = document.createElement("div")
     root.innerHTML = '<div><pre><code class="language-html">&lt;h1&gt;Example&lt;/h1&gt;</code></pre></div>'
     const previews = createMarkdownReferencedMedia()
-    const calls: Array<{ source: string; html?: string }> = []
-    previews.update(root, undefined, true, undefined, "session", "server", (_target, source, _fallback, html) => {
-      calls.push({ source, html })
-      return () => undefined
-    })
-    expect(calls).toEqual([{ source: "Bloco HTML da conversa", html: "<h1>Example</h1>" }])
+    const calls: unknown[] = []
+    previews.update(root, undefined, true, (...args) => calls.push(args), "session", "server")
+    root.querySelector<HTMLButtonElement>("[data-html-artifact-card]")!.click()
+    expect(calls).toEqual([["Bloco HTML da conversa", false, "panel", "<h1>Example</h1>"]])
+    expect(root.querySelector("iframe")).toBeNull()
     previews.dispose()
   })
 

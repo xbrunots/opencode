@@ -5,7 +5,14 @@ import type { SessionReferenceMenu } from "../components/markdown-session-links"
 export type ReadMarkdownImage = (path: string, signal: AbortSignal) => Promise<Blob | undefined>
 /** Read a local video or HTML artifact for a sandboxed preview. */
 export type ReadMarkdownPreview = (path: string, signal: AbortSignal, sessionID?: string) => Promise<Blob | undefined>
-export type OpenMarkdownPreview = (source: string, local: boolean, destination: "panel" | "system") => void
+export type OpenMarkdownPreview = (source: string, local: boolean, destination: "panel" | "system", inline?: string) => void
+export type MarkdownReference = {
+  type: "skill" | "mcp" | "agent" | "directory" | "reference"
+  value: string
+  label: string
+  description?: string
+}
+export type OpenMarkdownReference = (reference: MarkdownReference) => void
 /** Mount an interactive desktop HTML preview; invoke fallback when no native preview is available. */
 export type RenderMarkdownPreview = (target: HTMLElement, source: string, fallback: () => void, inline?: string) => (() => void) | undefined
 
@@ -64,6 +71,7 @@ const context = createContext<{
   readonly readImage?: ReadMarkdownImage
   readonly readPreview?: ReadMarkdownPreview
   readonly openPreview?: OpenMarkdownPreview
+  readonly openReference?: OpenMarkdownReference
   readonly renderPreview?: RenderMarkdownPreview
   readonly previewSession?: string
   readonly previewServer?: string
@@ -80,6 +88,7 @@ export function MarkdownProvider(
     readImage?: ReadMarkdownImage
     readPreview?: ReadMarkdownPreview
     openPreview?: OpenMarkdownPreview
+    openReference?: OpenMarkdownReference
     renderPreview?: RenderMarkdownPreview
     previewSession?: string
     previewServer?: string
@@ -105,6 +114,9 @@ export function MarkdownProvider(
         },
         get openPreview() {
           return props.openPreview ?? parent?.openPreview
+        },
+        get openReference() {
+          return props.openReference ?? parent?.openReference
         },
         get renderPreview() {
           return props.renderPreview ?? parent?.renderPreview

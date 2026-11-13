@@ -132,3 +132,12 @@
     transform: scaleY(0.95);
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-component="context-menu-content"],
+  [data-component="context-menu-sub-content"],
+  [data-component="context-menu-content"][data-expanded],
+  [data-component="context-menu-sub-content"][data-expanded] {
+    animation: none;
+  }
+}

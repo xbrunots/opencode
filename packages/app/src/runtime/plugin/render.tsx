@@ -16,13 +16,13 @@ import {
 import { Portal, render } from "solid-js/web"
 import {
   MarkdownProvider,
+  type MarkdownReference,
   useMarkdown,
   type MarkdownCodeAction,
   type MarkdownCodeBlock,
   type MarkdownCodeBlocks,
-  type RenderMarkdownPreview,
 } from "@opencode/session-ui/context/markdown"
-import { ChatHtmlPreview } from "@opencode/gui-plugins/file/chat-preview"
+import { PreviewPanel } from "@opencode/gui-plugins/file/preview-panel"
 import { SourcesProvider } from "@opencode/session-ui/context/sources"
 import { sourcesExperiment } from "@opencode/session-ui/sources/experiment"
 import { useTheme } from "@opencode/ui/theme/context"
@@ -40,6 +40,7 @@ import { PluginContext } from "@opencode/plugin/gui/host"
 import { usePluginHost, type Item } from "./host"
 import { createLinkCheck } from "./link-check"
 import { usePlatform } from "@/runtime/platform/platform"
+import { useData } from "@/runtime/server/current"
 import { showToast } from "@/shell/notifications/toast"
 
 /**
@@ -161,19 +162,36 @@ export function PluginLinks(props: ParentProps<{ session: MountedSession; active
   const host = usePluginHost()
   const markdown = useMarkdown()
   const platform = usePlatform()
-  const owner = getOwner()
-  const renderPreview: RenderMarkdownPreview = (target, source, fallback, inline) => {
-    if (props.active === false || host.context("file")?.app.platform !== "desktop") return
-    return runWithOwner(owner, () =>
-      render(
-        () => (
-          <Contribution plugin="file" failed={fallback}>
-            {() => <ChatHtmlPreview session={props.session} path={source} inline={inline} fallback={fallback} />}
-          </Contribution>
-        ),
-        target,
-      ),
-    )
+  const data = useData()
+
+  const openReference = (reference: MarkdownReference) => {
+    if (reference.type === "directory" || reference.type === "reference") {
+      const href = reference.value.replace(/^@/, "")
+      if (host.links.open({ href, exact: true, session: props.session })) return
+    }
+
+    const panel = host.context("file")?.use(PreviewPanel)()
+    if (panel?.status !== "active") return
+
+    if (reference.type === "skill") {
+      const skill = data.location.skill.list({ directory: props.session.directory })?.find((item) => item.id === reference.value)
+      panel.value.open({
+        session: props.session,
+        path: skill?.path ?? `${reference.value}/SKILL.md`,
+        inline: skill?.content ?? `# ${reference.label}\n\n${reference.description ?? "Skill referenced in this conversation."}`,
+        kind: "markdown",
+      })
+
+      return
+    }
+
+    const title = reference.type === "agent" ? `Agent · ${reference.label}` : `MCP · ${reference.label}`
+    panel.value.open({
+      session: props.session,
+      path: title,
+      inline: `# ${title}\n\n${reference.description ?? `${reference.type} referenced in this conversation.`}`,
+      kind: "markdown",
+    })
   }
 
   // Checks untracked: markdown calls this inside its render effect, which must not follow the routed session.
@@ -189,20 +207,38 @@ export function PluginLinks(props: ParentProps<{ session: MountedSession; active
       localFileExists={localFileExists}
       previewSession={props.session.id}
       previewServer={props.session.server.id}
-      renderPreview={renderPreview}
-      openPreview={(source, local, destination) => {
+      openPreview={(source, local, destination, inline) => {
         if (destination === "panel") {
+          const artifact = /(?:^|\/)api\/experimental\/artifacts\/art_[a-zA-Z0-9]{26}\/view(?:\/|$)/.test(source)
+          const html = inline !== undefined || (local && /\.html?$/i.test(source))
+
+          if (html || artifact) {
+            const panel = host.context("file")?.use(PreviewPanel)()
+
+            if (panel?.status === "active")
+              panel.value.open({ session: props.session, path: source, inline, kind: artifact ? "artifact" : "html" })
+            else showToast({ title: "Não foi possível abrir a prévia." })
+
+            return
+          }
+
           host.links.open({ href: source, origin: local ? "file" : "browser", session: props.session })
+
           return
         }
+
         if (!local) return platform.openExternal(source)
+
         if (!props.session.server.local) {
           showToast({ title: "Abrir no aplicativo padrão não está disponível para arquivos de servidores remotos." })
+
           return
         }
+
         const absolute = /^([a-z]:[\\/]|\/)/i.test(source)
         void platform.openPath?.(absolute ? source : `${props.session.directory}/${source}`)
       }}
+      openReference={openReference}
       codeBlocks={inner.codeBlocks}
     >
       {inner.children}

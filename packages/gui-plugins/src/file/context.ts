@@ -9,6 +9,8 @@ import type { PickerView } from "./picker-machine"
 export interface FileShared {
   readonly changes: Accessor<Live<Changes>>
   readonly browser: Accessor<Live<Browser>>
+  /** The most recent foreground file-open request, including repeated opens of the same tab. */
+  readonly collapseRequest: Accessor<{ session: string; sequence: number } | undefined>
   /** The file browser's per-session filter state and its filter input's focus request. */
   readonly filter: {
     get(session: string): string

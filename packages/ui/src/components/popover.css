@@ -13,6 +13,12 @@
   background-clip: padding-box;
   box-shadow: var(--shadow-md);
 
+  @media (prefers-reduced-motion: no-preference) {
+    &[data-expanded] {
+      animation: popover-content-enter 150ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
+
   &:focus-within {
     outline: none;
   }
@@ -63,4 +69,9 @@
   [data-slot="popover-arrow"] {
     fill: var(--surface-raised-stronger-non-alpha);
   }
+}
+
+@keyframes popover-content-enter {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
 }

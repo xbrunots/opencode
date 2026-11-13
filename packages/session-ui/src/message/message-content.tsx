@@ -28,7 +28,7 @@ import {
   sessionReferenceText,
   setupSessionLinks,
 } from "../components/markdown-session-links"
-import { useMarkdown } from "../context/markdown"
+import { useMarkdown, type MarkdownReference } from "../context/markdown"
 import { useSources } from "../context/sources"
 import { SourcesChip } from "../sources/sources-chip"
 import type { TurnSources } from "../sources/sources"
@@ -54,6 +54,7 @@ import { userRunSpring, type UserRun } from "../timeline/user-runs"
 import type {
   PromptAgentAttachment,
   PromptAttachment,
+  PromptSkillAttachment,
   SessionMessageAssistant,
   SessionMessageAssistantReasoning,
   SessionMessageCompaction,
@@ -764,7 +765,14 @@ export function CurrentUserMessageDisplay(props: {
             </Show>
             <Show
               when={props.fold}
-              fallback={<CurrentHighlightedText text={props.text} files={inlineFiles()} agents={agents()} />}
+              fallback={
+                <CurrentHighlightedText
+                  text={props.text}
+                  files={inlineFiles()}
+                  agents={agents()}
+                  skills={props.message.skills ?? []}
+                />
+              }
             >
               <UserMessageFold
                 id={`${props.message.id}-text`}
@@ -772,7 +780,12 @@ export function CurrentUserMessageDisplay(props: {
                 expanded={expanded()}
                 onExpandedChange={setExpanded}
               >
-                <CurrentHighlightedText text={props.text} files={inlineFiles()} agents={agents()} />
+                <CurrentHighlightedText
+                  text={props.text}
+                  files={inlineFiles()}
+                  agents={agents()}
+                  skills={props.message.skills ?? []}
+                />
               </UserMessageFold>
             </Show>
             <Show when={comments().length > 0}>
@@ -901,14 +914,62 @@ function scrollParent(element: HTMLElement) {
   return document.scrollingElement
 }
 
-function CurrentHighlightedText(props: { text: string; files: PromptAttachment[]; agents: PromptAgentAttachment[] }) {
+function CurrentHighlightedText(props: {
+  text: string
+  files: PromptAttachment[]
+  agents: PromptAgentAttachment[]
+  skills: PromptSkillAttachment[]
+}) {
+  const markdown = useMarkdown()
   const segments = createMemo(() => {
     const references = [
       ...props.files.flatMap((file) =>
-        file.mention ? [{ start: file.mention.start, end: file.mention.end, type: "file" as const }] : [],
+        file.mention
+          ? [
+              {
+                start: file.mention.start,
+                end: file.mention.end,
+                reference: {
+                  type: file.mime === "application/x-directory" ? "directory" as const : "reference" as const,
+                  value: file.mention.text,
+                  label: file.name ?? file.mention.text,
+                  description: file.description ?? file.name ?? file.mention.text,
+                },
+              },
+            ]
+          : [],
       ),
       ...props.agents.flatMap((agent) =>
-        agent.mention ? [{ start: agent.mention.start, end: agent.mention.end, type: "agent" as const }] : [],
+        agent.mention
+          ? [
+              {
+                start: agent.mention.start,
+                end: agent.mention.end,
+                reference: {
+                  type: "agent" as const,
+                  value: agent.name,
+                  label: agent.name,
+                  description: `Agent · ${agent.name}`,
+                },
+              },
+            ]
+          : [],
+      ),
+      ...props.skills.flatMap((skill) =>
+        skill.mention
+          ? [
+              {
+                start: skill.mention.start,
+                end: skill.mention.end,
+                reference: {
+                  type: "skill" as const,
+                  value: skill.id,
+                  label: skill.name,
+                  description: skill.text ?? `Skill · ${skill.name}`,
+                },
+              },
+            ]
+          : [],
       ),
     ].sort((a, b) => a.start - b.start)
 
@@ -930,7 +991,7 @@ function CurrentHighlightedText(props: { text: string; files: PromptAttachment[]
       if (reference.start < last) return
 
       if (reference.start > last) pushText(props.text.slice(last, reference.start))
-      result.push({ text: props.text.slice(reference.start, reference.end), type: reference.type })
+      result.push({ text: props.text.slice(reference.start, reference.end), reference: reference.reference })
       last = reference.end
     })
 
@@ -943,29 +1004,39 @@ function CurrentHighlightedText(props: { text: string; files: PromptAttachment[]
     <For each={segments()}>
       {(segment) => (
         <Show
-          when={segment.type === "link"}
+          when={segment.reference}
           fallback={
-            <span data-highlight={segment.type}>
-              <Show
-                when={segment.type && segment.text.startsWith("@")}
-                fallback={<SessionReferenceText text={segment.text} />}
-              >
-                <span data-slot="user-message-mention-prefix">@</span>
-                {segment.text.slice(1)}
-              </Show>
-            </span>
+            <Show
+              when={segment.type === "link"}
+              fallback={<span>{segment.text.startsWith("@") ? <SessionReferenceText text={segment.text} /> : segment.text}</span>}
+            >
+              <a data-slot="user-message-link" href={segment.text} target="_blank" rel="noopener noreferrer">
+                {segment.text}
+              </a>
+            </Show>
           }
         >
-          <a data-slot="user-message-link" href={segment.text} target="_blank" rel="noopener noreferrer">
-            {segment.text}
-          </a>
+          {(reference) => (
+            <Tooltip value={reference().description ?? `${reference().type} · ${reference().label}`} placement="top" gutter={4}>
+              <button
+                type="button"
+                class="user-message-reference"
+                data-reference-type={reference().type}
+                data-highlight={reference().type}
+                aria-label={`${reference().type}: ${reference().label}`}
+                onClick={() => markdown?.openReference?.(reference())}
+              >
+                {segment.text}
+              </button>
+            </Tooltip>
+          )}
         </Show>
       )}
     </For>
   )
 }
 
-type HighlightSegment = { text: string; type?: "file" | "agent" | "link" }
+type HighlightSegment = { text: string; type?: "link"; reference?: MarkdownReference }
 
 function copySessionReferences(event: ClipboardEvent & { currentTarget: HTMLDivElement }) {
   const selection = window.getSelection()

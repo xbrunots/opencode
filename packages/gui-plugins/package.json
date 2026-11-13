@@ -11,7 +11,8 @@
     "./terminal": "./src/terminal/index.ts",
     "./debug/options": "./src/debug/options.ts",
     "./details/config-file": "./src/details/config-file.ts",
-    "./file/chat-preview": "./src/file/chat-preview.tsx"
+    "./file/chat-preview": "./src/file/chat-preview.tsx",
+    "./file/preview-panel": "./src/file/preview-panel.tsx"
   },
   "scripts": {
     "typecheck": "bun check --no-script -b",
